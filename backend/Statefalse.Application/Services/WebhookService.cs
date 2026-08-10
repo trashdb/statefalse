@@ -64,15 +64,7 @@ public class WebhookService
         if (_handlers.TryGetValue(eventType ?? "", out var handler))
             return await handler.HandleAsync(body);
 
-        WebhookLog.Log(eventType ?? "unknown", null, TryGetRepo(body), null, "ignored", "Unsupported event type");
+        WebhookLog.Log(eventType ?? "unknown", null, WebhookPayload.TryGetRepo(body), null, "ignored", "Unsupported event type");
         return ApiResult.Ok($"Ignored: unsupported event '{eventType}'.");
-    }
-
-    private static string? TryGetRepo(JsonElement payload)
-    {
-        if (payload.TryGetProperty("repository", out var repo) &&
-            repo.TryGetProperty("full_name", out var name))
-            return name.GetString();
-        return null;
     }
 }

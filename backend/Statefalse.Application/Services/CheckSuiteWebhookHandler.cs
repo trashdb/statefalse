@@ -34,7 +34,7 @@ public class CheckSuiteWebhookHandler : IWebhookHandler
     public async Task<ApiResult> HandleAsync(JsonElement payload)
     {
         var action = payload.GetProperty("action").GetString();
-        var repo = TryGetRepo(payload);
+        var repo = WebhookPayload.TryGetRepo(payload);
 
         if (action is "requested" or "rerequested") return await HandleRequested(payload);
         if (action == "completed") return await HandleCompleted(payload);
@@ -176,13 +176,5 @@ public class CheckSuiteWebhookHandler : IWebhookHandler
         }
 
         return (authorLogin, authorId, prNumber);
-    }
-
-    private static string? TryGetRepo(JsonElement payload)
-    {
-        if (payload.TryGetProperty("repository", out var repo) &&
-            repo.TryGetProperty("full_name", out var name))
-            return name.GetString();
-        return null;
     }
 }

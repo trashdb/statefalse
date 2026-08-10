@@ -35,7 +35,7 @@ public class PullRequestReviewWebhookHandler : IWebhookHandler
         var action = payload.GetProperty("action").GetString();
         if (action != "submitted")
         {
-            WebhookLog.Log("pull_request_review", action, TryGetRepo(payload), null, "ignored", $"Unsupported action '{action}'");
+            WebhookLog.Log("pull_request_review", action, WebhookPayload.TryGetRepo(payload), null, "ignored", $"Unsupported action '{action}'");
             return ApiResult.Ok($"Ignored: pull_request_review action '{action}'.");
         }
 
@@ -94,13 +94,5 @@ public class PullRequestReviewWebhookHandler : IWebhookHandler
 
         await _notifier.NotifyPullRequestsUpdatedAsync();
         return ApiResult.Ok(new { prNumber, approved });
-    }
-
-    private static string? TryGetRepo(JsonElement payload)
-    {
-        if (payload.TryGetProperty("repository", out var repo) &&
-            repo.TryGetProperty("full_name", out var name))
-            return name.GetString();
-        return null;
     }
 }

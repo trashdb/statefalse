@@ -34,8 +34,8 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
     public async Task<ApiResult> HandleAsync(JsonElement payload)
     {
         var action = payload.GetProperty("action").GetString();
-        var repo = TryGetRepo(payload);
-        var name = TryGetWorkflowName(payload);
+        var repo = WebhookPayload.TryGetRepo(payload);
+        var name = WebhookPayload.TryGetWorkflowName(payload);
 
         if (action is "in_progress" or "requested") return await HandleInProgress(payload);
         if (action == "completed") return await HandleCompleted(payload);
@@ -50,7 +50,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         var culprit = ResolveCulprit(payload);
         if (culprit == null)
         {
-            WebhookLog.Log("workflow_run", "in_progress", TryGetRepo(payload), TryGetWorkflowName(payload), "ignored", "Could not resolve actor");
+            WebhookLog.Log("workflow_run", "in_progress", WebhookPayload.TryGetRepo(payload), WebhookPayload.TryGetWorkflowName(payload), "ignored", "Could not resolve actor");
             return ApiResult.Ok("Could not resolve actor.");
         }
 
@@ -324,22 +324,6 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
             _logger.LogError(ex, "Error resolving culprit from webhook payload.");
         }
 
-        return null;
-    }
-
-    private static string? TryGetRepo(JsonElement payload)
-    {
-        if (payload.TryGetProperty("repository", out var repo) &&
-            repo.TryGetProperty("full_name", out var name))
-            return name.GetString();
-        return null;
-    }
-
-    private static string? TryGetWorkflowName(JsonElement payload)
-    {
-        if (payload.TryGetProperty("workflow_run", out var run) &&
-            run.TryGetProperty("name", out var name))
-            return name.GetString();
         return null;
     }
 }

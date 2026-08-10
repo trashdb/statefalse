@@ -39,13 +39,13 @@ public abstract class PullRequestCommentHandlerBase : IWebhookHandler
         var action = payload.GetProperty("action").GetString();
         if (action != "created")
         {
-            WebhookLog.Log(EventType, action, TryGetRepo(payload), null, "ignored", $"Unsupported action '{action}'");
+            WebhookLog.Log(EventType, action, WebhookPayload.TryGetRepo(payload), null, "ignored", $"Unsupported action '{action}'");
             return ApiResult.Ok($"Ignored: {EventType} action '{action}'.");
         }
 
         if (TryGetIgnoreReason(payload) is { } reason)
         {
-            WebhookLog.Log(EventType, action, TryGetRepo(payload), null, "ignored", reason);
+            WebhookLog.Log(EventType, action, WebhookPayload.TryGetRepo(payload), null, "ignored", reason);
             return ApiResult.Ok($"Ignored: {reason}");
         }
 
@@ -108,12 +108,4 @@ public abstract class PullRequestCommentHandlerBase : IWebhookHandler
         => $"PR #{prNumber} comment by {commenterLogin}";
     protected virtual object BuildResult(JsonElement payload, int prNumber, string commenterLogin)
         => new { prNumber, commenterLogin };
-
-    protected static string? TryGetRepo(JsonElement payload)
-    {
-        if (payload.TryGetProperty("repository", out var repo) &&
-            repo.TryGetProperty("full_name", out var name))
-            return name.GetString();
-        return null;
-    }
 }
