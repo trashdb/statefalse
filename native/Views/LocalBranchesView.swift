@@ -423,7 +423,13 @@ struct LocalBranchesView: View {
                 checkingOutBranch = nil
             }
         } catch {
-            await MainActor.run { checkingOutBranch = nil }
+            await MainActor.run {
+                if let ri = repos.firstIndex(where: { $0.id == repo.id }) {
+                    repos[ri].error = "Failed to checkout \"\(name)\": \((error as? GitError)?.localizedDescription ?? error.localizedDescription)"
+                    repos[ri].isExpanded = true
+                }
+                checkingOutBranch = nil
+            }
         }
     }
 

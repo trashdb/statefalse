@@ -10,6 +10,7 @@ struct BranchDetailView: View {
     @State private var deleting = false
     @State private var checkingOut = false
     @State private var checkoutSuccess = false
+    @State private var checkoutError: String?
     @State private var hasUpstream = false
     @State private var showCreatePR = false
     @State private var showCreateBranch = false
@@ -169,6 +170,12 @@ struct BranchDetailView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+                if let error = checkoutError {
+                    Text(error)
+                        .font(DS.Font.caption)
+                        .foregroundStyle(DS.Color.destructive)
+                }
+
                 Spacer()
             }
             .padding(DS.Spacing.xxl)
@@ -199,6 +206,7 @@ struct BranchDetailView: View {
 
     private func doCheckout() async {
         checkingOut = true
+        checkoutError = nil
         do {
             try await git.checkoutBranch(repoPath: info.repoPath, name: info.name)
             let pat = await deps.apiClient.fetchPAT()
@@ -206,7 +214,9 @@ struct BranchDetailView: View {
             openRider()
             checkoutSuccess = true
             await MainActor.run { onCheckout?() }
-        } catch {}
+        } catch {
+            checkoutError = (error as? GitError)?.localizedDescription ?? error.localizedDescription
+        }
         checkingOut = false
     }
 
