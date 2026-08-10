@@ -18,6 +18,40 @@ public class PullRequestQueryService
     private readonly PullRequestSyncService _sync;
     private readonly ILogger<PullRequestQueryService> _logger;
 
+    private sealed record PrRow(
+        long PrNumber,
+        string Title,
+        string RepoFullName,
+        string? HeadBranch,
+        string? BaseBranch,
+        string? PrUrl,
+        string Status,
+        string? Conclusion,
+        bool Draft,
+        bool ReviewApproved,
+        string? LastCommentBy,
+        string? LastCommentBody,
+        DateTime? LastCommentAt,
+        string? LastCommentUrl,
+        string? LastReviewFilePath,
+        int? LastReviewLine,
+        string? SubscriberIds,
+        long? AuthorGitHubId);
+
+    private sealed record PullRequestLiveData(
+        long PrNumber,
+        string Repo,
+        bool? Draft,
+        string? MergeableState,
+        string? HeadSha,
+        string? State,
+        bool Merged,
+        DateTime? MergedAt);
+
+    private sealed record RunInfo(string Repo, string? HeadSha, string? WorkflowName, int Id, string Status);
+
+    private sealed record CheckSuiteInfo(string Repo, string HeadSha, int Id, string Conclusion);
+
     public PullRequestQueryService(
         IAppDbContext db,
         IGitHubClient github,
@@ -47,171 +81,61 @@ public class PullRequestQueryService
             .OrderByDescending(e => e.OccurredAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(e => new
-            {
-                e.PrNumber,
-                e.Title,
-                e.RepoFullName,
-                e.HeadBranch,
-                e.BaseBranch,
-                e.PrUrl,
-                e.Status,
-                e.Conclusion,
-                e.Draft,
-                e.ReviewApproved,
-                e.LastCommentBy,
-                e.LastCommentBody,
-                e.LastCommentAt,
-                e.LastCommentUrl,
-                e.LastReviewFilePath,
-                e.LastReviewLine,
-                e.SubscriberIds,
-                e.AuthorGitHubId
-            })
+            .Select(e => new PrRow(
+                e.PrNumber, e.Title, e.RepoFullName, e.HeadBranch, e.BaseBranch, e.PrUrl,
+                e.Status, e.Conclusion, e.Draft, e.ReviewApproved, e.LastCommentBy,
+                e.LastCommentBody, e.LastCommentAt, e.LastCommentUrl, e.LastReviewFilePath,
+                e.LastReviewLine, e.SubscriberIds, e.AuthorGitHubId))
             .ToListAsync();
 
-        var repos = prs.Select(p => p.RepoFullName).Distinct().ToList();
+        // Live PR state (draft, mergeable, headSha, merged_at) fetched from GitHub
+        // in parallel — previously N sequential round-trips.
+        var liveData = await FetchPullRequestDataAsync(prs, token);
 
-        // Fetch head SHA, draft, mergeable, and real open/closed state for every PR from GitHub API
-        var prData = new Dictionary<long, (bool? Draft, string? Mergeable, string? HeadSha)>();
-        var statusOverrides = new Dictionary<long, string>();
-        foreach (var pr in prs)
-        {
-            var (draft, mergeable, headSha, prState, merged, mergedAt) = await FetchPullRequestData(pr.PrNumber, pr.RepoFullName, token);
-            prData[pr.PrNumber] = (draft, mergeable, headSha);
+        // Self-heal: correct rows GitHub reports closed/merged and stale merge
+        // timestamps so a merged PR never renders as "ready".
+        var statusOverrides = await SelfHealPrStatesAsync(prs, liveData);
 
-            // Self-heal: if GitHub says the PR is closed/merged but our DB still
-            // has it "open" (missed webhook), correct the status so it never shows
-            // as "ready" after being merged.
-            if (prState == "closed" && pr.Status == "open")
-            {
-                var healed = merged ? "merged" : "closed";
-                statusOverrides[pr.PrNumber] = healed;
-                var entity = await _db.PullRequestEvents
-                    .Where(e => e.PrNumber == pr.PrNumber && e.RepoFullName == pr.RepoFullName && e.Status == "open")
-                    .OrderByDescending(e => e.Id)
-                    .FirstOrDefaultAsync();
-                if (entity != null)
-                {
-                    entity.Status = healed;
-                    // Use the real merge time so the 24h "recently merged" window is
-                    // accurate — NOT now (which would resurface old merged PRs).
-                    if (merged && mergedAt.HasValue) entity.OccurredAt = mergedAt.Value;
-                    await _db.SaveChangesAsync();
-                }
-            }
-            // Correct OccurredAt for already-merged PRs whose timestamp is wrong
-            // (e.g. previously self-healed with now() instead of the real merge time).
-            // Update ALL merged rows for this PR to avoid stale duplicates lingering.
-            else if (pr.Status == "merged" && merged && mergedAt.HasValue)
-            {
-                var mergedRows = await _db.PullRequestEvents
-                    .Where(e => e.PrNumber == pr.PrNumber && e.RepoFullName == pr.RepoFullName && e.Status == "merged")
-                    .ToListAsync();
-                bool changed = false;
-                foreach (var row in mergedRows)
-                {
-                    if (Math.Abs((row.OccurredAt - mergedAt.Value).TotalMinutes) > 2)
-                    {
-                        row.OccurredAt = mergedAt.Value;
-                        changed = true;
-                    }
-                }
-                if (changed) await _db.SaveChangesAsync();
-            }
-        }
-
-        // Sync workflow run states from GitHub check-runs for each unique (repo, headSha)
-        var shaRepoSet = new HashSet<(string Repo, string Sha)>();
-        foreach (var pr in prs)
-        {
-            if (prData.TryGetValue(pr.PrNumber, out var data) && data.HeadSha != null)
-                shaRepoSet.Add((pr.RepoFullName, data.HeadSha));
-        }
-
+        // Sync workflow run states from GitHub check-runs for each unique (repo, headSha).
+        // Covers webhooks missed while the tunnel was down.
+        var shaRepoSet = liveData.Values
+            .Where(d => d.HeadSha != null)
+            .Select(d => (d.Repo, d.HeadSha!))
+            .ToHashSet();
         foreach (var (repo, sha) in shaRepoSet)
         {
             await _sync.SyncCheckRunsForCommit(repo, sha, token);
         }
 
-        // Sync review approval state from GitHub API. The webhook may miss
-        // approvals (e.g. if a "commented" review was submitted after an approval
-        // and the old code reset the flag). This ensures the DB stays in sync.
-        var reviewOverrides = new Dictionary<long, bool>();
-        foreach (var pr in prs.Where(p => p.Status == "open" && !statusOverrides.ContainsKey(p.PrNumber)))
-        {
-            var approved = await FetchReviewApproval(pr.PrNumber, pr.RepoFullName, token);
-            if (approved != null)
-            {
-                reviewOverrides[pr.PrNumber] = approved.Value;
-                var entity = await _db.PullRequestEvents
-                    .Where(e => e.PrNumber == pr.PrNumber && e.RepoFullName == pr.RepoFullName && e.Status == "open")
-                    .OrderByDescending(e => e.Id)
-                    .FirstOrDefaultAsync();
-                if (entity != null && entity.ReviewApproved != approved.Value)
-                {
-                    entity.ReviewApproved = approved.Value;
-                    await _db.SaveChangesAsync();
-                }
-            }
-        }
+        // Review approval state from GitHub (webhook may miss approvals when a
+        // "commented" review lands after an approval). Fetched in parallel.
+        var reviewOverrides = await FetchReviewApprovalsAsync(prs, statusOverrides, token);
 
-        // Re-fetch all workflow runs after sync
-        var allRuns = new List<(string Repo, string? HeadSha, string? WorkflowName, int Id, string Status)>();
-        if (repos.Count != 0)
-        {
-            var raw = await _db.WorkflowRuns
-                .Where(w => w.HeadSha != null && repos.Contains(w.Repo))
-                .Select(w => new { w.Repo, w.HeadSha, w.WorkflowName, w.Id, w.Status })
-                .ToListAsync();
-            allRuns = raw.Select(r => (r.Repo, r.HeadSha, r.WorkflowName, r.Id, r.Status)).ToList();
-        }
+        // Re-fetch all workflow runs + check suites after sync, in two batched queries.
+        var repos = prs.Select(p => p.RepoFullName).Distinct().ToList();
+        var allRuns = await LoadRunsAsync(repos);
+        var checkSuites = await LoadCheckSuitesAsync(shaRepoSet);
 
         var results = new List<PullRequestDto>();
         foreach (var pr in prs)
         {
-            var (_, mergeable, headSha) = prData.GetValueOrDefault(pr.PrNumber);
+            var data = liveData.GetValueOrDefault(pr.PrNumber);
             var effectiveStatus = statusOverrides.GetValueOrDefault(pr.PrNumber, pr.Status);
+            var finalReviewApproved = reviewOverrides.GetValueOrDefault(pr.PrNumber, pr.ReviewApproved);
 
-            var prRuns = headSha != null
+            var prRuns = data?.HeadSha != null
                 ? allRuns
-                    .Where(r => r.Repo == pr.RepoFullName && r.HeadSha == headSha)
+                    .Where(r => r.Repo == pr.RepoFullName && r.HeadSha == data.HeadSha)
                     .Select(r => (r.Id, r.WorkflowName, r.Status))
                     .ToList()
                 : [];
             var ciStatus = CiStatusCalculator.Calculate(
-                headSha,
+                data?.HeadSha,
                 isOpen: effectiveStatus == "open",
-                reviewApproved: reviewOverrides.GetValueOrDefault(pr.PrNumber, pr.ReviewApproved),
+                reviewApproved: finalReviewApproved,
                 prRuns);
 
-            // Determine conclusion: prefer workflow run status over stale CheckSuiteEvent
-            string? conclusion = pr.Conclusion;
-            if (headSha != null)
-            {
-                // First try: latest CheckSuiteEvent
-                var latestCheck = await _db.CheckSuiteEvents
-                    .Where(c => c.HeadSha == headSha && c.RepoFullName == pr.RepoFullName)
-                    .OrderByDescending(c => c.Id)
-                    .FirstOrDefaultAsync();
-                if (latestCheck != null)
-                    conclusion = latestCheck.Conclusion;
-
-                // Override with latest workflow run status if more recent
-                var latestRun = allRuns
-                    .Where(r => r.Repo == pr.RepoFullName && r.HeadSha == headSha
-                        && r.Status != "superseded" && r.Status != "in_progress")
-                    .OrderByDescending(r => r.Id)
-                    .FirstOrDefault();
-                if (latestRun.Status == "success")
-                    conclusion = "success";
-                else if (latestRun.Status == "failure")
-                    conclusion = "failure";
-                else if (latestRun.Status == "cancelled")
-                    conclusion = "cancelled";
-            }
-
-            var finalReviewApproved = reviewOverrides.GetValueOrDefault(pr.PrNumber, pr.ReviewApproved);
+            var conclusion = ResolveConclusion(pr.Conclusion, data?.HeadSha, pr.RepoFullName, allRuns, checkSuites);
             var subscriberIds = IdListSerializer.Deserialize(pr.SubscriberIds);
 
             results.Add(new PullRequestDto(
@@ -224,7 +148,7 @@ public class PullRequestQueryService
                 effectiveStatus,
                 conclusion,
                 pr.Draft,
-                mergeable,
+                data?.MergeableState,
                 ciStatus,
                 finalReviewApproved,
                 pr.LastCommentBy,
@@ -386,23 +310,29 @@ public class PullRequestQueryService
         return ApiResult.Ok(checks);
     }
 
-    // ─────────────────────────── Private helpers ───────────────────────────
+    // ─────────────────────────── Live state fetch (parallel) ───────────────────────────
 
-    private async Task<(bool? draft, string? mergeableState, string? headSha, string? state, bool merged, DateTime? mergedAt)> FetchPullRequestData(long prNumber, string repoFullName, string? token)
+    /// <summary>
+    /// Fetches draft/mergeable/headSha/state/mergedAt for every PR in parallel.
+    /// </summary>
+    private async Task<Dictionary<long, PullRequestLiveData>> FetchPullRequestDataAsync(List<PrRow> prs, string? token)
+    {
+        var tasks = prs.Select(pr => FetchPullRequestDataAsync(pr, token)).ToList();
+        var results = await Task.WhenAll(tasks);
+        return results.ToDictionary(r => r.PrNumber);
+    }
+
+    private async Task<PullRequestLiveData> FetchPullRequestDataAsync(PrRow pr, string? token)
     {
         try
         {
-            var response = await _github.GetAsync($"/repos/{repoFullName}/pulls/{prNumber}", token);
+            var response = await _github.GetAsync($"/repos/{pr.RepoFullName}/pulls/{pr.PrNumber}", token);
             if (response.StatusCode is < 200 or >= 300 || response.Body is not { } data)
-                return (null, null, null, null, false, null);
+                return new PullRequestLiveData(pr.PrNumber, pr.RepoFullName, null, null, null, null, false, null);
 
-            bool? draft = null;
-            if (data.TryGetProperty("draft", out var draftProp))
-                draft = draftProp.GetBoolean();
+            bool? draft = data.TryGetProperty("draft", out var draftProp) ? draftProp.GetBoolean() : null;
 
-            string? mergeableState = null;
-            if (data.TryGetProperty("mergeable_state", out var state))
-                mergeableState = state.GetString();
+            string? mergeableState = data.TryGetProperty("mergeable_state", out var ms) ? ms.GetString() : null;
 
             string? headSha = null;
             if (data.TryGetProperty("head", out var head) && head.TryGetProperty("sha", out var sha))
@@ -420,18 +350,114 @@ public class PullRequestQueryService
                 && DateTime.TryParse(ma.GetString(), null, DateTimeStyles.AdjustToUniversal, out var parsed))
                 mergedAt = parsed;
 
-            return (draft, mergeableState, headSha, prState, merged, mergedAt);
+            return new PullRequestLiveData(pr.PrNumber, pr.RepoFullName, draft, mergeableState, headSha, prState, merged, mergedAt);
         }
         catch
         {
-            return (null, null, null, null, false, null);
+            return new PullRequestLiveData(pr.PrNumber, pr.RepoFullName, null, null, null, null, false, null);
         }
     }
 
+    // ─────────────────────────── Self-healing ───────────────────────────
+
     /// <summary>
-    /// Check the GitHub reviews API to see if any review is "APPROVED".
-    /// Returns true if at least one approved review exists, false if all are
-    /// non-approved, or null if the API call failed.
+    /// Corrects stale DB rows against live GitHub state. Returns status overrides
+    /// so PRs GitHub reports closed/merged never render as "ready".
+    /// </summary>
+    private async Task<Dictionary<long, string>> SelfHealPrStatesAsync(List<PrRow> prs, IReadOnlyDictionary<long, PullRequestLiveData> liveData)
+    {
+        var overrides = new Dictionary<long, string>();
+        bool changed = false;
+
+        foreach (var pr in prs)
+        {
+            var data = liveData.GetValueOrDefault(pr.PrNumber);
+            if (data == null) continue;
+
+            // GitHub says closed/merged but our DB still has it "open" (missed webhook)
+            if (data.State == "closed" && pr.Status == "open")
+            {
+                var healed = data.Merged ? "merged" : "closed";
+                overrides[pr.PrNumber] = healed;
+                var entity = await _db.PullRequestEvents
+                    .Where(e => e.PrNumber == pr.PrNumber && e.RepoFullName == pr.RepoFullName && e.Status == "open")
+                    .OrderByDescending(e => e.Id)
+                    .FirstOrDefaultAsync();
+                if (entity != null)
+                {
+                    entity.Status = healed;
+                    // Use the real merge time so the 24h "recently merged" window is
+                    // accurate — NOT now (which would resurface old merged PRs).
+                    if (data.Merged && data.MergedAt.HasValue) entity.OccurredAt = data.MergedAt.Value;
+                    changed = true;
+                }
+            }
+            // Correct OccurredAt for already-merged PRs whose timestamp is wrong
+            // (e.g. previously self-healed with now() instead of the real merge time).
+            // Update ALL merged rows for this PR to avoid stale duplicates lingering.
+            else if (pr.Status == "merged" && data.Merged && data.MergedAt.HasValue)
+            {
+                var mergedRows = await _db.PullRequestEvents
+                    .Where(e => e.PrNumber == pr.PrNumber && e.RepoFullName == pr.RepoFullName && e.Status == "merged")
+                    .ToListAsync();
+                foreach (var row in mergedRows)
+                {
+                    if (Math.Abs((row.OccurredAt - data.MergedAt.Value).TotalMinutes) > 2)
+                    {
+                        row.OccurredAt = data.MergedAt.Value;
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        if (changed) await _db.SaveChangesAsync();
+        return overrides;
+    }
+
+    // ─────────────────────────── Review approvals (parallel) ───────────────────────────
+
+    /// <summary>
+    /// Checks the GitHub reviews API for each open PR to see if it is APPROVED.
+    /// Syncs ReviewApproved in DB and returns overrides for response building.
+    /// </summary>
+    private async Task<Dictionary<long, bool>> FetchReviewApprovalsAsync(
+        List<PrRow> prs,
+        Dictionary<long, string> statusOverrides,
+        string? token)
+    {
+        var targets = prs.Where(p => p.Status == "open" && !statusOverrides.ContainsKey(p.PrNumber)).ToList();
+        if (targets.Count == 0) return new Dictionary<long, bool>();
+
+        var results = await Task.WhenAll(targets.Select(p => FetchReviewApproval(p.PrNumber, p.RepoFullName, token)));
+
+        var overrides = new Dictionary<long, bool>();
+        bool changed = false;
+        for (int i = 0; i < targets.Count; i++)
+        {
+            var approved = results[i];
+            if (approved == null) continue;
+            overrides[targets[i].PrNumber] = approved.Value;
+
+            var entity = await _db.PullRequestEvents
+                .Where(e => e.PrNumber == targets[i].PrNumber && e.RepoFullName == targets[i].RepoFullName && e.Status == "open")
+                .OrderByDescending(e => e.Id)
+                .FirstOrDefaultAsync();
+            if (entity != null && entity.ReviewApproved != approved.Value)
+            {
+                entity.ReviewApproved = approved.Value;
+                changed = true;
+            }
+        }
+
+        if (changed) await _db.SaveChangesAsync();
+        return overrides;
+    }
+
+    /// <summary>
+    /// A PR is approved if any review has state "APPROVED" and no later review
+    /// has "CHANGES_REQUESTED" (GitHub uses latest state per reviewer).
+    /// Returns null if the API call failed.
     /// </summary>
     private async Task<bool?> FetchReviewApproval(long prNumber, string repoFullName, string? token)
     {
@@ -442,12 +468,8 @@ public class PullRequestQueryService
             if (response.StatusCode is < 200 or >= 300 || response.Body is not { } doc)
                 return null;
 
-            // A PR is approved if any review has state "APPROVED" and
-            // no later review has "CHANGES_REQUESTED" (GitHub uses latest per reviewer).
-            var reviews = doc.EnumerateArray().ToList();
-            // Build per-reviewer latest state (GitHub already returns chronologically)
             var latestByReviewer = new Dictionary<string, string>();
-            foreach (var review in reviews)
+            foreach (var review in doc.EnumerateArray())
             {
                 var state = review.GetProperty("state").GetString() ?? "";
                 var reviewer = review.GetProperty("user").GetProperty("login").GetString() ?? "";
@@ -461,5 +483,68 @@ public class PullRequestQueryService
         {
             return null;
         }
+    }
+
+    // ─────────────────────────── Batched DB loads + conclusion ───────────────────────────
+
+    private async Task<List<RunInfo>> LoadRunsAsync(List<string> repos)
+    {
+        if (repos.Count == 0) return [];
+        var raw = await _db.WorkflowRuns
+            .Where(w => w.HeadSha != null && repos.Contains(w.Repo))
+            .Select(w => new { w.Repo, w.HeadSha, w.WorkflowName, w.Id, w.Status })
+            .ToListAsync();
+        return raw.Select(r => new RunInfo(r.Repo, r.HeadSha, r.WorkflowName, r.Id, r.Status)).ToList();
+    }
+
+    private async Task<List<CheckSuiteInfo>> LoadCheckSuitesAsync(HashSet<(string Repo, string Sha)> shaRepoSet)
+    {
+        if (shaRepoSet.Count == 0) return [];
+        var repos = shaRepoSet.Select(s => s.Repo).Distinct().ToList();
+        var shas = shaRepoSet.Select(s => s.Sha).Distinct().ToList();
+        var raw = await _db.CheckSuiteEvents
+            .Where(c => c.HeadSha != null && repos.Contains(c.RepoFullName) && shas.Contains(c.HeadSha))
+            .Select(c => new { c.RepoFullName, c.HeadSha, c.Id, c.Conclusion })
+            .ToListAsync();
+        return raw.Select(c => new CheckSuiteInfo(c.RepoFullName, c.HeadSha!, c.Id, c.Conclusion ?? "")).ToList();
+    }
+
+    /// <summary>
+    /// Determines the conclusion shown on a PR card. Prefers the latest workflow
+    /// run status; falls back to the latest CheckSuiteEvent; otherwise the DB value.
+    /// </summary>
+    private static string? ResolveConclusion(
+        string? dbConclusion,
+        string? headSha,
+        string repo,
+        List<RunInfo> allRuns,
+        List<CheckSuiteInfo> checkSuites)
+    {
+        if (headSha == null) return dbConclusion;
+
+        string? conclusion = dbConclusion;
+        var latestCheck = checkSuites
+            .Where(c => c.Repo == repo && c.HeadSha == headSha)
+            .OrderByDescending(c => c.Id)
+            .FirstOrDefault();
+        if (latestCheck != null)
+            conclusion = latestCheck.Conclusion;
+
+        var latestRun = allRuns
+            .Where(r => r.Repo == repo && r.HeadSha == headSha
+                && r.Status != "superseded" && r.Status != "in_progress")
+            .OrderByDescending(r => r.Id)
+            .FirstOrDefault();
+        if (latestRun != null)
+        {
+            if (latestRun.Status == "success")
+                conclusion = "success";
+            else if (latestRun.Status == "failure")
+                conclusion = "failure";
+            else if (latestRun.Status == "cancelled")
+                conclusion = "cancelled";
+        }
+
+        return conclusion;
     }
 }
