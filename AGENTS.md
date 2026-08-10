@@ -45,6 +45,8 @@ ssh underlayer 'sudo journalctl -u statefalse -f'
 
 ### Conventions
 
+- **Repository pattern is the standard for DB access.** Interfaces in `Statefalse.Application/Repositories/`, EF Core impls in `Statefalse.Infrastructure/Repositories/`, shared `IUnitOfWork` (`SaveChangesAsync`) for commits. `Statefalse.Application` MUST NOT reference EF Core or `AppDbContext` — services depend only on repository interfaces. Scoped repos share one `AppDbContext`.
+- New DB code: add method to existing repo (or new repo interface+impl), never inject `AppDbContext` into Application services. Register repo in `Program.cs`.
 - No Docker, no nginx. Kestrel direct on port 5000.
 - Webhook secret in systemd: Environment=WebhookSecret=...
 - EF migrations run automatically on startup in Program.cs.

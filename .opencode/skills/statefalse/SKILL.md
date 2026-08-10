@@ -31,6 +31,12 @@ Always terse caveman. No articles, no filler, no hedging. Technical terms exact.
 ## Multi-tenant rule
 All DB queries scoped by authenticated GitHub user. `TargetGitHubIds` (CSV string on WorkflowRun) controls who gets notified.
 
+## Repository pattern (standard)
+- Interfaces in `backend/Statefalse.Application/Repositories/` (no EF, no `AppDbContext`).
+- EF Core impls in `backend/Statefalse.Infrastructure/Repositories/`.
+- `IUnitOfWork.SaveChangesAsync()` for commits. Scoped repos share one `AppDbContext`.
+- New DB access: extend existing repo (or new interface+impl), register in `Program.cs`. Never inject `AppDbContext` into Application services.
+
 ## Verification
 - Backend change: `cd tests-backend && dotnet test` must pass before push.
 - Native change: `bash native/install.sh` must succeed.
