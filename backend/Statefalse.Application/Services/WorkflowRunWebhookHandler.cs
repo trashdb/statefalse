@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
@@ -12,18 +11,24 @@ namespace Statefalse.Application;
 /// </summary>
 public class WorkflowRunWebhookHandler : IWebhookHandler
 {
-    private readonly IAppDbContext _db;
+    private readonly IWorkflowRunRepository _runs;
+    private readonly IPunishmentEventRepository _punishments;
+    private readonly IUnitOfWork _uow;
     private readonly IGitHubTokenResolver _tokens;
     private readonly ISignalRNotifier _notifier;
     private readonly ILogger<WorkflowRunWebhookHandler> _logger;
 
     public WorkflowRunWebhookHandler(
-        IAppDbContext db,
+        IWorkflowRunRepository runs,
+        IPunishmentEventRepository punishments,
+        IUnitOfWork uow,
         IGitHubTokenResolver tokens,
         ISignalRNotifier notifier,
         ILogger<WorkflowRunWebhookHandler> logger)
     {
-        _db = db;
+        _runs = runs;
+        _punishments = punishments;
+        _uow = uow;
         _tokens = tokens;
         _notifier = notifier;
         _logger = logger;
@@ -64,13 +69,11 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         var startedAt = run.TryGetProperty("run_started_at", out var rsa) ? rsa.GetDateTime() : DateTime.UtcNow;
         var trigger = run.TryGetProperty("event", out var ev) ? ev.GetString() : null;
 
-        var existingInProgress = await _db.WorkflowRuns
-            .Where(w => w.RunId == runId && w.Status == "in_progress")
-            .FirstOrDefaultAsync();
+        var existingInProgress = await _runs.FindInProgressByRunIdAsync(runId);
         if (existingInProgress != null)
         {
             // Already tracking this run — likely a duplicate webhook event
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
             return ApiResult.Ok(new { runId });
         }
 
@@ -90,22 +93,19 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
             StartedAt = startedAt,
             IsIgnored = isIgnored
         };
-        _db.WorkflowRuns.Add(newRun);
-        await _db.SaveChangesAsync();
+        await _runs.AddAsync(newRun);
+        await _uow.SaveChangesAsync();
 
         // Mark previous in_progress runs for same repo+workflow+branch as superseded
         // (GitHub does not send completed webhooks for superseded runs)
         if (branch != null)
         {
-            var superseded = await _db.WorkflowRuns
-                .Where(w => w.Id != newRun.Id && w.Repo == repo && w.WorkflowName == name
-                    && w.HeadBranch == branch && w.Status == "in_progress")
-                .ToListAsync();
+            var superseded = await _runs.FindSupersededAsync(newRun.Id, repo, name, branch);
             if (superseded.Count > 0)
             {
                 foreach (var s in superseded)
                     s.Status = "superseded";
-                await _db.SaveChangesAsync();
+                await _uow.SaveChangesAsync();
                 _logger.LogInformation("Superseded {Count} previous run(s) for {Repo} {Name} on {Branch}", superseded.Count, repo, name, branch);
             }
         }
@@ -159,10 +159,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         var dbStatus = WorkflowConclusionMapper.ToDbStatus(conclusion);
 
         // Update the latest in_progress row for this runId
-        var dbRun = await _db.WorkflowRuns
-            .Where(w => w.RunId == runId && w.Status == "in_progress")
-            .OrderByDescending(w => w.Id)
-            .FirstOrDefaultAsync();
+        var dbRun = await _runs.FindLatestInProgressByRunIdAsync(runId);
 
         if (dbRun != null)
         {
@@ -173,7 +170,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         else if (dbStatus != null)
         {
             var gitHubId = culprit.Id ?? (await _tokens.FindByLoginAsync(culprit.Login))?.GitHubId;
-            _db.WorkflowRuns.Add(new WorkflowRun
+            await _runs.AddAsync(new WorkflowRun
             {
                 RunId = runId,
                 GitHubId = gitHubId ?? 0,
@@ -190,7 +187,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
             });
         }
 
-        await _db.SaveChangesAsync();
+        await _uow.SaveChangesAsync();
 
         // Always notify PR update so ciStatus refreshes for ignored workflows too
         await _notifier.NotifyPullRequestsUpdatedAsync();
@@ -260,8 +257,8 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
 
         var user2 = await _tokens.FindConnectedUserAsync(culprit.Login, culprit.Id);
         historyEvent.WasNotified = user2 != null;
-        _db.PunishmentEvents.Add(historyEvent);
-        await _db.SaveChangesAsync();
+        await _punishments.AddAsync(historyEvent);
+        await _uow.SaveChangesAsync();
 
         await NotifyCulpritAndTargetsAsync(false, user2);
 

@@ -1,5 +1,4 @@
 using System.Web;
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
@@ -14,14 +13,16 @@ public sealed record AuthCallbackResponse(ApiResult? Error, string? RedirectUrl,
 public class AuthService
 {
     private readonly GitHubOAuthService _oauth;
-    private readonly IAppDbContext _db;
+    private readonly IGitHubUserRepository _users;
+    private readonly IUnitOfWork _uow;
     private readonly IConfiguration _configuration;
     private readonly JwtTokenService _jwt;
 
-    public AuthService(GitHubOAuthService oauth, IAppDbContext db, IConfiguration configuration, JwtTokenService jwt)
+    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, IConfiguration configuration, JwtTokenService jwt)
     {
         _oauth = oauth;
-        _db = db;
+        _users = users;
+        _uow = uow;
         _configuration = configuration;
         _jwt = jwt;
     }
@@ -38,11 +39,11 @@ public class AuthService
             return new AuthCallbackResponse(ApiResult.BadRequest("Failed to authenticate with GitHub."), null, null);
 
         // Upsert by immutable GitHubId, update username in case it changed
-        var existing = await _db.GitHubUsers.FirstOrDefaultAsync(u => u.GitHubId == userInfo.Id);
+        var existing = await _users.FindByIdAsync(userInfo.Id);
 
         if (existing == null)
         {
-            _db.GitHubUsers.Add(new GitHubUser
+            await _users.AddAsync(new GitHubUser
             {
                 GitHubId = userInfo.Id,
                 GitHubUsername = userInfo.Login,
@@ -60,7 +61,7 @@ public class AuthService
             existing.LastLoginAt = DateTime.UtcNow;
         }
 
-        await _db.SaveChangesAsync();
+        await _uow.SaveChangesAsync();
 
         var token = _jwt.GenerateToken(userInfo.Id, userInfo.Login, userInfo.AvatarUrl);
 
@@ -77,19 +78,13 @@ public class AuthService
 
     public async Task<ApiResult> GetUsersAsync()
     {
-        var users = await _db.GitHubUsers
-            .OrderBy(u => u.GitHubUsername)
-            .Select(u => new UserDto(u.GitHubId, u.GitHubUsername, u.AvatarUrl))
-            .ToListAsync();
-        return ApiResult.Ok(users);
+        var users = await _users.GetAllOrderedByUsernameAsync();
+        return ApiResult.Ok(users.Select(u => new UserDto(u.GitHubId, u.GitHubUsername, u.AvatarUrl)).ToList());
     }
 
     public async Task<ApiResult> GetMeAsync(long gitHubId)
     {
-        var user = await _db.GitHubUsers
-            .Where(u => u.GitHubId == gitHubId)
-            .Select(u => new { u.GitHubId, u.GitHubUsername, u.AvatarUrl, u.UserPatToken })
-            .FirstOrDefaultAsync();
+        var user = await _users.FindByIdAsync(gitHubId);
 
         if (user == null) return ApiResult.NotFound();
 
@@ -98,17 +93,17 @@ public class AuthService
 
     public async Task<ApiResult> SavePatAsync(long gitHubId, string? patToken)
     {
-        var user = await _db.GitHubUsers.FirstOrDefaultAsync(u => u.GitHubId == gitHubId);
+        var user = await _users.FindByIdAsync(gitHubId);
         if (user == null) return ApiResult.NotFound();
 
         user.UserPatToken = string.IsNullOrWhiteSpace(patToken) ? null : patToken;
-        await _db.SaveChangesAsync();
+        await _uow.SaveChangesAsync();
         return ApiResult.Ok(new { saved = true });
     }
 
     public async Task<ApiResult> GetTokenAsync(long gitHubId)
     {
-        var user = await _db.GitHubUsers.FirstOrDefaultAsync(u => u.GitHubId == gitHubId);
+        var user = await _users.FindByIdAsync(gitHubId);
         // Mirror the fallback chain used by create-pr / merge so the client can obtain
         // the same token that already works server-side (incl. the shared global PAT).
         var token = user?.UserPatToken ?? user?.AccessToken ?? _configuration["GitHub:PatToken"];

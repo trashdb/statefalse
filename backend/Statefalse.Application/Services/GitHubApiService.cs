@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
@@ -12,7 +11,9 @@ namespace Statefalse.Application;
 /// </summary>
 public class GitHubApiService
 {
-    private readonly IAppDbContext _db;
+    private readonly IGitHubUserRepository _users;
+    private readonly IPullRequestEventRepository _prs;
+    private readonly IUnitOfWork _uow;
     private readonly IGitHubClient _github;
     private readonly IGitHubTokenResolver _tokens;
     private readonly PrPreviewService _preview;
@@ -21,7 +22,9 @@ public class GitHubApiService
     private readonly ISignalRNotifier _notifier;
 
     public GitHubApiService(
-        IAppDbContext db,
+        IGitHubUserRepository users,
+        IPullRequestEventRepository prs,
+        IUnitOfWork uow,
         IGitHubClient github,
         IGitHubTokenResolver tokens,
         PrPreviewService preview,
@@ -29,7 +32,9 @@ public class GitHubApiService
         ILogger<GitHubApiService> logger,
         ISignalRNotifier notifier)
     {
-        _db = db;
+        _users = users;
+        _prs = prs;
+        _uow = uow;
         _github = github;
         _tokens = tokens;
         _preview = preview;
@@ -172,8 +177,7 @@ public class GitHubApiService
         // Sync to DB so the PR appears immediately in the active PRs list
         try
         {
-            var existing = await _db.PullRequestEvents
-                .FirstOrDefaultAsync(e => e.RepoFullName == repo && e.PrNumber == prNumber);
+            var existing = await _prs.FindByRepoAndPrNumberAsync(repo, prNumber);
             if (existing == null)
             {
                 // Resolve subscriber usernames to GitHubIds
@@ -181,10 +185,7 @@ public class GitHubApiService
                 if (!string.IsNullOrWhiteSpace(subscribers))
                 {
                     var usernames = subscribers.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                    var resolved = await _db.GitHubUsers
-                        .Where(u => usernames.Contains(u.GitHubUsername))
-                        .Select(u => u.GitHubId)
-                        .ToListAsync();
+                    var resolved = await _users.FindGitHubIdsByUsernamesAsync(usernames);
                     if (resolved.Count > 0)
                         subscriberIds = resolved.ToArray();
                 }
@@ -204,8 +205,8 @@ public class GitHubApiService
                     OccurredAt = DateTime.UtcNow,
                     SubscriberIds = IdListSerializer.Serialize(subscriberIds)
                 };
-                _db.PullRequestEvents.Add(ev);
-                await _db.SaveChangesAsync();
+                await _prs.AddAsync(ev);
+                await _uow.SaveChangesAsync();
                 _logger.LogInformation("CreatePr: inserted PullRequestEvent for pr={PrNumber} subscribers={Subscribers}", prNumber, subscriberIds.Length);
             }
             await _notifier.NotifyPullRequestsUpdatedAsync();

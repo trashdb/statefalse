@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
@@ -10,20 +9,26 @@ namespace Statefalse.Application;
 /// </summary>
 public class WorkflowService
 {
-    private readonly IAppDbContext _db;
+    private readonly IPullRequestEventRepository _prs;
+    private readonly IWorkflowRunRepository _runs;
+    private readonly IUnitOfWork _uow;
     private readonly IGitHubClient _github;
     private readonly IGitHubTokenResolver _tokens;
     private readonly ISignalRNotifier _notifier;
     private readonly ILogger<WorkflowService> _logger;
 
     public WorkflowService(
-        IAppDbContext db,
+        IPullRequestEventRepository prs,
+        IWorkflowRunRepository runs,
+        IUnitOfWork uow,
         IGitHubClient github,
         IGitHubTokenResolver tokens,
         ISignalRNotifier notifier,
         ILogger<WorkflowService> logger)
     {
-        _db = db;
+        _prs = prs;
+        _runs = runs;
+        _uow = uow;
         _github = github;
         _tokens = tokens;
         _notifier = notifier;
@@ -33,30 +38,15 @@ public class WorkflowService
     public async Task<ApiResult> GetRunsAsync(long gitHubId, int limit)
     {
         // Get PRs user is subscribed to (including authored)
-        var subscribedPrs = await _db.PullRequestEvents
-            .Where(e => e.Status == "open"
-                && (e.AuthorGitHubId == gitHubId
-                    || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))))
-            .Select(e => new { e.RepoFullName, e.HeadBranch })
-            .Distinct()
-            .ToListAsync();
-
+        var subscribedPrs = await _prs.GetSubscribedToByUserAsync(gitHubId);
         var subscribedRepoBranches = subscribedPrs
             .Select(p => (p.RepoFullName, p.HeadBranch))
             .Where(p => !string.IsNullOrEmpty(p.HeadBranch))
             .ToList();
 
-        var myRuns = await _db.WorkflowRuns
-            .Where(w => w.GitHubId == gitHubId && !w.IsIgnored)
-            .OrderByDescending(w => w.Id)
-            .Take(limit)
-            .ToListAsync();
+        var myRuns = await _runs.GetForUserAsync(gitHubId, limit);
 
-        var targetRuns = await _db.WorkflowRuns
-            .Where(w => w.GitHubId != gitHubId && w.TargetGitHubIds != null && !w.IsIgnored)
-            .OrderByDescending(w => w.Id)
-            .Take(limit * 2)
-            .ToListAsync();
+        var targetRuns = await _runs.GetTargetRunsAsync(gitHubId, limit * 2);
 
         var filteredTargetRuns = targetRuns
             .Where(w => IdListSerializer.Deserialize(w.TargetGitHubIds).Contains(gitHubId))
@@ -70,13 +60,7 @@ public class WorkflowService
             var repoList = subscribedRepoBranches.Select(rb => rb.RepoFullName).Distinct().ToList();
             // EF Core can't translate .Any() over a local tuple list; translate the
             // repo filter, then match head branches in memory.
-            var candidates = await _db.WorkflowRuns
-                .Where(w => !w.IsIgnored
-                    && w.GitHubId != gitHubId
-                    && repoList.Contains(w.Repo))
-                .OrderByDescending(w => w.Id)
-                .Take(limit * 10)
-                .ToListAsync();
+            var candidates = await _runs.GetCandidatesAsync(gitHubId, repoList, limit * 10);
             var branchKeySet = subscribedRepoBranches
                 .Where(rb => !string.IsNullOrEmpty(rb.HeadBranch))
                 .Select(rb => (rb.RepoFullName, rb.HeadBranch))
@@ -104,10 +88,7 @@ public class WorkflowService
         {
             var repoList = branchKeys.Select(b => b.Repo).ToList();
             var branchList = branchKeys.Select(b => b.HeadBranch!).ToList();
-            var prEvents = await _db.PullRequestEvents
-                .Where(e => e.Status == "open" && repoList.Contains(e.RepoFullName) && e.HeadBranch != null && branchList.Contains(e.HeadBranch))
-                .Select(e => new { e.RepoFullName, e.HeadBranch, e.PrNumber, e.Title })
-                .ToListAsync();
+            var prEvents = await _prs.GetOpenForReposAndBranchesAsync(repoList, branchList);
             prs = prEvents
                 .Where(e => e.HeadBranch != null)
                 .Select(e => (e.RepoFullName, e.HeadBranch!, e.PrNumber, e.Title ?? ""))
@@ -136,9 +117,7 @@ public class WorkflowService
 
     public async Task<ApiResult> SetTargetAsync(int id, long gitHubId, SetTargetRequest request)
     {
-        var run = await _db.WorkflowRuns
-            .Where(w => w.Id == id)
-            .FirstOrDefaultAsync();
+        var run = await _runs.FindByIdAsync(id);
 
         if (run == null)
             return ApiResult.NotFound("Workflow run not found.");
@@ -147,27 +126,19 @@ public class WorkflowService
         // by it, or are subscribed to a matching PR) may change its targets.
         var canManage = run.GitHubId == gitHubId
             || IdListSerializer.Deserialize(run.TargetGitHubIds).Contains(gitHubId)
-            || await _db.PullRequestEvents.AnyAsync(e =>
-                e.Status == "open"
-                && e.RepoFullName == run.Repo
-                && e.HeadBranch == run.HeadBranch
-                && (e.AuthorGitHubId == gitHubId
-                    || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))));
+            || await _prs.AnyOpenForRepoAndBranchByUserAsync(run.Repo, run.HeadBranch, gitHubId);
         if (!canManage)
             return ApiResult.Forbid("You don't have access to this workflow run.");
 
         run.TargetGitHubIds = IdListSerializer.Serialize(request.TargetGitHubIds ?? []);
-        await _db.SaveChangesAsync();
+        await _uow.SaveChangesAsync();
 
         return ApiResult.Ok(new { runId = run.RunId, targetGitHubIds = IdListSerializer.Deserialize(run.TargetGitHubIds) });
     }
 
     public async Task<ApiResult> RerunAsync(long runId, long gitHubId)
     {
-        var run = await _db.WorkflowRuns
-            .Where(w => w.RunId == runId)
-            .OrderByDescending(w => w.Id)
-            .FirstOrDefaultAsync();
+        var run = await _runs.FindLatestByRunIdAsync(runId);
         if (run == null)
             return ApiResult.NotFound("Workflow run not found.");
 
@@ -198,8 +169,8 @@ public class WorkflowService
             Status = "in_progress",
             StartedAt = DateTime.UtcNow
         };
-        _db.WorkflowRuns.Add(newRun);
-        await _db.SaveChangesAsync();
+        await _runs.AddAsync(newRun);
+        await _uow.SaveChangesAsync();
 
         await _notifier.NotifyUserAsync(gitHubId, "WorkflowRunStarted", new
         {
@@ -226,13 +197,7 @@ public class WorkflowService
 
         // Scope to the caller's PRs (author or subscriber) — never query the
         // whole DB across all tenants.
-        var repos = await _db.PullRequestEvents
-            .Where(e => e.Status == "open"
-                && (e.AuthorGitHubId == gitHubId
-                    || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))))
-            .Select(e => e.RepoFullName)
-            .Distinct()
-            .ToListAsync();
+        var repos = await _prs.GetSubscribedReposAsync(gitHubId);
 
         if (repos.Count == 0)
             return ApiResult.Ok(new { synced = 0, repos = 0, message = "No active PRs found." });
@@ -249,7 +214,7 @@ public class WorkflowService
                 var name = run.TryGetProperty("name", out var wn) ? wn.GetString() : "Workflow";
                 var isIgnored = IgnoredWorkflows.IsIgnored(name);
 
-                var exists = await _db.WorkflowRuns.AnyAsync(w => w.RunId == runId && w.Status == "in_progress");
+                var exists = await _runs.AnyInProgressByRunIdAsync(runId);
                 if (exists) continue;
 
                 var actor = run.TryGetProperty("actor", out var act)
@@ -262,7 +227,7 @@ public class WorkflowService
                     : DateTime.UtcNow;
                 var trigger = run.TryGetProperty("event", out var ev) ? ev.GetString() : null;
 
-                _db.WorkflowRuns.Add(new WorkflowRun
+                await _runs.AddAsync(new WorkflowRun
                 {
                     RunId = runId,
                     GitHubId = gitHubId,
@@ -281,7 +246,7 @@ public class WorkflowService
         }
 
         if (newCount > 0)
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
 
         return ApiResult.Ok(new { synced = newCount, repos = repos.Count });
     }

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
@@ -13,21 +12,24 @@ namespace Statefalse.Application;
 /// </summary>
 public abstract class PullRequestCommentHandlerBase : IWebhookHandler
 {
-    protected readonly IAppDbContext Db;
-    protected readonly PullRequestQueries Prs;
+    protected readonly IPullRequestEventRepository Prs;
+    protected readonly IGitHubUserRepository Users;
+    protected readonly IUnitOfWork Uow;
     protected readonly ISignalRNotifier Notifier;
     protected readonly ILogger Logger;
 
     private const int MaxCommentLength = 500;
 
     protected PullRequestCommentHandlerBase(
-        IAppDbContext db,
-        PullRequestQueries prs,
+        IPullRequestEventRepository prs,
+        IGitHubUserRepository users,
+        IUnitOfWork uow,
         ISignalRNotifier notifier,
         ILogger logger)
     {
-        Db = db;
         Prs = prs;
+        Users = users;
+        Uow = uow;
         Notifier = notifier;
         Logger = logger;
     }
@@ -68,7 +70,7 @@ public abstract class PullRequestCommentHandlerBase : IWebhookHandler
         existing.LastCommentBody = commentBody.Length > MaxCommentLength ? commentBody[..MaxCommentLength] : commentBody;
         existing.LastCommentAt = DateTime.UtcNow;
         existing.LastCommentUrl = commentUrl;
-        await Db.SaveChangesAsync();
+        await Uow.SaveChangesAsync();
 
         WebhookLog.Log(EventType, action, repo, null, "processed",
             BuildProcessedMessage(payload, prNumber, commenterLogin));
@@ -80,17 +82,14 @@ public abstract class PullRequestCommentHandlerBase : IWebhookHandler
         // Notify PR author
         if (existing.AuthorGitHubId.HasValue)
         {
-            var authorConn = await Db.GitHubUsers
-                .Where(u => u.GitHubId == existing.AuthorGitHubId.Value)
-                .Select(u => u.SignalRConnectionId)
-                .FirstOrDefaultAsync();
+            var authorConn = await Users.GetSignalRConnectionIdAsync(existing.AuthorGitHubId.Value);
 
             if (!string.IsNullOrEmpty(authorConn))
                 await Notifier.NotifyConnectionAsync(authorConn, "PrCommented", notifPayload);
         }
 
         // Notify subscribers (excluding the commenter)
-        var commenterUser = await Db.GitHubUsers.Where(u => u.GitHubUsername == commenterLogin).Select(u => u.GitHubId).FirstOrDefaultAsync();
+        var commenterUser = await Users.FindGitHubIdByUsernameAsync(commenterLogin);
         await Notifier.NotifySubscribersAsync(existing, "PrCommented", notifPayload, commenterUser);
 
         await Notifier.NotifyPullRequestsUpdatedAsync();

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 
@@ -11,19 +10,22 @@ namespace Statefalse.Application;
 /// </summary>
 public class PullRequestReviewWebhookHandler : IWebhookHandler
 {
-    private readonly IAppDbContext _db;
-    private readonly PullRequestQueries _prs;
+    private readonly IPullRequestEventRepository _prs;
+    private readonly IGitHubUserRepository _users;
+    private readonly IUnitOfWork _uow;
     private readonly ISignalRNotifier _notifier;
     private readonly ILogger<PullRequestReviewWebhookHandler> _logger;
 
     public PullRequestReviewWebhookHandler(
-        IAppDbContext db,
-        PullRequestQueries prs,
+        IPullRequestEventRepository prs,
+        IGitHubUserRepository users,
+        IUnitOfWork uow,
         ISignalRNotifier notifier,
         ILogger<PullRequestReviewWebhookHandler> logger)
     {
-        _db = db;
         _prs = prs;
+        _users = users;
+        _uow = uow;
         _notifier = notifier;
         _logger = logger;
     }
@@ -69,7 +71,7 @@ public class PullRequestReviewWebhookHandler : IWebhookHandler
             existing.ApprovedBy = null;
         }
         // "commented" → don't touch ReviewApproved at all
-        await _db.SaveChangesAsync();
+        await _uow.SaveChangesAsync();
 
         WebhookLog.Log("pull_request_review", action, repo, null, approved ? "approved" : reviewState!,
             $"PR #{prNumber} reviewed by {reviewerLogin}: {reviewState}");
@@ -79,17 +81,14 @@ public class PullRequestReviewWebhookHandler : IWebhookHandler
         // Notify PR author when approved
         if (approved && existing.AuthorGitHubId.HasValue)
         {
-            var approverToken = await _db.GitHubUsers
-                .Where(u => u.GitHubId == existing.AuthorGitHubId.Value)
-                .Select(u => u.SignalRConnectionId)
-                .FirstOrDefaultAsync();
+            var approverToken = await _users.GetSignalRConnectionIdAsync(existing.AuthorGitHubId.Value);
 
             if (!string.IsNullOrEmpty(approverToken))
                 await _notifier.NotifyConnectionAsync(approverToken, "PrApproved", payload2);
         }
 
         // Notify subscribers (excluding the reviewer themselves)
-        var reviewerUser = await _db.GitHubUsers.Where(u => u.GitHubUsername == reviewerLogin).Select(u => u.GitHubId).FirstOrDefaultAsync();
+        var reviewerUser = await _users.FindGitHubIdByUsernameAsync(reviewerLogin);
         await _notifier.NotifySubscribersAsync(existing, "PrApproved", payload2, reviewerUser);
 
         await _notifier.NotifyPullRequestsUpdatedAsync();

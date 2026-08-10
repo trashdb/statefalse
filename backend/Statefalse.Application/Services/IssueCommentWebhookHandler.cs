@@ -9,11 +9,12 @@ namespace Statefalse.Application;
 public class IssueCommentWebhookHandler : PullRequestCommentHandlerBase
 {
     public IssueCommentWebhookHandler(
-        IAppDbContext db,
-        PullRequestQueries prs,
+        IPullRequestEventRepository prs,
+        IGitHubUserRepository users,
+        IUnitOfWork uow,
         ISignalRNotifier notifier,
         ILogger<IssueCommentWebhookHandler> logger)
-        : base(db, prs, notifier, logger)
+        : base(prs, users, uow, notifier, logger)
     {
     }
 

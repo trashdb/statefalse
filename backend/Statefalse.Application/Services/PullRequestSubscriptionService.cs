@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 
@@ -9,17 +8,20 @@ namespace Statefalse.Application;
 /// </summary>
 public class PullRequestSubscriptionService
 {
-    private readonly IAppDbContext _db;
-    private readonly PullRequestQueries _prs;
+    private readonly IPullRequestEventRepository _prs;
+    private readonly IGitHubUserRepository _users;
+    private readonly IUnitOfWork _uow;
     private readonly ISignalRNotifier _notifier;
 
     public PullRequestSubscriptionService(
-        IAppDbContext db,
-        PullRequestQueries prs,
+        IPullRequestEventRepository prs,
+        IGitHubUserRepository users,
+        IUnitOfWork uow,
         ISignalRNotifier notifier)
     {
-        _db = db;
         _prs = prs;
+        _users = users;
+        _uow = uow;
         _notifier = notifier;
     }
 
@@ -32,7 +34,7 @@ public class PullRequestSubscriptionService
         if (!current.Contains(gitHubId))
         {
             pr.SubscriberIds = IdListSerializer.Serialize(current.Append(gitHubId).ToArray());
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
 
         await _notifier.NotifyPullRequestsUpdatedAsync();
@@ -48,7 +50,7 @@ public class PullRequestSubscriptionService
         if (current.Contains(gitHubId))
         {
             pr.SubscriberIds = IdListSerializer.Serialize(current.Where(id => id != gitHubId).ToArray());
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
 
         await _notifier.NotifyPullRequestsUpdatedAsync();
@@ -62,12 +64,9 @@ public class PullRequestSubscriptionService
 
         var ids = IdListSerializer.Deserialize(pr.SubscriberIds);
 
-        var users = await _db.GitHubUsers
-            .Where(u => ids.Contains(u.GitHubId))
-            .Select(u => new { u.GitHubId, u.GitHubUsername, u.AvatarUrl })
-            .ToListAsync();
+        var users = await _users.FindByIdsAsync(ids);
 
-        return ApiResult.Ok(new { subscribers = users, subscriberIds = ids });
+        return ApiResult.Ok(new { subscribers = users.Select(u => new { u.GitHubId, u.GitHubUsername, u.AvatarUrl }).ToList(), subscriberIds = ids });
     }
 
     public async Task<ApiResult> AddSubscriberAsync(long prNumber, string repo, long gitHubId, string? username, long? subscriberId)
@@ -83,12 +82,12 @@ public class PullRequestSubscriptionService
         if (subscriberId.HasValue)
         {
             targetId = subscriberId.Value;
-            var userExists = await _db.GitHubUsers.AnyAsync(u => u.GitHubId == targetId);
+            var userExists = await _users.ExistsAsync(targetId);
             if (!userExists) return ApiResult.NotFound(new { error = "User not found in database" });
         }
         else if (!string.IsNullOrEmpty(username))
         {
-            var user = await _db.GitHubUsers.FirstOrDefaultAsync(u => u.GitHubUsername == username);
+            var user = await _users.FindByUsernameAsync(username);
             if (user == null) return ApiResult.NotFound(new { error = "User not found in database" });
             targetId = user.GitHubId;
         }
@@ -101,7 +100,7 @@ public class PullRequestSubscriptionService
         if (!current.Contains(targetId))
         {
             pr.SubscriberIds = IdListSerializer.Serialize(current.Append(targetId).ToArray());
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
 
         await _notifier.NotifyPullRequestsUpdatedAsync();
@@ -121,7 +120,7 @@ public class PullRequestSubscriptionService
         if (current.Contains(subscriberId))
         {
             pr.SubscriberIds = IdListSerializer.Serialize(current.Where(id => id != subscriberId).ToArray());
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
 
         await _notifier.NotifyPullRequestsUpdatedAsync();

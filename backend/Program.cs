@@ -12,6 +12,7 @@ using Statefalse.Domain;
 using Statefalse.Infrastructure;
 using Statefalse.Infrastructure.Data;
 using Statefalse.Infrastructure.Hubs;
+using Statefalse.Infrastructure.Repositories;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -47,10 +48,14 @@ try
     });
 
     // Application services
-    builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+    builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+    builder.Services.AddScoped<IGitHubUserRepository, GitHubUserRepository>();
+    builder.Services.AddScoped<IPunishmentEventRepository, PunishmentEventRepository>();
+    builder.Services.AddScoped<ICheckSuiteEventRepository, CheckSuiteEventRepository>();
+    builder.Services.AddScoped<IPullRequestEventRepository, PullRequestEventRepository>();
+    builder.Services.AddScoped<IWorkflowRunRepository, WorkflowRunRepository>();
     builder.Services.AddScoped<IGitHubTokenResolver, GitHubTokenResolver>();
     builder.Services.AddScoped<ISignalRNotifier, SignalRNotifier>();
-    builder.Services.AddScoped<PullRequestQueries>();
     builder.Services.AddScoped<PullRequestSyncService>();
     builder.Services.AddScoped<PullRequestQueryService>();
     builder.Services.AddScoped<PullRequestActionService>();

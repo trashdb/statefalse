@@ -1,10 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using Statefalse.Application;
 using Statefalse.Domain.Models;
 
 namespace Statefalse.Infrastructure.Data;
 
-public class AppDbContext : DbContext, IAppDbContext
+public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 

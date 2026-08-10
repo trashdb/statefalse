@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
@@ -12,19 +11,19 @@ namespace Statefalse.Application;
 /// </summary>
 public class PullRequestWebhookHandler : IWebhookHandler
 {
-    private readonly IAppDbContext _db;
-    private readonly PullRequestQueries _prs;
+    private readonly IPullRequestEventRepository _prs;
+    private readonly IUnitOfWork _uow;
     private readonly ISignalRNotifier _notifier;
     private readonly ILogger<PullRequestWebhookHandler> _logger;
 
     public PullRequestWebhookHandler(
-        IAppDbContext db,
-        PullRequestQueries prs,
+        IPullRequestEventRepository prs,
+        IUnitOfWork uow,
         ISignalRNotifier notifier,
         ILogger<PullRequestWebhookHandler> logger)
     {
-        _db = db;
         _prs = prs;
+        _uow = uow;
         _notifier = notifier;
         _logger = logger;
     }
@@ -68,14 +67,14 @@ public class PullRequestWebhookHandler : IWebhookHandler
         string baseBranch, string headBranch, string authorLogin, long? authorId,
         bool draft, string? headSha)
     {
-        _db.PullRequestEvents.Add(new PullRequestEvent
+        await _prs.AddAsync(new PullRequestEvent
         {
             PrNumber = prNumber, Title = title, AuthorLogin = authorLogin,
             AuthorGitHubId = authorId, RepoFullName = repo,
             HeadBranch = headBranch, BaseBranch = baseBranch, PrUrl = htmlUrl,
             Status = "open", Draft = draft, HeadSha = headSha, OccurredAt = DateTime.UtcNow
         });
-        await _db.SaveChangesAsync();
+        await _uow.SaveChangesAsync();
 
         _logger.LogInformation("PR #{PrNumber} opened by {Author} (draft={Draft})", prNumber, authorLogin, draft);
         await _notifier.NotifyPullRequestsUpdatedAsync();
@@ -91,7 +90,7 @@ public class PullRequestWebhookHandler : IWebhookHandler
             existing.ReviewApproved = false;
             existing.ApprovedBy = null;
             existing.HeadSha = headSha;
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
 
         _logger.LogInformation("PR #{PrNumber} synchronized — approval reset, headSha={headSha}", prNumber, headSha);
@@ -106,7 +105,7 @@ public class PullRequestWebhookHandler : IWebhookHandler
         if (existing != null)
         {
             existing.Draft = false;
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
 
         _logger.LogInformation("PR #{PrNumber} marked as ready for review", prNumber);
@@ -121,7 +120,7 @@ public class PullRequestWebhookHandler : IWebhookHandler
         if (existing != null)
         {
             existing.Draft = true;
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
 
         _logger.LogInformation("PR #{PrNumber} converted to draft", prNumber);
@@ -143,7 +142,7 @@ public class PullRequestWebhookHandler : IWebhookHandler
         {
             existing.Status = status;
             if (merged) existing.OccurredAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
 
         _logger.LogInformation("PR #{PrNumber} {Status} by {Author}", prNumber, status, authorLogin);

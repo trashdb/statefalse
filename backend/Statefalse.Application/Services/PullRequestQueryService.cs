@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 
@@ -12,7 +11,10 @@ namespace Statefalse.Application;
 /// </summary>
 public class PullRequestQueryService
 {
-    private readonly IAppDbContext _db;
+    private readonly IPullRequestEventRepository _prs;
+    private readonly IWorkflowRunRepository _runs;
+    private readonly ICheckSuiteEventRepository _checkSuites;
+    private readonly IUnitOfWork _uow;
     private readonly IGitHubClient _github;
     private readonly IGitHubTokenResolver _tokens;
     private readonly PullRequestSyncService _sync;
@@ -53,13 +55,19 @@ public class PullRequestQueryService
     private sealed record CheckSuiteInfo(string Repo, string HeadSha, int Id, string Conclusion);
 
     public PullRequestQueryService(
-        IAppDbContext db,
+        IPullRequestEventRepository prs,
+        IWorkflowRunRepository runs,
+        ICheckSuiteEventRepository checkSuites,
+        IUnitOfWork uow,
         IGitHubClient github,
         IGitHubTokenResolver tokens,
         PullRequestSyncService sync,
         ILogger<PullRequestQueryService> logger)
     {
-        _db = db;
+        _prs = prs;
+        _runs = runs;
+        _checkSuites = checkSuites;
+        _uow = uow;
         _github = github;
         _tokens = tokens;
         _sync = sync;
@@ -75,18 +83,12 @@ public class PullRequestQueryService
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No token" });
 
-        var prs = await _db.PullRequestEvents
-            .Where(e => ((e.Status == "open" || e.Status == "in_progress") || (e.Status == "merged" && e.OccurredAt >= DateTime.UtcNow.AddHours(-24)))
-                && (e.AuthorGitHubId == gitHubId || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))))
-            .OrderByDescending(e => e.OccurredAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(e => new PrRow(
-                e.PrNumber, e.Title, e.RepoFullName, e.HeadBranch, e.BaseBranch, e.PrUrl,
-                e.Status, e.Conclusion, e.Draft, e.ReviewApproved, e.LastCommentBy,
-                e.LastCommentBody, e.LastCommentAt, e.LastCommentUrl, e.LastReviewFilePath,
-                e.LastReviewLine, e.SubscriberIds, e.AuthorGitHubId))
-            .ToListAsync();
+        var entities = await _prs.GetActiveForUserAsync(gitHubId, page, pageSize, DateTime.UtcNow.AddHours(-24));
+        var prs = entities.Select(e => new PrRow(
+            e.PrNumber, e.Title, e.RepoFullName, e.HeadBranch, e.BaseBranch, e.PrUrl,
+            e.Status, e.Conclusion, e.Draft, e.ReviewApproved, e.LastCommentBy,
+            e.LastCommentBody, e.LastCommentAt, e.LastCommentUrl, e.LastReviewFilePath,
+            e.LastReviewLine, e.SubscriberIds, e.AuthorGitHubId)).ToList();
 
         // Live PR state (draft, mergeable, headSha, merged_at) fetched from GitHub
         // in parallel — previously N sequential round-trips.
@@ -171,10 +173,7 @@ public class PullRequestQueryService
     {
         var token = await _tokens.ResolveAsync(gitHubId);
 
-        var prEvent = await _db.PullRequestEvents
-            .Where(e => e.PrNumber == prNumber && e.RepoFullName == repo)
-            .OrderByDescending(e => e.Id)
-            .FirstOrDefaultAsync();
+        var prEvent = await _prs.FindLatestAsync(prNumber, repo);
 
         int? behindBy = null, aheadBy = null;
         string? mergeableState = null;
@@ -379,10 +378,7 @@ public class PullRequestQueryService
             {
                 var healed = data.Merged ? "merged" : "closed";
                 overrides[pr.PrNumber] = healed;
-                var entity = await _db.PullRequestEvents
-                    .Where(e => e.PrNumber == pr.PrNumber && e.RepoFullName == pr.RepoFullName && e.Status == "open")
-                    .OrderByDescending(e => e.Id)
-                    .FirstOrDefaultAsync();
+                var entity = await _prs.FindLatestOpenAsync(pr.PrNumber, pr.RepoFullName);
                 if (entity != null)
                 {
                     entity.Status = healed;
@@ -397,9 +393,7 @@ public class PullRequestQueryService
             // Update ALL merged rows for this PR to avoid stale duplicates lingering.
             else if (pr.Status == "merged" && data.Merged && data.MergedAt.HasValue)
             {
-                var mergedRows = await _db.PullRequestEvents
-                    .Where(e => e.PrNumber == pr.PrNumber && e.RepoFullName == pr.RepoFullName && e.Status == "merged")
-                    .ToListAsync();
+                var mergedRows = await _prs.GetMergedAsync(pr.PrNumber, pr.RepoFullName);
                 foreach (var row in mergedRows)
                 {
                     if (Math.Abs((row.OccurredAt - data.MergedAt.Value).TotalMinutes) > 2)
@@ -411,7 +405,7 @@ public class PullRequestQueryService
             }
         }
 
-        if (changed) await _db.SaveChangesAsync();
+        if (changed) await _uow.SaveChangesAsync();
         return overrides;
     }
 
@@ -439,10 +433,7 @@ public class PullRequestQueryService
             if (approved == null) continue;
             overrides[targets[i].PrNumber] = approved.Value;
 
-            var entity = await _db.PullRequestEvents
-                .Where(e => e.PrNumber == targets[i].PrNumber && e.RepoFullName == targets[i].RepoFullName && e.Status == "open")
-                .OrderByDescending(e => e.Id)
-                .FirstOrDefaultAsync();
+            var entity = await _prs.FindLatestOpenAsync(targets[i].PrNumber, targets[i].RepoFullName);
             if (entity != null && entity.ReviewApproved != approved.Value)
             {
                 entity.ReviewApproved = approved.Value;
@@ -450,7 +441,7 @@ public class PullRequestQueryService
             }
         }
 
-        if (changed) await _db.SaveChangesAsync();
+        if (changed) await _uow.SaveChangesAsync();
         return overrides;
     }
 
@@ -490,10 +481,7 @@ public class PullRequestQueryService
     private async Task<List<RunInfo>> LoadRunsAsync(List<string> repos)
     {
         if (repos.Count == 0) return [];
-        var raw = await _db.WorkflowRuns
-            .Where(w => w.HeadSha != null && repos.Contains(w.Repo))
-            .Select(w => new { w.Repo, w.HeadSha, w.WorkflowName, w.Id, w.Status })
-            .ToListAsync();
+        var raw = await _runs.GetByShasForReposAsync(repos);
         return raw.Select(r => new RunInfo(r.Repo, r.HeadSha, r.WorkflowName, r.Id, r.Status)).ToList();
     }
 
@@ -502,10 +490,7 @@ public class PullRequestQueryService
         if (shaRepoSet.Count == 0) return [];
         var repos = shaRepoSet.Select(s => s.Repo).Distinct().ToList();
         var shas = shaRepoSet.Select(s => s.Sha).Distinct().ToList();
-        var raw = await _db.CheckSuiteEvents
-            .Where(c => c.HeadSha != null && repos.Contains(c.RepoFullName) && shas.Contains(c.HeadSha))
-            .Select(c => new { c.RepoFullName, c.HeadSha, c.Id, c.Conclusion })
-            .ToListAsync();
+        var raw = await _checkSuites.GetByShasForReposAsync(shas, repos);
         return raw.Select(c => new CheckSuiteInfo(c.RepoFullName, c.HeadSha!, c.Id, c.Conclusion ?? "")).ToList();
     }
 

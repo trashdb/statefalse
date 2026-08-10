@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Application;
 
 namespace Statefalse.Application;
@@ -10,25 +9,28 @@ namespace Statefalse.Application;
 /// </summary>
 public class PullRequestActionService
 {
-    private readonly IAppDbContext _db;
+    private readonly IPullRequestEventRepository _prs;
+    private readonly IWorkflowRunRepository _runs;
+    private readonly IUnitOfWork _uow;
     private readonly IGitHubClient _github;
     private readonly IGitHubTokenResolver _tokens;
-    private readonly PullRequestQueries _prs;
     private readonly ISignalRNotifier _notifier;
     private readonly ILogger<PullRequestActionService> _logger;
 
     public PullRequestActionService(
-        IAppDbContext db,
+        IPullRequestEventRepository prs,
+        IWorkflowRunRepository runs,
+        IUnitOfWork uow,
         IGitHubClient github,
         IGitHubTokenResolver tokens,
-        PullRequestQueries prs,
         ISignalRNotifier notifier,
         ILogger<PullRequestActionService> logger)
     {
-        _db = db;
+        _prs = prs;
+        _runs = runs;
+        _uow = uow;
         _github = github;
         _tokens = tokens;
-        _prs = prs;
         _notifier = notifier;
         _logger = logger;
     }
@@ -72,7 +74,7 @@ public class PullRequestActionService
         if (prEvent != null)
         {
             prEvent.Status = "merged";
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
 
         await _notifier.NotifyPullRequestsUpdatedAsync();
@@ -133,7 +135,7 @@ public class PullRequestActionService
         if (prEvent != null)
         {
             prEvent.Draft = draft;
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
 
         await _notifier.NotifyPullRequestsUpdatedAsync();
@@ -164,14 +166,11 @@ public class PullRequestActionService
         var prEvent = await _prs.FindLatestOpenAsync(prNumber, repo);
         if (prEvent?.HeadBranch != null)
         {
-            var stale = await _db.WorkflowRuns
-                .Where(w => w.Repo == repo && w.HeadBranch == prEvent.HeadBranch
-                    && (w.Status == "failure" || w.Status == "in_progress"))
-                .ToListAsync();
+            var stale = await _runs.FindStaleAsync(repo, prEvent.HeadBranch);
             if (stale.Count > 0)
             {
                 foreach (var s in stale) s.Status = "superseded";
-                await _db.SaveChangesAsync();
+                await _uow.SaveChangesAsync();
             }
         }
 

@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
@@ -13,18 +12,24 @@ namespace Statefalse.Application;
 /// </summary>
 public class PullRequestSyncService
 {
-    private readonly IAppDbContext _db;
+    private readonly IPullRequestEventRepository _prs;
+    private readonly IWorkflowRunRepository _runs;
+    private readonly IUnitOfWork _uow;
     private readonly IGitHubClient _github;
     private readonly IGitHubTokenResolver _tokens;
     private readonly ILogger<PullRequestSyncService> _logger;
 
     public PullRequestSyncService(
-        IAppDbContext db,
+        IPullRequestEventRepository prs,
+        IWorkflowRunRepository runs,
+        IUnitOfWork uow,
         IGitHubClient github,
         IGitHubTokenResolver tokens,
         ILogger<PullRequestSyncService> logger)
     {
-        _db = db;
+        _prs = prs;
+        _runs = runs;
+        _uow = uow;
         _github = github;
         _tokens = tokens;
         _logger = logger;
@@ -119,10 +124,7 @@ public class PullRequestSyncService
                 var draft = matched.Draft;
                 var createdAt = matched.CreatedAt;
 
-                var existing = await _db.PullRequestEvents
-                    .Where(e => e.PrNumber == prNumber && e.RepoFullName == repo)
-                    .OrderByDescending(e => e.Id)
-                    .FirstOrDefaultAsync();
+                var existing = await _prs.FindLatestAsync(prNumber, repo);
 
                 if (existing != null)
                 {
@@ -137,7 +139,7 @@ public class PullRequestSyncService
                 }
                 else
                 {
-                    _db.PullRequestEvents.Add(new PullRequestEvent
+                    await _prs.AddAsync(new PullRequestEvent
                     {
                         PrNumber = prNumber,
                         Title = title,
@@ -156,7 +158,7 @@ public class PullRequestSyncService
             }
         }
 
-        await _db.SaveChangesAsync();
+        await _uow.SaveChangesAsync();
         return ApiResult.Ok(new SyncResult(synced));
     }
 
@@ -186,9 +188,7 @@ public class PullRequestSyncService
 
                 var mappedStatus = CheckRunStatusMapper.Map(status, conclusion);
 
-                var existing = await _db.WorkflowRuns
-                    .Where(w => w.RunId == runId && w.Repo == repo)
-                    .FirstOrDefaultAsync();
+                var existing = await _runs.FindByRunIdAndRepoAsync(runId, repo);
 
                 if (existing != null)
                 {
@@ -207,7 +207,7 @@ public class PullRequestSyncService
                         ? slug.GetString() ?? "unknown" : "unknown";
                     var workflowName = cr.TryGetProperty("name", out var wn) ? wn.GetString() : name;
 
-                    _db.WorkflowRuns.Add(new WorkflowRun
+                    await _runs.AddAsync(new WorkflowRun
                     {
                         RunId = runId,
                         WorkflowName = workflowName,
@@ -222,7 +222,7 @@ public class PullRequestSyncService
                 }
             }
 
-            await _db.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
         }
         catch (Exception ex)
         {

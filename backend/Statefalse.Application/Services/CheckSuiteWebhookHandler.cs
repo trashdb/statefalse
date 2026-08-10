@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
@@ -12,18 +11,21 @@ namespace Statefalse.Application;
 /// </summary>
 public class CheckSuiteWebhookHandler : IWebhookHandler
 {
-    private readonly IAppDbContext _db;
+    private readonly ICheckSuiteEventRepository _checkSuites;
+    private readonly IUnitOfWork _uow;
     private readonly IGitHubTokenResolver _tokens;
     private readonly ISignalRNotifier _notifier;
     private readonly ILogger<CheckSuiteWebhookHandler> _logger;
 
     public CheckSuiteWebhookHandler(
-        IAppDbContext db,
+        ICheckSuiteEventRepository checkSuites,
+        IUnitOfWork uow,
         IGitHubTokenResolver tokens,
         ISignalRNotifier notifier,
         ILogger<CheckSuiteWebhookHandler> logger)
     {
-        _db = db;
+        _checkSuites = checkSuites;
+        _uow = uow;
         _tokens = tokens;
         _notifier = notifier;
         _logger = logger;
@@ -111,8 +113,8 @@ public class CheckSuiteWebhookHandler : IWebhookHandler
 
         var user = await _tokens.FindConnectedUserAsync(authorLogin, authorId);
         checkEvent.WasNotified = user != null;
-        _db.CheckSuiteEvents.Add(checkEvent);
-        await _db.SaveChangesAsync();
+        await _checkSuites.AddAsync(checkEvent);
+        await _uow.SaveChangesAsync();
 
         // Always notify all clients so Active PRs refresh ciStatus, even if the
         // PR author isn't currently connected (other team members may be watching).
