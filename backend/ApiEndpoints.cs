@@ -164,8 +164,8 @@ public static class ApiEndpoints
         app.MapGet("/api/workflows/runs", async (WorkflowService service, HttpContext ctx, int limit = 20)
             => await MapAsync(service.GetRunsAsync(ctx.GitHubId(), limit))).RequireAuthorization().RequireRateLimiting("api");
 
-        app.MapPut("/api/workflows/runs/{id}/target", async (int id, SetTargetRequest request, WorkflowService service)
-            => await MapAsync(service.SetTargetAsync(id, request))).RequireAuthorization();
+        app.MapPut("/api/workflows/runs/{id}/target", async (int id, SetTargetRequest request, HttpContext ctx, WorkflowService service)
+            => await MapAsync(service.SetTargetAsync(id, ctx.GitHubId(), request))).RequireAuthorization();
 
         app.MapPost("/api/workflows/runs/{runId}/rerun", async (long runId, HttpContext ctx, WorkflowService service)
             => await MapAsync(service.RerunAsync(runId, ctx.GitHubId()))).RequireAuthorization();

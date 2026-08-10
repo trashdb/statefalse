@@ -355,6 +355,50 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
         Assert.Equal(200, result.GetProperty("runId").GetInt64());
     }
 
+    [Fact]
+    public async Task SetWorkflowTarget_UnrelatedUser_ReturnsForbidden()
+    {
+        var ownerId = SeedUser();
+        var strangerId = SeedUser();
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.WorkflowRuns.Add(new WorkflowRun
+        {
+            RunId = 201, GitHubId = ownerId, WorkflowName = "CI", Repo = "org/repo",
+            Actor = "user", Status = "in_progress", StartedAt = DateTime.UtcNow
+        });
+        db.SaveChanges();
+        var runId = db.WorkflowRuns.First().Id;
+
+        var client = AuthClient(strangerId);
+        var body = JsonContent.Create(new { targetGitHubIds = new long[] { 42 } });
+        var response = await client.PutAsync($"/api/workflows/runs/{runId}/target", body);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetWorkflowTarget_TargetedUser_CanSet()
+    {
+        var ownerId = SeedUser();
+        var targetId = SeedUser();
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.WorkflowRuns.Add(new WorkflowRun
+        {
+            RunId = 202, GitHubId = ownerId, WorkflowName = "CI", Repo = "org/repo",
+            Actor = "user", Status = "in_progress", StartedAt = DateTime.UtcNow,
+            TargetGitHubIds = $"[{targetId}]"
+        });
+        db.SaveChanges();
+        var runId = db.WorkflowRuns.First().Id;
+
+        // Target user (not owner) can still manage targets — they can see the run
+        var client = AuthClient(targetId);
+        var body = JsonContent.Create(new { targetGitHubIds = new long[] { 7 } });
+        var response = await client.PutAsync($"/api/workflows/runs/{runId}/target", body);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     // ───────────── PullRequests ─────────────
 
     [Fact]

@@ -134,7 +134,7 @@ public class WorkflowService
                 : null)));
     }
 
-    public async Task<ApiResult> SetTargetAsync(int id, SetTargetRequest request)
+    public async Task<ApiResult> SetTargetAsync(int id, long gitHubId, SetTargetRequest request)
     {
         var run = await _db.WorkflowRuns
             .Where(w => w.Id == id)
@@ -142,6 +142,19 @@ public class WorkflowService
 
         if (run == null)
             return ApiResult.NotFound("Workflow run not found.");
+
+        // Multi-tenant rule: only users that can see the run (own it, are targeted
+        // by it, or are subscribed to a matching PR) may change its targets.
+        var canManage = run.GitHubId == gitHubId
+            || IdListSerializer.Deserialize(run.TargetGitHubIds).Contains(gitHubId)
+            || await _db.PullRequestEvents.AnyAsync(e =>
+                e.Status == "open"
+                && e.RepoFullName == run.Repo
+                && e.HeadBranch == run.HeadBranch
+                && (e.AuthorGitHubId == gitHubId
+                    || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))));
+        if (!canManage)
+            return ApiResult.Forbid("You don't have access to this workflow run.");
 
         run.TargetGitHubIds = IdListSerializer.Serialize(request.TargetGitHubIds ?? []);
         await _db.SaveChangesAsync();
@@ -211,8 +224,12 @@ public class WorkflowService
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized("No access token available.");
 
+        // Scope to the caller's PRs (author or subscriber) — never query the
+        // whole DB across all tenants.
         var repos = await _db.PullRequestEvents
-            .Where(e => e.Status == "open")
+            .Where(e => e.Status == "open"
+                && (e.AuthorGitHubId == gitHubId
+                    || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))))
             .Select(e => e.RepoFullName)
             .Distinct()
             .ToListAsync();
