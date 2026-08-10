@@ -57,7 +57,7 @@ public class CheckSuiteWebhookHandler : IWebhookHandler
         var user = await _tokens.FindConnectedUserAsync(authorLogin, authorId);
         if (user == null) return ApiResult.Ok($"User '{authorLogin}' not connected.");
 
-        var repo = payload.GetProperty("repository").GetProperty("full_name").GetString() ?? "unknown";
+        var repo = WebhookPayload.GetRepoOrUnknown(payload);
         var branch = checkSuite.TryGetProperty("head_branch", out var hb) ? hb.GetString() : null;
         var appName = checkSuite.TryGetProperty("app", out var app) &&
                       app.TryGetProperty("name", out var an)
@@ -83,7 +83,7 @@ public class CheckSuiteWebhookHandler : IWebhookHandler
         if (conclusion != "success" && conclusion != "failure")
             return ApiResult.Ok($"Ignored: conclusion is '{conclusion}'.");
 
-        var repoFullName = payload.GetProperty("repository").GetProperty("full_name").GetString() ?? "unknown";
+        var repoFullName = WebhookPayload.GetRepoOrUnknown(payload);
         var checkSuiteId = checkSuite.GetProperty("id").GetInt64();
         var headBranch = checkSuite.TryGetProperty("head_branch", out var hb) ? hb.GetString() : null;
         var headSha = checkSuite.TryGetProperty("head_sha", out var hs) ? hs.GetString() : null;

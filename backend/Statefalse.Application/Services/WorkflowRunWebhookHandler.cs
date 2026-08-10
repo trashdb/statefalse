@@ -54,7 +54,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
             return ApiResult.Ok("Could not resolve actor.");
         }
 
-        var repo = payload.GetProperty("repository").GetProperty("full_name").GetString() ?? "unknown";
+        var repo = WebhookPayload.GetRepoOrUnknown(payload);
         var name = run.TryGetProperty("name", out var wn) ? wn.GetString() : "Workflow";
         var isIgnored = IgnoredWorkflows.IsIgnored(name);
         var branch = run.TryGetProperty("head_branch", out var hb) ? hb.GetString() : null;
@@ -149,7 +149,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
             return ApiResult.Ok("Could not resolve culprit.");
         }
 
-        var repoFullName = payload.GetProperty("repository").GetProperty("full_name").GetString() ?? "unknown";
+        var repoFullName = WebhookPayload.GetRepoOrUnknown(payload);
         var runId = workflowRun.GetProperty("id").GetInt64();
         var workflowName = workflowRun.TryGetProperty("name", out var wn) ? wn.GetString() : null;
         var isIgnored = IgnoredWorkflows.IsIgnored(workflowName);

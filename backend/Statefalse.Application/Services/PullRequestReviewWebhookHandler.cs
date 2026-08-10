@@ -43,7 +43,7 @@ public class PullRequestReviewWebhookHandler : IWebhookHandler
         var reviewState = review.GetProperty("state").GetString();
         var pr = payload.GetProperty("pull_request");
         var prNumber = pr.GetProperty("number").GetInt32();
-        var repo = payload.GetProperty("repository").GetProperty("full_name").GetString() ?? "unknown";
+        var repo = WebhookPayload.GetRepoOrUnknown(payload);
         var reviewerLogin = review.GetProperty("user").GetProperty("login").GetString() ?? "unknown";
 
         var existing = await _prs.FindOpenAsync(prNumber, repo);

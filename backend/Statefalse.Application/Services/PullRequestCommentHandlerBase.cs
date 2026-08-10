@@ -51,7 +51,7 @@ public abstract class PullRequestCommentHandlerBase : IWebhookHandler
 
         var pr = payload.GetProperty("pull_request");
         var prNumber = pr.GetProperty("number").GetInt32();
-        var repo = payload.GetProperty("repository").GetProperty("full_name").GetString() ?? "unknown";
+        var repo = WebhookPayload.GetRepoOrUnknown(payload);
         var commenterLogin = GetCommenterLogin(payload);
         var commentBody = GetCommentBody(payload);
         var commentUrl = GetCommentUrl(payload);

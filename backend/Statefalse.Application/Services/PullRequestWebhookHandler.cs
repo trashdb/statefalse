@@ -38,7 +38,7 @@ public class PullRequestWebhookHandler : IWebhookHandler
         var prNumber = pr.GetProperty("number").GetInt32();
         var title = pr.GetProperty("title").GetString() ?? "";
         var htmlUrl = pr.GetProperty("html_url").GetString() ?? "";
-        var repo = payload.GetProperty("repository").GetProperty("full_name").GetString() ?? "unknown";
+        var repo = WebhookPayload.GetRepoOrUnknown(payload);
         var baseBranch = pr.GetProperty("base").GetProperty("ref").GetString() ?? "";
         var headBranch = pr.GetProperty("head").GetProperty("ref").GetString() ?? "";
         var authorLogin = pr.GetProperty("user").GetProperty("login").GetString() ?? "";
