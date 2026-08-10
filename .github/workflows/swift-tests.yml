@@ -36,8 +36,12 @@ jobs:
       - name: Run Tests
         run: |
           cd native
+          # SnapshotTests render SwiftUI/AppKit views and crash the hosted app
+          # on headless runners (the `CI` env guard in SnapshotTesting.swift does
+          # not propagate through the app host). Snapshots are validated locally.
           xcodebuild test -scheme StatefalseTests -project statefalse.xcodeproj \
             -destination 'platform=macOS' \
+            -skip-testing:StatefalseTests/SnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             -derivedDataPath /tmp/statefalse-test \
             -resultBundlePath /tmp/statefalse-test.xcresult 2>&1 | tee /tmp/statefalse-test.log | xcpretty && exit ${PIPESTATUS[0]}

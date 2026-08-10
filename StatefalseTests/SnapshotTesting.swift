@@ -6,8 +6,9 @@ import AppKit
 /// Lightweight snapshot testing without external dependencies.
 /// Renders SwiftUI views to images and compares against reference files.
 enum SnapshotTesting {
-    /// GitHub Actions macOS runners have no GUI session; ImageRenderer can
-    /// crash the test runner there. Validate snapshots on dev machines only.
+    /// The `CI` environment variable does NOT propagate through the app host
+    /// (TEST_HOST launches the app outside the runner env), so this guard alone
+    /// is not reliable. CI excludes this suite via `-skip-testing:StatefalseTests/SnapshotTests`.
     static let isCI = ProcessInfo.processInfo.environment["CI"] != nil
 
     static var referenceDirectory: URL {
