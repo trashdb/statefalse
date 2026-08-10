@@ -43,23 +43,24 @@ Run all tests.
 # Backend
 cd tests-backend && dotnet test
 
-# Swift (from native/)
-xcodebuild test -scheme StatefalseTests -project statefalse.xcodeproj \
-  -destination 'platform=macOS'
+# Swift
+cd native && xcodebuild test -scheme StatefalseTests -project statefalse.xcodeproj \
+  -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 ```
 
 ---
 
-## Skill: new-controller
+## Skill: new-endpoint
 
-Add new backend controller.
+Add new backend API endpoint.
 
-1. Create `backend/Controllers/XxxController.cs`
-2. Add route: `[Route("api/xxx")]`
-3. Add `DbSet<Xxx>` in `AppDbContext.cs` if new entity
-4. Add model in `backend/Models/`
-5. Run `dotnet build` to verify
-6. Add tests in `tests-backend/`
+1. Add route in `backend/ApiEndpoints.cs` (Minimal API, group by resource: `MapPullRequests`, etc.)
+2. Business logic in `backend/Statefalse.Application/Services/` — returns `ApiResult`
+3. Register service in `backend/Program.cs` DI
+4. Add EF entity in `Statefalse.Domain/Models/` + `DbSet` in `AppDbContext` if new entity
+5. Add DTO in `Statefalse.Domain/Contracts/` if response shape needed
+6. Run `dotnet build` to verify
+7. Add tests in `tests-backend/`
 
 ---
 

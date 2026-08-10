@@ -21,13 +21,13 @@ Boundaries: code/commits/PRs written normal.
 
 ## Project: statefalse
 
-GitHub PR/workflow monitor. macOS menu-bar app + .NET backend + SQLite + SignalR.
+GitHub PR/workflow monitor. macOS menu-bar app + .NET 10 backend + SQLite + SignalR.
 
 ### Architecture
 
 ```
 [macOS App (SwiftUI)] ←SignalR+REST→ [ngrok tunnel] → [ASP.NET Kestrel:5000]
-                                       (Hetzner VPS)       ↓
+                                       (Hetzner VPS)        ↓
                                                     SQLite /var/lib/statefalse/
 ```
 
@@ -35,45 +35,41 @@ GitHub PR/workflow monitor. macOS menu-bar app + .NET backend + SQLite + SignalR
 
 | Layer | Tech |
 |-------|------|
-| Backend | .NET 10, ASP.NET Core Minimal + Controllers, EF Core + SQLite, SignalR |
-| Native | Swift 5 / SwiftUI, macOS menu-bar only (LSUIElement), no AppKit windows |
+| Backend | .NET 10, ASP.NET Core Minimal API, EF Core + SQLite, SignalR, Serilog, JWT, Scalar/OpenAPI |
+| Native | Swift/SwiftUI, macOS menu-bar only (LSUIElement=1, no Dock) |
 | Infra | Hetzner VPS (SSH alias: `underlayer`), systemd, ngrok |
-| Auth | GitHub OAuth 2.0 + optional PAT stored in Keychain |
-| Real-time | SignalR WebSocket hub at `/hubs/punishment` |
+| Auth | GitHub OAuth 2.0 + optional PAT stored in Keychain, session JWT |
 
-### Repo layout
+### Backend layers (Clean Architecture)
 
 ```
 backend/
-  Program.cs                      ← DI, CORS, SignalR, DB migrations on start
-  Controllers/
-    AuthController.cs             ← /api/auth (login, callback, me, pat)
-    WebhookController.cs          ← /api/webhook/github (HMAC-SHA256 verified)
-    GitHubApiController.cs        ← /api/github (branches, create-pr, interpret)
-    PullRequestsController.cs     ← /api/pullrequests (active, detail, merge, etc.)
-    WorkflowsController.cs        ← /api/workflows (runs, rerun, sync-active, targets)
-    PunishmentsController.cs      ← /api/punishments (list, summary)
-  Models/                         ← EF entities
-  Services/                       ← GitHubOAuthService, UtcDateTimeConverter
-  Hubs/PunishmentHub.cs           ← SignalR: RegisterConnection, user groups
-  Data/AppDbContext.cs             ← 5 DbSets
-  Migrations/                     ← EF migrations
+├── Program.cs                          ← Composition root: DI, CORS, auth, rate limit, migrations
+├── ApiEndpoints.cs                     ← Minimal API routes (replaces MVC controllers)
+├── Statefalse.Domain/                  ← zero dependencies: EF entities, DTOs, mappers (ciStatus, workflow conclusion, IdListSerializer)
+├── Statefalse.Application/             ← →Domain: services, IWebhookHandler dispatch, IAppDbContext, ApiResult
+├── Statefalse.Infrastructure/          ← →Application: AppDbContext, GitHubClient, token resolver, SignalRNotifier, PunishmentHub, WorkflowCleanupService, migrations
+└── Statefalse.Api.csproj               ← entry point (compiles App/Infra via ProjectReference)
+```
 
+### Native structure
+
+```
 native/
-  App/StatefalseApp.swift     ← NSStatusItem, no Dock
-  Models/Models.swift             ← Swift DTOs
-  Services/
-    SignalRService.swift          ← WebSocket, reconnect, event parsing
-    OAuthService.swift            ← GitHub OAuth flow
-    GitService.swift              ← local git ops (branch, push, PR preview)
-    KeychainService.swift         ← token storage
-    PersistenceService.swift      ← UserDefaults wrapper
-    ConflictWatcherService.swift  ← detects git conflicts on local repos
-  Views/                          ← All SwiftUI views
-  Utils/DesignSystem.swift        ← Colors, spacing, fonts
-
-tests-backend/                    ← xUnit, WebApplicationFactory integration tests
-deploy/                           ← systemd units, setup-vps.sh
+├── App/StatefalseApp.swift             ← @main, MenuBarExtra, LoginItem, Dependencies injection
+├── Models/Models.swift                 ← Swift DTOs + backendUrl (UserDefaults)
+├── Services/
+│   ├── SignalRService.swift            ← facade: UI state + domain rules, delegates transport
+│   ├── SignalRClient.swift             ← websocket transport
+│   ├── ApiClient.swift                 ← all REST calls, JWT header, 401 → auto-logout
+│   ├── DTOMapper.swift / WorkflowEventReducer.swift / ReadyMergeNotifier.swift
+│   ├── GitService.swift                ← git CLI via Process
+│   ├── OAuthService.swift              ← GitHub OAuth via NWListener
+│   ├── KeychainService.swift / PersistenceService.swift / MockServices.swift
+│   └── ServiceProtocols.swift          ← GitServiceProtocol, SignalRServiceProtocol, etc.
+├── ViewModels/PRDetailViewModel.swift
+├── Views/                              ← SwiftUI views + PanelManager singletons
+└── Utils/DesignSystem.swift            ← DS.Color/Font/Spacing/Radius/Animation
 ```
 
 ### Key commands
@@ -90,6 +86,7 @@ cd backend && dotnet run
 
 # Tests
 cd tests-backend && dotnet test
+cd native && xcodebuild test -scheme StatefalseTests -project statefalse.xcodeproj -destination 'platform=macOS'
 
 # Logs
 ssh underlayer 'sudo journalctl -u statefalse -f'
@@ -99,27 +96,9 @@ ssh underlayer 'sudo journalctl -u statefalse -f'
 
 - No Docker, no nginx. Pure Kestrel :5000 behind ngrok.
 - Webhook secret: `Environment=WebhookSecret=...` in systemd service or `appsettings.Production.json`.
-- EF migrations run automatically on `Program.cs` startup (`db.Database.Migrate()`).
-- Native: server URL in `AppConfig.serverBaseUrl` (UserDefaults). Default dev: `http://localhost:5000`.
+- EF migrations run automatically on `Program.cs` startup (`ApplyMigrations`).
+- Native: server URL in `UserDefaults["backendUrl"]` (`backendUrl` in Models.swift). Default: `TeamDefaults.backendUrl`.
 - `TargetGitHubIds` (CSV string) on `WorkflowRun` → which users get notified.
-- Multi-tenant: all queries scoped by `GitHubUser`.
-
-### DB tables
-
-| Table | Notes |
-|-------|-------|
-| `GitHubUsers` | OAuth token, optional PAT, `ConnectionId` (SignalR) |
-| `WorkflowRuns` | status: in_progress/success/failure/cancelled/superseded |
-| `PullRequestEvents` | prNumber, title, author, CiStatus, ApprovalCount, CommentCount |
-| `CheckSuiteEvents` | per-SHA, tracks conclusion |
-| `PunishmentEvents` | who broke CI, when |
-
-### SignalR events (hub → native app)
-
-| Event | Payload |
-|-------|---------|
-| `PunishmentEvent` | workflow failed blame |
-| `WorkflowCompleted` | run status changed |
-| `PullRequestUpdated` | PR state changed |
-| `CheckSuiteCompleted` | checks done |
-
+- Multi-tenant: all DB queries scoped by authenticated GitHub user.
+- JWT: required on all endpoints except `/health`, `/api/auth/login`, `/api/auth/callback`, `/api/webhook/github`. SignalR reads token from `access_token` query param.
+- Token precedence: User PAT > OAuth access token > shared server PAT.

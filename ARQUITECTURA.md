@@ -4,15 +4,15 @@
 
 ```
 [macOS App] ←SignalR+REST→ [ngrok tunnel] → [ASP.NET Kestrel:5000] → [SQLite DB]
-                              ↑                                            ↑
-                         (Hetzner VPS)                         /var/lib/statefalse/
+                              ↑                                          ↑
+                         (Hetzner VPS)                        /var/lib/statefalse/
                                                                    statefalse.db
 ```
 
 - **Backend**: App .NET 10 self-hosted en un VPS de Hetzner con systemd
 - **Frontend**: App macOS nativa (SwiftUI) como menu bar utility (sin Dock, sin ventana principal)
 - **Túnel público**: ngrok gratuito para recibir webhooks de GitHub
-- **Sin Docker, sin nginx, sin CI/CD**
+- **Sin Docker, sin nginx**
 
 ---
 
@@ -23,40 +23,65 @@
 | Componente | Tecnología |
 |------------|-----------|
 | Runtime | .NET 10 (`net10.0`) |
+| API | ASP.NET Core Minimal API (sin MVC controllers) |
 | ORM | Entity Framework Core 10 + SQLite |
 | Tiempo real | SignalR (WebSocket) |
-| Paquetes externos | Solo 2: `EF Core Sqlite` + `EF Core Design` |
-| Webhooks | Endpoint con verificación HMAC-SHA256 |
+| Auth | GitHub OAuth + sesión JWT (JwtBearer) |
+| Rate limiting | `AddRateLimiter` (políticas `api` y `webhook`) |
+| Logs | Serilog (console + archivo rotativo, retención 30 días) |
+| API docs | OpenAPI + Scalar (`/scalar`) |
 
-### Estructura de archivos
+### Estructura de archivos (Clean Architecture, 4 proyectos)
 
 ```
 backend/
-├── Program.cs                          # Entry point, DI, CORS, SignalR, DB init
-├── Statefalse.Api.csproj           # .NET 10, 2 NuGet refs
-├── appsettings.json                    # Dev config (OAuth creds, DB path)
-├── appsettings.Production.json         # Producción (DB en /var/lib/...)
-├── Data/
-│   └── AppDbContext.cs                 # EF DbContext: 5 DbSets
-├── Models/
-│   ├── GitHubUser.cs                   # id, username, AccessToken, PatToken, avatar
-│   ├── WorkflowRun.cs                  # runId, status, headSha, actor, repo
-│   ├── PullRequestEvent.cs             # prNumber, title, author, approval, comments
-│   ├── CheckSuiteEvent.cs              # checkSuiteId, conclusion, prAuthor
-│   └── PunishmentEvent.cs              # culprit, runId, workflow
-├── Hubs/
-│   └── PunishmentHub.cs                # SignalR: RegisterConnection, user groups
-├── Services/
-│   ├── GitHubOAuthService.cs           # OAuth flow: authorize URL + code exchange
-│   └── UtcDateTimeConverter.cs         # JSON DateTime → ISO 8601 UTC
-└── Controllers/
-    ├── AuthController.cs               # /api/auth (login, callback, me, pat)
-    ├── WebhookController.cs            # /api/webhook/github (11 eventos)
-    ├── GitHubApiController.cs          # /api/github (branches, create-pr, pr-preview, interpret)
-    ├── PullRequestsController.cs       # /api/pullrequests (active, detail, merge, draft, update-branch)
-    ├── WorkflowsController.cs          # /api/workflows (runs, rerun, sync-active, targets)
-    └── PunishmentsController.cs        # /api/punishments (list, summary)
+├── Program.cs                          # Composition root: DI, CORS, auth, rate limit, migrations
+├── ApiEndpoints.cs                     # Minimal API routes (reemplaza los antiguos controllers)
+├── Statefalse.Api.csproj               # Entry point web (→ Application, Infrastructure)
+│
+├── Statefalse.Domain/                  # CERO dependencias
+│   ├── Models/                         # Entidades EF: GitHubUser, WorkflowRun, PullRequestEvent,
+│   │                                   #   CheckSuiteEvent, PunishmentEvent
+│   ├── Contracts/                      # DTOs: AuthDtos, GitHubDtos, HubEventDtos, PullRequestDtos,
+│   │                                   #   PunishmentDtos, WorkflowDtos
+│   └── Mappers/                        # Lógica pura: CiStatusCalculator, WorkflowConclusionMapper,
+│                                       #   IdListSerializer, IgnoredWorkflows, CheckRunStatusMapper,
+│                                       #   UtcDateTimeConverter
+│
+├── Statefalse.Application/             # → Domain. Lógica de negocio, HTTP-agnóstica
+│   ├── ApiResult.cs                    # Resultado de servicio: status + value (sin IActionResult)
+│   ├── IAppDbContext.cs                # Contrato de persistencia (DbSet + SaveChanges)
+│   ├── ISignalRNotifier.cs             # Abstracción de notificaciones SignalR
+│   ├── Services/                       # AuthService, WebhookService, PullRequestQueryService,
+│   │                                   #   PullRequestSyncService, PullRequestActionService,
+│   │                                   #   WorkflowService, GitHubApiService, AiService,
+│   │                                   #   PunishmentService, JwtTokenService, ...
+│   │   ├── IWebhookHandler.cs          # Dispatch por X-GitHub-Event
+│   │   └── *WebhookHandler.cs          # workflow_run, check_suite, pull_request, review,
+│   │                                   #   issue_comment, review_comment
+│   └── GlobalUsings.cs                 # usings globales de la capa
+│
+└── Statefalse.Infrastructure/          # → Application. EF, HTTP, SignalR
+    ├── Data/AppDbContext.cs            # DbContext: 5 DbSets + índices
+    ├── Migrations/                     # Migraciones EF (3: InitialCreate, AddSubscriberIds, Baseline)
+    ├── GitHubClient.cs                 # IGitHubClient — thin client REST/GraphQL
+    ├── GitHubTokenResolver.cs          # IGitHubTokenResolver — precedencia de tokens
+    ├── Hubs/PunishmentHub.cs           # SignalR hub: RegisterConnection, user groups
+    ├── SignalRNotifier.cs              # ISignalRNotifier — envía eventos al hub
+    └── WorkflowCleanupService.cs       # BackgroundService: marca runs stuck/superseded
 ```
+
+### Capas y dependencias
+
+```
+Api → Application → Domain
+   ↘ Infrastructure → Application → Domain
+```
+
+- `Domain`: cero paquetes, cero framework.
+- `Application`: referencia `Domain` + abstracciones ASP.NET (`Microsoft.AspNetCore.App`) y EF Core para el contrato `IAppDbContext`.
+- `Infrastructure`: implementa contratos de Application (EF Core, HttpClient, SignalR).
+- `Api`: compone todo en `Program.cs` (composition root).
 
 ### Base de datos (SQLite)
 
@@ -64,50 +89,64 @@ backend/
 |-------|-----------|
 | `GitHubUsers` | Usuarios con OAuth token + PAT opcional + conexión SignalR |
 | `WorkflowRuns` | Cada ejecución de workflow (status: in_progress, success, failure, cancelled, superseded) |
-| `PullRequestEvents` | PRs abiertos/mergeados con estado de CI, aprobación, comentarios |
+| `PullRequestEvents` | PRs abiertos/mergeados con estado de CI, aprobación, comentarios, subscriptores |
 | `CheckSuiteEvents` | Check suites completadas (para notificar al autor) |
 | `PunishmentEvents` | Histórico de "castigos" por workflows fallidos |
 
-### API endpoints
+### API endpoints (Minimal API)
 
 #### Auth
-| Método | Ruta | Función |
-|--------|------|---------|
-| GET | `/api/auth/login` | Redirige al usuario a GitHub OAuth |
-| GET | `/api/auth/callback` | Exchange code → token, upsert usuario, redirect a app |
-| GET | `/api/auth/me` | Perfil del usuario |
-| POST | `/api/auth/pat` | Guardar/borrar PAT del usuario |
+| Método | Ruta | Función | Auth |
+|--------|------|---------|------|
+| GET | `/api/auth/login` | Redirige al usuario a GitHub OAuth | anónimo |
+| GET | `/api/auth/callback` | Exchange code → token, upsert usuario, redirect a app | anónimo |
+| GET | `/api/auth/me` | Perfil del usuario | JWT |
+| POST | `/api/auth/pat` | Guardar/borrar PAT del usuario | JWT |
+| GET | `/api/auth/token` | Token efectivo resuelto | JWT |
 
 #### Pull Requests
-| Método | Ruta | Función |
-|--------|------|---------|
-| GET | `/api/pullrequests/active` | Lista PRs activos con ciStatus, comments, check-runs sync |
-| GET | `/api/pullrequests/{n}/detail` | Mergeable state, behind/ahead |
-| POST | `/api/pullrequests/{n}/merge` | Merge PR (squash/rebase/merge) |
-| POST | `/api/pullrequests/{n}/draft` | Toggle draft vía GraphQL |
-| POST | `/api/pullrequests/{n}/update-branch` | Merge base en head, marca runs viejos como superseded |
+| Método | Ruta | Función | Auth |
+|--------|------|---------|------|
+| POST | `/api/pullrequests/sync` | Sync desde GitHub API | JWT+limit |
+| GET | `/api/pullrequests/active?page=&pageSize=` | PRs activos con ciStatus, comentarios, self-healing | JWT+limit |
+| GET | `/api/pullrequests/{n}/detail?repo=` | Mergeable state, behind/ahead | JWT+limit |
+| GET | `/api/pullrequests/{n}/commits` · `/files` · `/checks` | Proxies a GitHub | JWT |
+| POST | `/api/pullrequests/{n}/merge` · `/draft` · `/update-branch` | Acciones | JWT |
+| POST | `/api/pullrequests/{n}/subscribe` · `/unsubscribe` | Subscripción a PR | JWT+limit |
+| GET | `/api/pullrequests/{n}/subscribers` | Lista subscriptores | JWT+limit |
+| POST | `/api/pullrequests/{n}/add-subscriber` · `/remove-subscriber` | Gestionar subscriptores | JWT+limit |
 
 #### Workflows
-| Método | Ruta | Función |
-|--------|------|---------|
-| GET | `/api/workflows/runs` | Lista runs recientes (propios + targeted) |
-| POST | `/api/workflows/runs/{id}/rerun` | Re-ejecutar workflow |
-| PUT | `/api/workflows/runs/{id}/target` | Asignar usuarios a notificar |
-| POST | `/api/workflows/sync-active` | Sincroniza runs in_progress desde GitHub API |
+| Método | Ruta | Función | Auth |
+|--------|------|---------|------|
+| GET | `/api/workflows/runs?limit=` | Runs recientes (propios + targeted + subscribed) | JWT+limit |
+| PUT | `/api/workflows/runs/{id}/target` | Asignar usuarios a notificar | JWT |
+| POST | `/api/workflows/runs/{runId}/rerun` | Re-ejecutar workflow | JWT |
+| POST | `/api/workflows/sync-active` | Sincroniza runs in_progress desde GitHub API | JWT |
 
 #### GitHub API proxy
-| Método | Ruta | Función |
-|--------|------|---------|
-| GET | `/api/github/my-branches` | Ramas del usuario en un repo |
-| POST | `/api/github/create-pr` | Crear PR |
-| POST | `/api/github/pr-preview` | Preview con template + commits + resumen Copilot |
-| POST | `/api/github/interpret` | Interpretar lenguaje natural (legacy, eliminado del UI) |
+| Método | Ruta | Función | Auth |
+|--------|------|---------|------|
+| GET | `/api/github/my-branches?repo=` | Ramas del usuario en un repo | JWT |
+| POST | `/api/github/create-pr` | Crear PR | JWT |
+| POST | `/api/github/pr-preview` | Preview con template + commits + resumen Copilot | JWT |
+| POST | `/api/github/interpret` | Interpretar lenguaje natural (legacy, fuera del UI) | JWT |
+
+#### Webhook + sistema
+| Método | Ruta | Función | Auth |
+|--------|------|---------|------|
+| POST | `/api/webhook/github` | Webhook GitHub, verificación HMAC-SHA256 | anónimo+limit |
+| GET | `/api/webhook/logs` | Ring buffer de últimos webhooks | JWT |
+| GET | `/health` | Health check (DB connect) | anónimo |
+| GET | `/api/punishments` · `/api/punishments/summary` | Histórico de castigos | JWT |
+| GET | `/api/users` | Lista usuarios registrados | JWT |
+| GET | `/scalar` · OpenAPI | Documentación | - |
 
 ### Webhooks de GitHub que maneja
 
 | Evento | Acciones | Qué hace |
 |--------|----------|----------|
-| `workflow_run` | in_progress, completed | Crea/actualiza WorkflowRun, notifica por SignalR |
+| `workflow_run` | in_progress, requested, completed | Crea/actualiza WorkflowRun, supersede siblings, persiste castigos, notifica SignalR |
 | `check_suite` | requested, completed | Crea CheckSuiteEvent, notifica al autor |
 | `pull_request` | opened, synchronize, closed, ready_for_review, converted_to_draft | Crea/actualiza PullRequestEvent |
 | `pull_request_review` | submitted | Marca approved, notifica `PrApproved` |
@@ -131,11 +170,18 @@ backend/
 UserPatToken (PAT propio) > AccessToken (OAuth) > GitHub:PatToken (PAT compartido del servidor)
 ```
 
+### Sesión JWT
+- Emitido por `JwtTokenService` en login/callback
+- Requerido en todos los endpoints salvo `/health`, login/callback y webhook
+- SignalR lee el token del query param `access_token` (WebSocket no puede setear headers)
+- Config en `Jwt:Secret` (min 32 bytes, env var en systemd) + `Jwt:Issuer` + `Jwt:Audience`
+- Client detecta 401 → auto-logout
+
 ### Flujo de OAuth
 1. App abre `{backend}/api/auth/login?redirect_uri=http://localhost:{random_port}/callback`
 2. Backend redirige a GitHub → usuario autoriza → GitHub redirige a `/api/auth/callback`
-3. Backend cambia code por access_token, busca/crea usuario en DB, redirige de vuelta a `localhost`
-4. App captura la respuesta en un `NWListener` TCP, extrae `id`, `username`, `avatar`
+3. Backend cambia code por access_token, busca/crea usuario en DB, emite JWT, redirige de vuelta a `localhost`
+4. App captura la respuesta en un `NWListener` TCP, extrae `id`, `username`, `avatar`, `token`
 5. App guarda sesión en Keychain (opcional, si "Keep signed in")
 
 ---
@@ -145,8 +191,8 @@ UserPatToken (PAT propio) > AccessToken (OAuth) > GitHub:PatToken (PAT compartid
 ### Stack
 | Componente | Tecnología |
 |------------|-----------|
-| UI | SwiftUI (100%, sin storyboards ni xibs) |
-| Ventanas | `NSPanel` flotantes para views modales |
+| UI | SwiftUI (sin storyboards ni xibs) |
+| Ventanas | `NSPanel` flotantes para views modales (vía `PanelFactory` + managers) |
 | Menú bar | `MenuBarExtra` con estilo `.window` |
 | SignalR | `URLSessionWebSocketTask` — protocolo manual (sin librería) |
 | OAuth | `NWListener` TCP local para capturar callback |
@@ -154,70 +200,64 @@ UserPatToken (PAT propio) > AccessToken (OAuth) > GitHub:PatToken (PAT compartid
 | Keychain | Security framework directamente |
 | Dependencias externas | **CERO** — solo Apple SDKs |
 
-### Estructura de archivos (34 archivos .swift)
+### Estructura de archivos
 
 ```
 native/
-├── App/StatefalseApp.swift          # @main, MenuBarExtra, LoginItem
-├── Models/Models.swift                  # Todos los modelos + backendUrl
+├── App/
+│   ├── StatefalseApp.swift          # @main, MenuBarExtra, LoginItem, inyecta Dependencies
+│   └── AppIntents.swift             # Shortcuts / AppIntents
+├── Models/Models.swift              # DTOs Swift + backendUrl (UserDefaults)
 ├── Services/
-│   ├── SignalRService.swift             # WebSocket SignalR + REST polling (595 lines)
-│   ├── OAuthService.swift               # GitHub login via NWListener
-│   ├── GitService.swift                 # Git CLI actor (checkout, branch, PR, conflict)
-│   ├── NotificationManager.swift         # Sonidos + dispatch a CustomNotification
-│   ├── CustomNotification.swift          # NSPanel flotante tipo banner
-│   ├── ConflictWatcherService.swift      # Detecta conflictos (poll + SignalR)
-│   ├── MenuBarBadgeService.swift         # Contadores para el menú bar
-│   ├── KeychainService.swift             # Persistencia de sesión
-│   └── PersistenceService.swift          # Historial offline de workflows
+│   ├── ServiceProtocols.swift       # Protocolos: Git, SignalR, Keychain, Persistence, OAuth, ConflictWatcher, ApiClient
+│   ├── Dependencies.swift           # Struct Dependencies + EnvironmentValues (DI)
+│   ├── SignalRService.swift         # Facade: estado observable UI + reglas de dominio
+│   ├── SignalRClient.swift          # Transporte WebSocket + parseo de eventos
+│   ├── ApiClient.swift              # Todas las llamadas REST + JWT + detección 401
+│   ├── DTOMapper.swift              # Api* → modelos UI
+│   ├── WorkflowEventReducer.swift   # Lógica pura de reducción de eventos de workflow
+│   ├── ReadyMergeNotifier.swift     # Deduplica notificaciones "ready to merge"
+│   ├── GitService.swift             # Git CLI actor
+│   ├── OAuthService.swift           # GitHub login via NWListener
+│   ├── KeychainService.swift        # Sesión persistente
+│   ├── PersistenceService.swift     # Cache offline (UserDefaults/JSON)
+│   ├── NotificationManager.swift    # Sonidos + dispatch a CustomNotification
+│   ├── CustomNotification.swift     # NSPanel flotante tipo banner
+│   ├── ConflictWatcherService.swift # Detecta conflictos (poll + SignalR)
+│   ├── MenuBarBadgeService.swift    # Contadores para el menú bar
+│   └── MockServices.swift           # Mocks para tests
+├── ViewModels/PRDetailViewModel.swift
 ├── Views/
-│   ├── ContentView.swift                 # Popover principal (400×820)
-│   ├── MenuBarLabelView.swift            # Label del menú bar (4 modos)
-│   ├── SignInCardView.swift              # Botón "Sign in with GitHub"
-│   ├── LoggedInCardView.swift            # Avatar + username + sign out
-│   ├── KeepSignedInToggleView.swift      # Toggle "Keep me signed in"
-│   ├── ActivePRsView.swift               # Lista de PRs con badges de estado
-│   ├── PRDetailView.swift                # Popover detalle PR (merge, draft, update)
-│   ├── PRDetailPanelManager.swift        # Manager NSPanel para PRDetailView
-│   ├── LocalBranchesView.swift           # Repos + ramas local/remote
-│   ├── BranchDetailView.swift            # Popover rama (checkout, delete, create PR)
-│   ├── BranchDetailPanelManager.swift    # Manager NSPanel para BranchDetailView
-│   ├── CreatePRPreviewView.swift         # Formulario crear PR con AI summary
-│   ├── PRPreviewPanelManager.swift       # Manager NSPanel para CreatePRPreview
-│   ├── QuickSearchView.swift             # Spotlight ⌘K con smart queries
-│   ├── WorkflowHistoryView.swift         # Historial de workflows con targets
-│   ├── WorkflowHistoryPanelManager.swift # Manager NSPanel para WorkflowHistory
-│   ├── WebhookLogView.swift              # Log de webhooks (debug)
-│   ├── WebhookLogPanelManager.swift      # Manager NSPanel para WebhookLog
-│   ├── LastNotificationCardView.swift    # Último evento de castigo
-│   ├── EmptyNotificationView.swift       # Estado vacío
-│   ├── SettingsView.swift                # Settings (508 lines)
-│   └── SettingsPanelManager.swift        # Manager NSPanel para Settings
+│   ├── ContentView.swift            # Popover principal (400×820)
+│   ├── MenuBarLabelView.swift       # Label del menú bar (4 modos)
+│   ├── SignInCardView.swift / LoggedInCardView.swift / KeepSignedInToggleView.swift
+│   ├── ActivePRsView.swift / PRDetailView.swift / PRDetailPanelManager.swift
+│   ├── LocalBranchesView.swift / BranchDetailView.swift / BranchDetailPanelManager.swift
+│   ├── CreatePRPreviewView.swift / PRPreviewPanelManager.swift
+│   ├── QuickSearchView.swift        # Spotlight ⌘K
+│   ├── WorkflowHistoryView.swift / WorkflowHistoryPanelManager.swift
+│   ├── WebhookLogView.swift / WebhookLogPanelManager.swift
+│   ├── LastNotificationCardView.swift / EmptyNotificationView.swift
+│   ├── SettingsView.swift / SettingsPanelManager.swift
+│   └── PanelFactory.swift           # Dedupe de panel managers
 └── Utils/
-    ├── TeamDefaults.swift                # Defaults hardcodeados del equipo
-    └── IDEOpener.swift                   # 27 IDEs detectados + open file/repo
+    ├── DesignSystem.swift           # DS.Color/Font/Spacing/Radius/Animation + componentes
+    ├── IDEOpener.swift              # 27 IDEs detectados
+    ├── RemoteImageView.swift
+    └── TeamDefaults.swift           # Defaults hardcodeados del equipo
 ```
 
 ### Cómo funciona la app
 
-1. **Inicio**: `SMAppService.mainApp.register()` → auto-arranque al iniciar sesión. `MenuBarExtra` con icono llama + popover.
-
-2. **Login**: `OAuthService` abre Safari para OAuth de GitHub. App recibe callback vía TCP local. Sesión opcional en Keychain.
-
-3. **Tiempo real**: `SignalRService` conecta WebSocket a `wss://{backend}/hub/punishment`. Recibe eventos de workflows, PRs, comentarios, aprobaciones.
-
-4. **PRs activos**: Cada 30s (o al recibir `PullRequestsUpdated`), refetch `GET /api/pullrequests/active`. Muestra tarjetas con color según `ciStatus`:
-   - ⚪ DRAFT (gris), 🟡 WAITING (naranja), 🔵 REVIEW (azul), 🔴 FAIL (rojo), 🟢 READY (verde), 🟣 MERGED (púrpura)
-
-5. **Acciones en PRs**: Desde el popover de detalle se puede: togglear draft, merge, update branch, ver comentarios.
-
-6. **Ramas locales**: `GitService` descubre repos recursivamente (max 3 niveles) desde `workspacePath`. Muestra ramas locales (propias del usuario por email) y remotas (vía GitHub API).
-
-7. **Spotlight (⌘K)**: Búsqueda con queries inteligentes: `"945"` → abre ticket Jira, `"checkout fix"` → checkout de rama, `"pr feature"` → crear PR, `"Open Jira Board"` → abre el board.
-
-8. **Detección de conflictos**: Cada 60s + cuando se mergea algo a `main`, calcula si hay overlap entre archivos cambiados en `origin/main` y cambios locales o de la rama activa.
-
-9. **Historial offline**: `PersistenceService` guarda los últimos workflows en `~/Library/Application Support/workflow_history.json`.
+1. **Inicio**: `SMAppService.mainApp.register()` → auto-arranque. `MenuBarExtra` con icono 🔥 + popover.
+2. **Login**: `OAuthService` abre Safari para OAuth de GitHub. App captura callback vía TCP local. Sesión opcional en Keychain.
+3. **Tiempo real**: `SignalRService` (facade) delega en `SignalRClient` (WebSocket a `/hub/punishment`) y `ApiClient` (REST).
+4. **PRs activos**: Cada 30s (o al recibir `PullRequestsUpdated`), refetch `GET /api/pullrequests/active`.
+5. **Acciones en PRs**: Desde el popover de detalle: togglear draft, merge, update branch, comentarios.
+6. **Ramas locales**: `GitService` descubre repos recursivamente (max 3 niveles) desde `workspacePath`.
+7. **Spotlight (⌘K)**: Queries inteligentes: ticket Jira, checkout de rama, crear PR, abrir board.
+8. **Detección de conflictos**: Cada 60s + cuando alguien mergea a `main`, compara archivos.
+9. **Cache offline**: `PersistenceService` guarda PRs y workflows en Application Support.
 
 ### UserDefaults keys
 
@@ -256,23 +296,19 @@ pkill -x Statefalse; open ~/Applications/Statefalse.app
 | App path | `/opt/statefalse/` |
 | DB path | `/var/lib/statefalse/statefalse.db` |
 
-### Servicios systemd
+### Servicios systemd (`deploy/`)
 
-1. **`statefalse.service`**: Ejecuta `Statefalse.Api` en `localhost:5000`
+1. **`statefalse.service`**: Ejecuta `Statefalse.Api` en `localhost:5000` (envs: Jwt, GitHubOAuth, WebhookSecret, ConnectionStrings)
 2. **`statefalse-tunnel.service`**: Ejecuta `ngrok http --url=moonlike-silenced-sprung.ngrok-free.dev 5000`
 
-### Cómo desplegar (desde tu Mac)
+### Cómo desplegar
 
 ```bash
-# Backend
-cd backend
-dotnet publish -c Release -r linux-x64 --self-contained -o /tmp/statefalse-publish
-rsync -az --delete /tmp/statefalse-publish/ underlayer:/opt/statefalse/
-ssh underlayer "sudo systemctl daemon-reload && sudo systemctl restart statefalse"
+# Manual
+./deploy.sh underlayer
 
-# Frontend (macOS)
-cd native
-bash install.sh
+# Automático: push a main con cambios en backend/** o tests-backend/**
+# → GitHub Actions (deploy-backend.yml) → publish → rsync → systemctl restart → health check
 ```
 
 ### Configuración necesaria en GitHub
@@ -281,14 +317,14 @@ bash install.sh
    - Homepage URL: `https://moonlike-silenced-sprung.ngrok-free.dev`
    - Callback URL: `https://moonlike-silenced-sprung.ngrok-free.dev/api/auth/callback`
    - Scopes: `read:user`, `repo`
-   - Client ID + Secret → `appsettings.json` / `appsettings.Production.json`
+   - Client ID + Secret → env vars de systemd
 
 2. **Webhook** en cada repo (o a nivel org):
    - URL: `https://moonlike-silenced-sprung.ngrok-free.dev/api/webhook/github`
-   - Eventos: `Workflow runs`, `Check suites`, `Pull requests`, `Pull request reviews`, `Issue comments`, `Pull request review comments`
-   - Secret: configurar uno para HMAC verification
+   - Eventos: Workflow runs, Check suites, Pull requests, Pull request reviews, Issue comments, Pull request review comments
+   - Secret: `WebhookSecret` en systemd
 
-3. **PAT compartido** (opcional): en `appsettings.Production.json` → `GitHub:PatToken`
+3. **PAT compartido** (opcional): `GitHub__PatToken`
 
 ---
 
@@ -298,13 +334,13 @@ bash install.sh
 
 ### Matching runs to PRs
 
-Workflow runs se matching con PRs por `(repo, headSha, workflowName)`. El `headSha` es el commit SHA del head del PR — solo runs del mismo commit se consideran.
+Workflow runs se matching con PRs por `(repo, headSha)`. El `headSha` es el commit SHA del head del PR.
 
 ### SyncCheckRunsForCommit
 
-En cada `GET /api/pullrequests/active`, el backend fetchea check-runs de GitHub para cada head SHA único y hace upsert en DB. Esto cubre webhooks perdidos.
+En cada `GET /api/pullrequests/active`, el backend fetchea check-runs de GitHub para cada head SHA único y hace upsert en DB (`PullRequestSyncService`).
 
-### Lógica
+### Lógica (`CiStatusCalculator` en Domain)
 
 1. No workflow runs para ese headSha → `waiting`
 2. Any run `in_progress` → `waiting`
@@ -314,185 +350,39 @@ En cada `GET /api/pullrequests/active`, el backend fetchea check-runs de GitHub 
 6. `draft = true` → badge **DRAFT** (gray), overrides CI status
 7. PR merged → `merged`
 
----
+### Self-healing
 
-## Auth tokens
-
-Cada llamada a GitHub API necesita un token. Orden de resolución:
-
-```
-User PAT  >  OAuth token  >  Shared PAT
-```
-
-1. **UserPatToken** — PAT configurable por usuario en Settings (scope: `repo`)
-2. **AccessToken** — OAuth token del login de GitHub (scope: `read:user,repo`)
-3. **PatToken** — token compartido en `appsettings.json` (opcional)
-
----
-
-## Predictive Conflict Detection
-
-Cuando alguien mergea un PR a main, el backend envía `MainBranchUpdated` via SignalR con repo, PR number, merged-by user, y merge commit SHA.
-
-El `ConflictWatcherService` maneja este evento y también hace poll cada 60s. En cada check:
-
-1. `git fetch origin main`
-2. Compara el nuevo SHA de `origin/main` contra el último conocido
-3. Si es diferente: `git diff --name-only <last>..origin/main`
-4. Obtiene archivos sin commit: `git diff --name-only` + `git ls-files --others`
-5. Obtiene diff de la rama actual vs main: `git diff --name-only origin/main...HEAD`
-6. Si hay archivos en ambos sets → notificación
-
-Notificaciones deduplicadas por `(repo, file, type)` durante 5 minutos.
+En `GetActiveAsync`, cada PR abierto se compara contra la API de GitHub:
+- Si GitHub dice `closed`/`merged` y DB dice `open` → corrige status (webhook perdido)
+- Si `merged_at` difiere de `OccurredAt` → corrige timestamp (ventana 24h "recently merged" precisa)
+- Sync de `ReviewApproved` desde `/pulls/{n}/reviews` (per-reviewer latest state)
 
 ---
 
 ## Seguridad y Profesionalización
 
-### Problemas de seguridad actuales
+### Estado actual
 
-| Problema | Riesgo | Gravedad |
-|----------|--------|----------|
-| ~~Webhook sin HMAC~~ | ✅ Ya implementado — verifica HMAC-SHA256 | ~~Media~~ |
-| OAuth client secret en `appsettings.json` | Expuesto si alguien accede al VPS | Media |
-| Sin HTTPS entre Kestrel y ngrok | Tráfico en localhost sin cifrar | Baja |
-| Sin rate limiting | Posible abuso del endpoint webhook | Baja |
-| Secrets en Git (si se comitea `appsettings.Production.json`) | Filtración en GitHub | Alta |
+| Problema | Riesgo | Estado |
+|----------|--------|--------|
+| Webhook sin HMAC | - | ✅ HMAC-SHA256 con `FixedTimeEquals`, se salta si secret no configurado |
+| Secrets en appsettings | Filtración | ✅ Secrets via env vars de systemd (Jwt, GitHubOAuth, WebhookSecret) |
+| Rate limiting | Abuso | ✅ `api` (100/min) + `webhook` (50/min) |
+| CORS abierto | - | ⚠️ `AllowAnyOrigin` en `api`, política `SignalR` con credentials — mitigado por JWT |
+| Sin HTTPS Kestrel↔ngrok | Tráfico localhost | ✅ Solo localhost (ngrok termina TLS) |
+| Migraciones | - | ✅ EF Migrate en startup + baseline para DBs legacy |
 
-### Cómo profesionalizar (orden recomendado)
+### CI/CD
 
-#### 1. HMAC verification en webhooks ✅ (implementado)
+- **Backend Tests** (`.github/workflows/backend-tests.yml`): push/PR a main con cambios en `backend/**`
+- **Swift Tests** (`.github/workflows/swift-tests.yml`): push/PR con cambios en `native/**` — build + 65 tests en macos-26
+- **Deploy Backend** (`.github/workflows/deploy-backend.yml`): push a main → test → publish linux-x64 → rsync → restart → health check
 
-- Se verifica `X-Hub-Signature-256` usando `HMACSHA256.HashData` con `CryptographicOperations.FixedTimeEquals`
-- Si `WebhookSecret` no está configurado (o es el placeholder), se salta la verificación — compatible con setups existentes
-- El secreto se lee de configuración (env var `WebhookSecret` o `appsettings.json`)
-
-#### 2. Secrets como environment variables (15 min)
-
-En el service systemd:
-```
-[Service]
-Environment=OAUTH_CLIENT_ID=...
-Environment=OAUTH_CLIENT_SECRET=...
-Environment=GITHUB_PAT_TOKEN=...
-Environment=WEBHOOK_SECRET=...
-```
-
-Quitar del `appsettings.json` los valores sensibles. `Program.cs` lee:
-```csharp
-builder.Configuration.AddEnvironmentVariables();
-```
-
-#### 3. Health check endpoint (15 min)
-
-```csharp
-app.MapGet("/health", () => Results.Ok(new {
-    status = "healthy",
-    database = db.Database.CanConnect(),
-    timestamp = DateTime.UtcNow
-}));
-```
-
-#### 4. Logs estructurados con Serilog (30 min)
-
-```bash
-dotnet add package Serilog.AspNetCore
-dotnet add package Serilog.Sinks.File
-```
-
-Rotación diaria, retención 30 días, nivel mínimo Warning en producción.
-
-#### 5. CI/CD con GitHub Actions (2h)
-
-Flujo: push a `main` → `dotnet publish` → `rsync` → `systemctl restart`.
-
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy
-on:
-  push:
-    branches: [main]
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: dotnet publish -c Release -r linux-x64 --self-contained -o publish
-        working-directory: backend
-      - run: rsync -az --delete publish/ underlayer:/opt/statefalse/
-      - run: ssh underlayer "sudo systemctl restart statefalse"
-```
-
-Necesitas añadir `SSH_PRIVATE_KEY` y `SSH_KNOWN_HOSTS` como secrets de GitHub.
-
-#### 6. Docker (1h)
-
-```dockerfile
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-WORKDIR /src
-COPY . .
-RUN dotnet publish -c Release -r linux-x64 --self-contained -o /app
-
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0
-WORKDIR /app
-COPY --from=build /app .
-ENV ASPNETCORE_URLS=http://+:5000
-ENTRYPOINT ["./Statefalse.Api"]
-```
-
-Combinado con docker-compose para ngrok:
-```yaml
-services:
-  app:
-    build: .
-    environment:
-      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
-      - GITHUB_PAT_TOKEN=${GITHUB_PAT_TOKEN}
-      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
-    volumes:
-      - statefalse-data:/var/lib/statefalse
-    restart: always
-  tunnel:
-    image: ngrok/ngrok:latest
-    command: http http://app:5000 --url=moonlike-silenced-sprung.ngrok-free.dev
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    depends_on:
-      - app
-volumes:
-  statefalse-data:
-```
-
-#### 7. Migraciones EF (1h)
-
-Reemplazar `EnsureCreated()` por migrations reales:
-```bash
-dotnet ef migrations add InitialCreate
-dotnet ef database update
-```
-
-En producción, aplicar migrations al arrancar:
-```csharp
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
-}
-```
-
-#### 8. IP whitelist para webhooks (1h)
-
-GitHub publica sus IPs en `https://api.github.com/meta`. Puedes cachearlas y validar que `Request.HttpContext.Connection.RemoteIpAddress` esté en ese rango. Sobra si ya tienes HMAC.
-
----
-
-## Costes actuales
+### Costes actuales
 
 | Concepto | Coste |
 |----------|-------|
 | VPS Hetzner | ~4-6 €/mes |
-| ngrok (gratuito) | 0 € (pero URL cambia si no es estática) |
-| ngrok estático | ~5-10 $/mes (dominio fijo) |
-| Dominio propio | ~10-15 €/año |
-| Apple Developer | 99 €/año (solo si subes a App Store) |
-| **Total con dominio propio** | **~90-130 €/año + VPS** |
+| ngrok (gratuito) | 0 € (URL estática) |
+| Apple Developer | 0 € (sin App Store) |
+| **Total** | **~5 €/mes** |
