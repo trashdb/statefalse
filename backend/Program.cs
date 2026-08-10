@@ -56,7 +56,9 @@ try
     builder.Services.AddScoped<PullRequestActionService>();
     builder.Services.AddScoped<PullRequestSubscriptionService>();
     builder.Services.AddScoped<WebhookService>();
-    builder.Services.AddScoped<AiService>();
+    builder.Services.AddScoped<IAiProviderClient, AiProviderClient>();
+    builder.Services.AddScoped<PrPreviewService>();
+    builder.Services.AddScoped<QueryInterpretationService>();
     builder.Services.AddScoped<GitHubApiService>();
     builder.Services.AddScoped<WorkflowService>();
     builder.Services.AddScoped<AuthService>();

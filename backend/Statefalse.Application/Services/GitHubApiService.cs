@@ -15,7 +15,8 @@ public class GitHubApiService
     private readonly IAppDbContext _db;
     private readonly IGitHubClient _github;
     private readonly IGitHubTokenResolver _tokens;
-    private readonly AiService _ai;
+    private readonly PrPreviewService _preview;
+    private readonly QueryInterpretationService _interpreter;
     private readonly ILogger<GitHubApiService> _logger;
     private readonly ISignalRNotifier _notifier;
 
@@ -23,14 +24,16 @@ public class GitHubApiService
         IAppDbContext db,
         IGitHubClient github,
         IGitHubTokenResolver tokens,
-        AiService ai,
+        PrPreviewService preview,
+        QueryInterpretationService interpreter,
         ILogger<GitHubApiService> logger,
         ISignalRNotifier notifier)
     {
         _db = db;
         _github = github;
         _tokens = tokens;
-        _ai = ai;
+        _preview = preview;
+        _interpreter = interpreter;
         _logger = logger;
         _notifier = notifier;
     }
@@ -222,7 +225,7 @@ public class GitHubApiService
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No token" });
 
-        var preview = await _ai.BuildPreviewAsync(repo, baseBranch, head, title, useAI, token, user?.AccessToken);
+        var preview = await _preview.BuildPreviewAsync(repo, baseBranch, head, title, useAI, token, user?.AccessToken);
 
         return ApiResult.Ok(new PrPreviewDto(
             preview.Template,
@@ -242,7 +245,7 @@ public class GitHubApiService
         if (string.IsNullOrEmpty(request.ApiKey) && string.IsNullOrEmpty(oauthToken))
             return ApiResult.BadRequest(new { error = "No API key configured and no OAuth token available. Set an API key in Settings or login with GitHub." });
 
-        var result = await _ai.InterpretQueryAsync(request, oauthToken);
+        var result = await _interpreter.InterpretAsync(request, oauthToken);
         return ApiResult.Ok(result);
     }
 }
