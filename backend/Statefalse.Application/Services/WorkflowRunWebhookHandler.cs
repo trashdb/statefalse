@@ -212,24 +212,33 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
                 Trigger: trigger));
         }
 
-        if (conclusion == "success")
+        async Task NotifyCulpritAndTargetsAsync(bool succeeded, GitHubUser? connected)
         {
-            var user = await _tokens.FindConnectedUserAsync(culprit.Login, culprit.Id);
-            if (user != null)
+            if (connected != null)
             {
-                await NotifyCompleted(user.GitHubId, true);
-                _logger.LogInformation("Workflow success notified to {Login}", culprit.Login);
+                await NotifyCompleted(connected.GitHubId, succeeded);
+                _logger.LogInformation(succeeded
+                    ? "Workflow success notified to {Login}"
+                    : "Punishment sent to {Login}", culprit.Login);
             }
 
             var targetIds = IdListSerializer.Deserialize(dbRun?.TargetGitHubIds);
             foreach (var tid in targetIds)
             {
-                if (tid != user?.GitHubId)
+                if (tid != connected?.GitHubId)
                 {
-                    await NotifyCompleted(tid, true);
-                    _logger.LogInformation("Workflow success also notified to target {TargetId}", tid);
+                    await NotifyCompleted(tid, succeeded);
+                    _logger.LogInformation(succeeded
+                        ? "Workflow success also notified to target {TargetId}"
+                        : "Punishment also notified to target {TargetId}", tid);
                 }
             }
+        }
+
+        if (conclusion == "success")
+        {
+            var user = await _tokens.FindConnectedUserAsync(culprit.Login, culprit.Id);
+            await NotifyCulpritAndTargetsAsync(true, user);
 
             WebhookLog.Log("workflow_run", "completed", repoFullName, workflowName, "processed", $"conclusion={conclusion}, notified");
             return ApiResult.Ok(new { runId, conclusion });
@@ -254,22 +263,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         _db.PunishmentEvents.Add(historyEvent);
         await _db.SaveChangesAsync();
 
-        // Notify via SignalR if connected
-        if (user2 != null)
-        {
-            await NotifyCompleted(user2.GitHubId, false);
-            _logger.LogInformation("Punishment sent to {Login}", culprit.Login);
-        }
-
-        var failTargetIds = IdListSerializer.Deserialize(dbRun?.TargetGitHubIds);
-        foreach (var tid in failTargetIds)
-        {
-            if (tid != user2?.GitHubId)
-            {
-                await NotifyCompleted(tid, false);
-                _logger.LogInformation("Punishment also notified to target {TargetId}", tid);
-            }
-        }
+        await NotifyCulpritAndTargetsAsync(false, user2);
 
         WebhookLog.Log("workflow_run", "completed", repoFullName, workflowName, "processed", $"conclusion={conclusion}, failure handled");
         return ApiResult.Ok(new { runId, conclusion });
