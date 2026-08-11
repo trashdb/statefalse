@@ -67,13 +67,31 @@ public class PullRequestWebhookHandler : IWebhookHandler
         string baseBranch, string headBranch, string authorLogin, long? authorId,
         bool draft, string? headSha)
     {
-        await _prs.AddAsync(new PullRequestEvent
+        var existing = await _prs.FindOpenAsync(prNumber, repo);
+
+        if (existing != null)
         {
-            PrNumber = prNumber, Title = title, AuthorLogin = authorLogin,
-            AuthorGitHubId = authorId, RepoFullName = repo,
-            HeadBranch = headBranch, BaseBranch = baseBranch, PrUrl = htmlUrl,
-            Status = "open", Draft = draft, HeadSha = headSha, OccurredAt = DateTime.UtcNow
-        });
+            existing.Title = title;
+            existing.AuthorLogin = authorLogin;
+            existing.AuthorGitHubId = authorId;
+            existing.RepoFullName = repo;
+            existing.HeadBranch = headBranch;
+            existing.BaseBranch = baseBranch;
+            existing.PrUrl = htmlUrl;
+            existing.Draft = draft;
+            existing.HeadSha = headSha;
+            existing.OccurredAt = DateTime.UtcNow;
+        }
+        else
+        {
+            await _prs.AddAsync(new PullRequestEvent
+            {
+                PrNumber = prNumber, Title = title, AuthorLogin = authorLogin,
+                AuthorGitHubId = authorId, RepoFullName = repo,
+                HeadBranch = headBranch, BaseBranch = baseBranch, PrUrl = htmlUrl,
+                Status = "open", Draft = draft, HeadSha = headSha, OccurredAt = DateTime.UtcNow
+            });
+        }
         await _uow.SaveChangesAsync();
 
         _logger.LogInformation("PR #{PrNumber} opened by {Author} (draft={Draft})", prNumber, authorLogin, draft);

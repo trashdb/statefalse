@@ -318,6 +318,36 @@ public class PullRequestQueryServiceTests : IClassFixture<WebApplicationFactory<
         Assert.False(pr.ReviewApproved);
     }
 
+    [Fact]
+    public async Task Active_DuplicateRows_SamePr_Deduplicated()
+    {
+        var uid = SeedUser();
+        SeedPr(uid, prNumber: 42);
+        SeedPr(uid, prNumber: 42);
+        StubPull(42);
+        StubCheckRuns("sha1");
+
+        var pr = Assert.Single(await GetActive(uid));
+        Assert.Equal(42, pr.PrNumber);
+    }
+
+    [Fact]
+    public async Task Active_SamePrNumber_DifferentRepos_BothReturned()
+    {
+        var uid = SeedUser();
+        SeedPr(uid, prNumber: 7, repo: "acme/repo");
+        SeedPr(uid, prNumber: 7, repo: "other/org");
+        StubPull(7, repo: "acme/repo");
+        StubPull(7, repo: "other/org");
+        StubCheckRuns("sha1");
+        StubCheckRuns("sha1", repo: "other/org");
+
+        var prs = await GetActive(uid);
+        Assert.Equal(2, prs.Count);
+        Assert.Contains(prs, p => p.Repo == "acme/repo");
+        Assert.Contains(prs, p => p.Repo == "other/org");
+    }
+
     // ───────────── Subscriber visibility ─────────────
 
     [Fact]

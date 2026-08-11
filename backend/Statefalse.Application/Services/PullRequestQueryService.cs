@@ -84,11 +84,16 @@ public class PullRequestQueryService
             return ApiResult.Unauthorized(new { error = "No token" });
 
         var entities = await _prs.GetActiveForUserAsync(gitHubId, page, pageSize, DateTime.UtcNow.AddHours(-24));
-        var prs = entities.Select(e => new PrRow(
-            e.PrNumber, e.Title, e.RepoFullName, e.HeadBranch, e.BaseBranch, e.PrUrl,
-            e.Status, e.Conclusion, e.Draft, e.ReviewApproved, e.LastCommentBy,
-            e.LastCommentBody, e.LastCommentAt, e.LastCommentUrl, e.LastReviewFilePath,
-            e.LastReviewLine, e.SubscriberIds, e.AuthorGitHubId)).ToList();
+        var prs = entities
+            .Select(e => new PrRow(
+                e.PrNumber, e.Title, e.RepoFullName, e.HeadBranch, e.BaseBranch, e.PrUrl,
+                e.Status, e.Conclusion, e.Draft, e.ReviewApproved, e.LastCommentBy,
+                e.LastCommentBody, e.LastCommentAt, e.LastCommentUrl, e.LastReviewFilePath,
+                e.LastReviewLine, e.SubscriberIds, e.AuthorGitHubId))
+            // Duplicate webhook deliveries can leave multiple rows for one PR; keep the newest.
+            .GroupBy(p => (p.RepoFullName, p.PrNumber))
+            .Select(g => g.First())
+            .ToList();
 
         // Live PR state (draft, mergeable, headSha, merged_at) fetched from GitHub
         // in parallel — previously N sequential round-trips.
@@ -121,7 +126,7 @@ public class PullRequestQueryService
         var results = new List<PullRequestDto>();
         foreach (var pr in prs)
         {
-            var data = liveData.GetValueOrDefault(pr.PrNumber);
+            var data = liveData.GetValueOrDefault((pr.RepoFullName, pr.PrNumber));
             var effectiveStatus = statusOverrides.GetValueOrDefault(pr.PrNumber, pr.Status);
             var finalReviewApproved = reviewOverrides.GetValueOrDefault(pr.PrNumber, pr.ReviewApproved);
 
@@ -314,11 +319,11 @@ public class PullRequestQueryService
     /// <summary>
     /// Fetches draft/mergeable/headSha/state/mergedAt for every PR in parallel.
     /// </summary>
-    private async Task<Dictionary<long, PullRequestLiveData>> FetchPullRequestDataAsync(List<PrRow> prs, string? token)
+    private async Task<Dictionary<(string Repo, long PrNumber), PullRequestLiveData>> FetchPullRequestDataAsync(List<PrRow> prs, string? token)
     {
         var tasks = prs.Select(pr => FetchPullRequestDataAsync(pr, token)).ToList();
         var results = await Task.WhenAll(tasks);
-        return results.ToDictionary(r => r.PrNumber);
+        return results.ToDictionary(r => (r.Repo, r.PrNumber));
     }
 
     private async Task<PullRequestLiveData> FetchPullRequestDataAsync(PrRow pr, string? token)
@@ -363,14 +368,14 @@ public class PullRequestQueryService
     /// Corrects stale DB rows against live GitHub state. Returns status overrides
     /// so PRs GitHub reports closed/merged never render as "ready".
     /// </summary>
-    private async Task<Dictionary<long, string>> SelfHealPrStatesAsync(List<PrRow> prs, IReadOnlyDictionary<long, PullRequestLiveData> liveData)
+    private async Task<Dictionary<long, string>> SelfHealPrStatesAsync(List<PrRow> prs, IReadOnlyDictionary<(string Repo, long PrNumber), PullRequestLiveData> liveData)
     {
         var overrides = new Dictionary<long, string>();
         bool changed = false;
 
         foreach (var pr in prs)
         {
-            var data = liveData.GetValueOrDefault(pr.PrNumber);
+            var data = liveData.GetValueOrDefault((pr.RepoFullName, pr.PrNumber));
             if (data == null) continue;
 
             // GitHub says closed/merged but our DB still has it "open" (missed webhook)

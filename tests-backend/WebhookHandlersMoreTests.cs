@@ -53,7 +53,7 @@ public class WebhookHandlersMoreTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     private void SeedPr(int prNumber = 42, bool draft = false, bool reviewApproved = false,
-        string? approvedBy = null, string status = "open")
+        string? approvedBy = null, string status = "open", string? headSha = null)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -71,6 +71,7 @@ public class WebhookHandlersMoreTests : IClassFixture<WebApplicationFactory<Prog
             Draft = draft,
             ReviewApproved = reviewApproved,
             ApprovedBy = approvedBy,
+            HeadSha = headSha,
             OccurredAt = DateTime.UtcNow
         });
         db.SaveChanges();
@@ -177,6 +178,27 @@ public class WebhookHandlersMoreTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal("feature/x", pr.HeadBranch);
         Assert.Equal("abc123", pr.HeadSha);
         Assert.Equal(987654321L, pr.AuthorGitHubId);
+    }
+
+    [Fact]
+    public async Task PullRequest_Opened_DeliveredTwice_SingleRow()
+    {
+        await PostWebhookAsync("pull_request", PullRequestPayload("opened"));
+        await PostWebhookAsync("pull_request", PullRequestPayload("opened"));
+
+        var pr = Assert.Single(Query(db => db.PullRequestEvents.ToList()));
+        Assert.Equal("open", pr.Status);
+    }
+
+    [Fact]
+    public async Task PullRequest_Opened_AfterSynchronize_UpdatesExistingRow()
+    {
+        SeedPr(headSha: "oldsha");
+        await PostWebhookAsync("pull_request", PullRequestPayload("opened", headSha: "newsha"));
+
+        var pr = Assert.Single(Query(db => db.PullRequestEvents.ToList()));
+        Assert.Equal("newsha", pr.HeadSha);
+        Assert.Equal("open", pr.Status);
     }
 
     [Fact]
