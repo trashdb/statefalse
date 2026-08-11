@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Shared API DTOs
 
-struct ApiWorkflowRun: Decodable {
+struct ApiWorkflowRun {
     let id: Int
     let runId: Int64
     let workflowName: String?
@@ -17,8 +17,9 @@ struct ApiWorkflowRun: Decodable {
     let startedAt: Date
     let targetGitHubIds: [Int64]?
 }
+nonisolated extension ApiWorkflowRun: Decodable {}
 
-struct ApiPullRequest: Decodable {
+struct ApiPullRequest {
     let prNumber: Int64
     let title: String
     let repo: String
@@ -38,30 +39,34 @@ struct ApiPullRequest: Decodable {
     let subscriberIds: [Int64]?
     let authorGitHubId: Int64?
 }
+nonisolated extension ApiPullRequest: Decodable {}
 
-struct ApiMe: Decodable {
+struct ApiMe {
     let id: Int64
     let username: String
     let avatarUrl: String?
 }
+nonisolated extension ApiMe: Decodable {}
 
 // MARK: - PR detail DTOs
 
-struct ApiPRDetails: Decodable {
+struct ApiPRDetails {
     let mergeableState: String?
     let behindBy: Int?
     let aheadBy: Int?
     let draft: Bool?
 }
+nonisolated extension ApiPRDetails: Decodable {}
 
-struct ApiMergeResponse: Decodable {
+struct ApiMergeResponse {
     let merged: Bool
     let sha: String?
     let message: String?
     let error: String?
 }
+nonisolated extension ApiMergeResponse: Decodable {}
 
-struct ApiCommitInfo: Decodable, Identifiable {
+struct ApiCommitInfo: Identifiable {
     var id: String { sha ?? UUID().uuidString }
     let sha: String?
     let message: String?
@@ -70,16 +75,18 @@ struct ApiCommitInfo: Decodable, Identifiable {
     let date: String?
     let url: String?
 }
+nonisolated extension ApiCommitInfo: Decodable {}
 
-struct ApiFileInfo: Decodable, Identifiable {
+struct ApiFileInfo: Identifiable {
     var id: String { filename ?? UUID().uuidString }
     let filename: String?
     let status: String?
     let additions: Int?
     let deletions: Int?
 }
+nonisolated extension ApiFileInfo: Decodable {}
 
-struct ApiCheckInfo: Decodable, Identifiable {
+struct ApiCheckInfo: Identifiable {
     var id: String { name ?? UUID().uuidString }
     let name: String?
     let status: String?
@@ -88,30 +95,34 @@ struct ApiCheckInfo: Decodable, Identifiable {
     let completedAt: String?
     let url: String?
 }
+nonisolated extension ApiCheckInfo: Decodable {}
 
-struct ApiSubscriberInfo: Identifiable, Decodable {
+struct ApiSubscriberInfo: Identifiable {
     var id: Int64 { gitHubId }
     let gitHubId: Int64
     let gitHubUsername: String
     let avatarUrl: String
 }
+nonisolated extension ApiSubscriberInfo: Decodable {}
 
-struct ApiPRPreview: Decodable {
+struct ApiPRPreview {
     let summary: String
     let suggestedBody: String
     let summaryError: String?
 }
+nonisolated extension ApiPRPreview: Decodable {}
 
 struct ApiBranch {
     let name: String
 }
 nonisolated extension ApiBranch: Decodable {}
 
-struct ApiCreatePRResult: Decodable {
+struct ApiCreatePRResult {
     let prNumber: Int64
     let url: String
     let existing: Bool?
 }
+nonisolated extension ApiCreatePRResult: Decodable {}
 
 struct ApiAvailableUser: Identifiable {
     var id: Int64 { gitHubId }
@@ -121,9 +132,10 @@ struct ApiAvailableUser: Identifiable {
 }
 nonisolated extension ApiAvailableUser: Decodable {}
 
-struct ApiError: Decodable {
+struct ApiError {
     let error: String?
 }
+nonisolated extension ApiError: Decodable {}
 
 enum ApiFetch<T> {
     case success(T)

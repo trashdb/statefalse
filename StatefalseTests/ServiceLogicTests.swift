@@ -215,7 +215,6 @@ final class WorkflowEventReducerTests: XCTestCase {
     }
 }
 
-@MainActor
 final class ApiJSONDecodingTests: XCTestCase {
     private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         try ApiJSON.decoder.decode(T.self, from: Data(json.utf8))

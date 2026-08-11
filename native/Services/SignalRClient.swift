@@ -14,7 +14,7 @@ enum HubEvent {
     case connectionClosed
 }
 
-struct WorkflowStartedEvent: Decodable {
+struct WorkflowStartedEvent {
     let id: Int?
     let runId: Int64
     let workflowName: String?
@@ -25,8 +25,9 @@ struct WorkflowStartedEvent: Decodable {
     let branch: String?
     let trigger: String?
 }
+nonisolated extension WorkflowStartedEvent: Decodable {}
 
-struct WorkflowCompletedEvent: Decodable {
+struct WorkflowCompletedEvent {
     let runId: Int64
     let succeeded: Bool?
     let conclusion: String?
@@ -36,15 +37,17 @@ struct WorkflowCompletedEvent: Decodable {
     let htmlUrl: String?
     let trigger: String?
 }
+nonisolated extension WorkflowCompletedEvent: Decodable {}
 
-struct PrEvent: Decodable {
+struct PrEvent {
     let prNumber: Int?
     let repo: String?
     let reviewerLogin: String?
     let title: String?
 }
+nonisolated extension PrEvent: Decodable {}
 
-struct PrCommentedEvent: Decodable {
+struct PrCommentedEvent {
     let prNumber: Int?
     let repo: String?
     let commenterLogin: String?
@@ -52,13 +55,15 @@ struct PrCommentedEvent: Decodable {
     let commentBody: String?
     let commentUrl: String?
 }
+nonisolated extension PrCommentedEvent: Decodable {}
 
-struct MainBranchUpdatedEvent: Decodable {
+struct MainBranchUpdatedEvent {
     let repo: String?
     let prNumber: Int?
     let mergedBy: String?
     let headSha: String?
 }
+nonisolated extension MainBranchUpdatedEvent: Decodable {}
 
 // MARK: - Protocol
 
