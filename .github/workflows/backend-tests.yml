@@ -32,7 +32,7 @@ jobs:
         run: dotnet build --no-restore Statefalse.slnx
 
       - name: Test
-        run: dotnet test --no-build --logger trx --results-directory /tmp/test-results
+        run: dotnet test --no-build --settings tests-backend/coverlet.runsettings --collect:"XPlat Code Coverage" --logger trx --results-directory /tmp/test-results
 
       - name: Upload Test Results
         if: always()
@@ -40,3 +40,10 @@ jobs:
         with:
           name: backend-test-results
           path: /tmp/test-results
+
+      - name: Upload Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: /tmp/test-results/**/*.cobertura.xml

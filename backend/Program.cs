@@ -148,24 +148,22 @@ try
         });
     });
 
-    // CORS (for ngrok + WPF dev)
-    builder.Services.AddCors(options =>
+    // CORS: closed by default. The native macOS app and GitHub webhook POSTs
+    // send no Origin header, so only explicitly configured browser origins get
+    // cross-origin access. Allowlist via Cors:AllowedOrigins (empty = deny all).
+    var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?? [];
+    if (corsOrigins.Length > 0)
     {
-        options.AddDefaultPolicy(policy =>
+        builder.Services.AddCors(options =>
         {
-            policy.AllowAnyOrigin()
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        });
+            options.AddDefaultPolicy(policy =>
+                policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod());
 
-        options.AddPolicy("SignalR", policy =>
-        {
-            policy.SetIsOriginAllowed(_ => true)
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
+            options.AddPolicy("SignalR", policy =>
+                policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials());
         });
-    });
+    }
 
     var app = builder.Build();
 
@@ -181,7 +179,10 @@ try
         await cleanup.RunOnceAsync();
     }
 
-    app.UseCors("SignalR");
+    if (corsOrigins.Length > 0)
+    {
+        app.UseCors("SignalR");
+    }
     app.UseRateLimiter();
     app.UseAuthentication();
     app.UseAuthorization();
