@@ -172,7 +172,7 @@ public class GitHubApiServiceTests : IClassFixture<WebApplicationFactory<Program
     public async Task CreatePr_GithubUnreachable_BadGateway()
     {
         var uid = SeedUser();
-        StubCreatePr(null, status: 0);
+        StubCreatePr(new { }, status: 0);
 
         var response = await AuthClient(uid).PostAsync(
             "/api/github/create-pr?repo=acme/repo&head=feature/x&baseBranch=main&title=Hi", null);

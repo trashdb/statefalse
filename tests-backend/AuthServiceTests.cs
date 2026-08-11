@@ -97,7 +97,7 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
         Assert.Equal(777L, body.GetProperty("id").GetInt64());
         Assert.Equal("oauthuser", body.GetProperty("username").GetString());
-        Assert.NotEmpty(body.GetProperty("token").GetString());
+        Assert.False(string.IsNullOrEmpty(body.GetProperty("token").GetString()));
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
