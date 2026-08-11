@@ -1,6 +1,7 @@
 import XCTest
 @testable import Statefalse
 
+@MainActor
 final class DTOMapperTests: XCTestCase {
     func testWorkflowRunMapsFieldsAndDefaults() {
         let dto = ApiWorkflowRun(
@@ -59,6 +60,7 @@ final class DTOMapperTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ReadyMergeNotifierTests: XCTestCase {
     private func pr(
         status: String = "open",
@@ -139,6 +141,7 @@ final class ReadyMergeNotifierTests: XCTestCase {
     }
 }
 
+@MainActor
 final class WorkflowEventReducerTests: XCTestCase {
     private func runningRun(runId: Int64, name: String = "CI") -> WorkflowRun {
         WorkflowRun(
@@ -215,6 +218,7 @@ final class WorkflowEventReducerTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ApiJSONDecodingTests: XCTestCase {
     private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         try ApiJSON.decoder.decode(T.self, from: Data(json.utf8))
@@ -308,6 +312,7 @@ final class ApiJSONDecodingTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ModelLogicTests: XCTestCase {
     func testExtractTicketNumber() {
         XCTAssertEqual(extractTicketNumber(from: "feature/LOY-123-foo"), "LOY-123")
@@ -383,6 +388,7 @@ final class ModelLogicTests: XCTestCase {
     }
 }
 
+@MainActor
 final class SessionExpiryTests: XCTestCase {
     private final class MockSignalRTransport: SignalRClientProtocol {
         func connectAndListen(token: String, username: String, onEvent: @escaping (HubEvent) -> Void) async throws {}

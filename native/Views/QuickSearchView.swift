@@ -331,9 +331,10 @@ struct QuickSearchView: View {
     }
 
     private func focusTextField() {
-        DispatchQueue.main.async {
+        Task { @MainActor in
             guard let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible) else { return }
 
+            @MainActor
             func findField(in view: NSView) -> NSTextField? {
                 for sub in view.subviews {
                     if let tf = sub as? NSTextField, tf.isEditable { return tf }

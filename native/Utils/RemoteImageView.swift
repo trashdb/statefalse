@@ -38,8 +38,8 @@ struct RemoteImageView: View {
     }
 }
 
-final class RemoteImageCache {
-    static let shared = RemoteImageCache()
+nonisolated final class RemoteImageCache {
+    nonisolated(unsafe) static let shared = RemoteImageCache()
 
     private let cache = NSCache<NSURL, NSImage>()
 

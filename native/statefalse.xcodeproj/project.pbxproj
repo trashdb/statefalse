@@ -193,7 +193,7 @@
 				<key>SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY</key>
 				<string>YES</string>
 				<key>SWIFT_VERSION</key>
-				<string>5.0</string>
+				<string>6.0</string>
 				<key>TEST_HOST</key>
 				<string>$(BUILT_PRODUCTS_DIR)/Statefalse.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Statefalse</string>
 			</dict>
@@ -235,7 +235,7 @@
 				<key>SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY</key>
 				<string>YES</string>
 				<key>SWIFT_VERSION</key>
-				<string>5.0</string>
+				<string>6.0</string>
 				<key>TEST_HOST</key>
 				<string>$(BUILT_PRODUCTS_DIR)/Statefalse.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Statefalse</string>
 			</dict>
@@ -760,7 +760,7 @@
 				<key>SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY</key>
 				<string>YES</string>
 				<key>SWIFT_VERSION</key>
-				<string>5.0</string>
+				<string>6.0</string>
 			</dict>
 			<key>isa</key>
 			<string>XCBuildConfiguration</string>
@@ -819,7 +819,7 @@
 				<key>SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY</key>
 				<string>YES</string>
 				<key>SWIFT_VERSION</key>
-				<string>5.0</string>
+				<string>6.0</string>
 			</dict>
 			<key>isa</key>
 			<string>XCBuildConfiguration</string>

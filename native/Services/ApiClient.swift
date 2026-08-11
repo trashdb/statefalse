@@ -157,7 +157,7 @@ enum ApiUpdateBranchResult {
 
 // MARK: - Protocol
 
-protocol ApiClientProtocol: AnyObject {
+protocol ApiClientProtocol: AnyObject, Sendable {
     var baseUrl: String { get }
 
     /// Session JWT used as `Authorization: Bearer` on every request.
@@ -565,13 +565,13 @@ final class LiveApiClient: ApiClientProtocol {
 
 // MARK: - Shared JSON decoding
 
-enum ApiJSON {
-    private static let withFractional: ISO8601DateFormatter = {
+nonisolated enum ApiJSON {
+    nonisolated(unsafe) private static let withFractional: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
-    private static let plain: ISO8601DateFormatter = {
+    nonisolated(unsafe) private static let plain: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = .withInternetDateTime
         return formatter

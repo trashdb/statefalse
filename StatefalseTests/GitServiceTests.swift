@@ -1,6 +1,7 @@
 import XCTest
 @testable import Statefalse
 
+@MainActor
 final class GitServiceTests: XCTestCase {
     private let git = GitService()
 

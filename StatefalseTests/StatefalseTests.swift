@@ -6,6 +6,7 @@ import Testing
 // PullRequest
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("PullRequest.id format")
 func prID() {
     let pr = PullRequest(
@@ -21,6 +22,7 @@ func prID() {
     #expect(!pr.isMerged)
 }
 
+@MainActor
 @Test("PullRequest.isMerged")
 func prMerged() {
     let pr = PullRequest(
@@ -34,6 +36,7 @@ func prMerged() {
     #expect(pr.isMerged)
 }
 
+@MainActor
 @Test("PullRequest.prUrl uses htmlUrl when present")
 func prUrlWithHtml() {
     let pr = PullRequest(
@@ -48,6 +51,7 @@ func prUrlWithHtml() {
     #expect(pr.prUrl.absoluteString == "https://github.com/r/pull/1")
 }
 
+@MainActor
 @Test("PullRequest.prUrl fallback when htmlUrl is nil")
 func prUrlFallback() {
     let pr = PullRequest(
@@ -62,6 +66,7 @@ func prUrlFallback() {
     #expect(pr.prUrl.absoluteString == "https://github.com/owner/repo/pull/42")
 }
 
+@MainActor
 @Test("PullRequest equality by prNumber+repo")
 func prEquality() {
     let a = PullRequest(
@@ -83,6 +88,7 @@ func prEquality() {
     #expect(a == b)
 }
 
+@MainActor
 @Test("PullRequest inequality by prNumber")
 func prInequality() {
     let a = PullRequest(
@@ -104,6 +110,7 @@ func prInequality() {
     #expect(a != c)
 }
 
+@MainActor
 @Test("PullRequest inequality by repo")
 func prInequalityRepo() {
     let a = PullRequest(
@@ -125,6 +132,7 @@ func prInequalityRepo() {
     #expect(a != d)
 }
 
+@MainActor
 @Test("PullRequest Codable roundtrip")
 func prCoding() throws {
     let pr = PullRequest(
@@ -153,6 +161,7 @@ func prCoding() throws {
 // WorkflowRun
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("WorkflowRun.isRunning")
 func workflowRunning() {
     let run = WorkflowRun(
@@ -164,6 +173,7 @@ func workflowRunning() {
     #expect(run.duration == nil)
 }
 
+@MainActor
 @Test("WorkflowRun not running for completed")
 func workflowNotRunning() {
     let run = WorkflowRun(
@@ -174,6 +184,7 @@ func workflowNotRunning() {
     #expect(!run.isRunning)
 }
 
+@MainActor
 @Test("WorkflowRun completed duration")
 func workflowDuration() {
     let start = Date()
@@ -191,6 +202,7 @@ func workflowDuration() {
     }
 }
 
+@MainActor
 @Test("WorkflowRun nil duration when not completed")
 func workflowNilDuration() {
     let run = WorkflowRun(
@@ -201,6 +213,7 @@ func workflowNilDuration() {
     #expect(run.duration == nil)
 }
 
+@MainActor
 @Test("WorkflowRun status variations")
 func workflowStatuses() {
     for status in ["queued", "in_progress", "completed", "failure", "cancelled", "unknown"] {
@@ -214,6 +227,7 @@ func workflowStatuses() {
     }
 }
 
+@MainActor
 @Test("WorkflowRun Codable roundtrip")
 func workflowCoding() throws {
     let run = WorkflowRun(
@@ -230,6 +244,7 @@ func workflowCoding() throws {
     #expect(decoded.targetGitHubIds == [1, 2])
 }
 
+@MainActor
 @Test("WorkflowRun Codable with nil optionals")
 func workflowCodingNil() throws {
     let run = WorkflowRun(
@@ -248,6 +263,7 @@ func workflowCodingNil() throws {
     #expect(decoded.targetGitHubIds.isEmpty)
 }
 
+@MainActor
 @Test("WorkflowRun Identifiable conformance")
 func workflowIdentifiable() {
     let id = UUID()
@@ -269,6 +285,7 @@ private var isoDecoder: JSONDecoder {
     return d
 }
 
+@MainActor
 @Test("WebhookLogEntry decodes from JSON")
 func webhookDecode() throws {
     let json = """
@@ -284,6 +301,7 @@ func webhookDecode() throws {
     #expect(entry.message == nil)
 }
 
+@MainActor
 @Test("WebhookLogEntry decodes with all fields")
 func webhookDecodeFull() throws {
     let json = """
@@ -296,6 +314,7 @@ func webhookDecodeFull() throws {
     #expect(entry.message == "oops")
 }
 
+@MainActor
 @Test("WebhookLogEntry has unique id per instance")
 func webhookUniqueID() throws {
     let json = """
@@ -311,6 +330,7 @@ func webhookUniqueID() throws {
 // GitHubUserInfo
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("ApiAvailableUser decodes from JSON")
 func gitHubUserDecode() throws {
     let json = """
@@ -327,6 +347,7 @@ func gitHubUserDecode() throws {
 // BranchInfo
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("BranchInfo.ticketNumber extracts ticket from name")
 func branchInfoTicket() {
     let b = BranchInfo(name: "feature/LOY-1234-something", repoPath: "", repoName: "",
@@ -334,6 +355,7 @@ func branchInfoTicket() {
     #expect(b.ticketNumber == "LOY-1234")
 }
 
+@MainActor
 @Test("BranchInfo.ticketNumber nil when no match")
 func branchInfoNoTicket() {
     let b = BranchInfo(name: "main", repoPath: "", repoName: "",
@@ -341,6 +363,7 @@ func branchInfoNoTicket() {
     #expect(b.ticketNumber == nil)
 }
 
+@MainActor
 @Test("BranchInfo Identifiable conformance")
 func branchInfoIdentifiable() {
     let b = BranchInfo(name: "x", repoPath: "", repoName: "",
@@ -353,46 +376,55 @@ func branchInfoIdentifiable() {
 // extractTicketNumber
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("extractTicketNumber standard format")
 func extractTicketStandard() {
     #expect(extractTicketNumber(from: "LOY-1234-fix-bug") == "LOY-1234")
 }
 
+@MainActor
 @Test("extractTicketNumber at start")
 func extractTicketStart() {
     #expect(extractTicketNumber(from: "JIRA-567-something") == "JIRA-567")
 }
 
+@MainActor
 @Test("extractTicketNumber no match")
 func extractTicketNone() {
     #expect(extractTicketNumber(from: "main") == nil)
 }
 
+@MainActor
 @Test("extractTicketNumber lowercase prefix")
 func extractTicketLower() {
     #expect(extractTicketNumber(from: "abc-123") == nil)
 }
 
+@MainActor
 @Test("extractTicketNumber multiple digits")
 func extractTicketMultiDigit() {
     #expect(extractTicketNumber(from: "PROJ-99999-task") == "PROJ-99999")
 }
 
+@MainActor
 @Test("extractTicketNumber empty string")
 func extractTicketEmpty() {
     #expect(extractTicketNumber(from: "") == nil)
 }
 
+@MainActor
 @Test("extractTicketNumber ticket at end")
 func extractTicketEnd() {
     #expect(extractTicketNumber(from: "fix/TICK-42") == "TICK-42")
 }
 
+@MainActor
 @Test("extractTicketNumber special chars in branch")
 func extractTicketSpecial() {
     #expect(extractTicketNumber(from: "feature/TICK-1_fix_bug") == "TICK-1")
 }
 
+@MainActor
 @Test("extractTicketNumber numbers-only prefix")
 func extractTicketNumbersOnly() {
     #expect(extractTicketNumber(from: "123-ABC") == nil)
@@ -402,6 +434,7 @@ func extractTicketNumbersOnly() {
 // shortRepo
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("shortRepo extracts last component")
 func shortRepoTest() {
     #expect(shortRepo("owner/repo") == "repo")
@@ -415,11 +448,13 @@ func shortRepoTest() {
 // GitService static
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("GitService.repoName from local path")
 func gitRepoName() {
     #expect(GitService.repoName(from: "/Users/user/projects/my-repo") == "my-repo")
 }
 
+@MainActor
 @Test("GitService.repoName trailing slash")
 func gitRepoNameTrailingSlash() {
     #expect(GitService.repoName(from: "/tmp/some-project/") == "some-project")
@@ -501,6 +536,7 @@ func generateTitleAlreadyFormatted() async {
 // ScannedRepo / GitBranch / RemoteBranch
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("ScannedRepo Identifiable conformance")
 func scannedRepoID() {
     let repo = ScannedRepo(path: "/a/b", branches: [], remoteBranches: [],
@@ -508,12 +544,14 @@ func scannedRepoID() {
     #expect(repo.id == "/a/b")
 }
 
+@MainActor
 @Test("GitBranch Identifiable conformance")
 func gitBranchID() {
     let b = GitBranch(name: "main", isCurrent: true)
     #expect(b.id == "main")
 }
 
+@MainActor
 @Test("RemoteBranch Identifiable conformance")
 func remoteBranchID() {
     let b = RemoteBranch(name: "origin/main", isMerged: false)
@@ -525,6 +563,7 @@ func remoteBranchID() {
 // ──────────────────────────────────────────────
 
 @Suite(.serialized) struct PersistenceSuite {
+    @MainActor
     @Test("PersistenceService roundtrip")
     func roundtrip() {
         let pr = PullRequest(
@@ -542,12 +581,14 @@ func remoteBranchID() {
         PersistenceService.save(prs: [])
     }
 
+    @MainActor
     @Test("PersistenceService empty save")
     func emptySave() {
         PersistenceService.save(prs: [])
         #expect(PersistenceService.loadPRs().isEmpty)
     }
 
+    @MainActor
     @Test("PersistenceService save overwrites")
     func overwrite() {
         let pr1 = PullRequest(
@@ -578,6 +619,7 @@ func remoteBranchID() {
 // Dependencies
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("Dependencies mock")
 func depsMock() {
     let deps = Dependencies.mock()
@@ -585,6 +627,7 @@ func depsMock() {
     #expect(deps.signalRService is MockSignalRService)
 }
 
+@MainActor
 @Test("Dependencies live")
 func depsLive() {
     let deps = Dependencies.live()
@@ -595,6 +638,7 @@ func depsLive() {
 // MenuBarBadgeService
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("MenuBarBadgeService initial state")
 func badgeInit() {
     let badge = MenuBarBadgeService()
@@ -610,6 +654,7 @@ func badgeInit() {
     #expect(badge.connectionState == .disconnected)
 }
 
+@MainActor
 @Test("MenuBarBadgeService iconName is flame.fill")
 func badgeIconName() {
     let badge = MenuBarBadgeService()
@@ -620,6 +665,7 @@ func badgeIconName() {
 // CachedBranch
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("CachedBranch basic construction")
 func cachedBranchBasic() {
     let cb = CachedBranch(name: "feature/LOY-1-x", repoPath: "/a/b", repoName: "b", ticketNumber: "LOY-1")
@@ -629,6 +675,7 @@ func cachedBranchBasic() {
     #expect(cb.ticketNumber == "LOY-1")
 }
 
+@MainActor
 @Test("CachedBranch nil ticket")
 func cachedBranchNilTicket() {
     let cb = CachedBranch(name: "main", repoPath: "/a/b", repoName: "b", ticketNumber: nil)
@@ -639,6 +686,7 @@ func cachedBranchNilTicket() {
 // APIBranch
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("APIBranch Codable")
 func apiBranchCoding() throws {
     let json = #"{"name":"feature/test"}"#
@@ -651,6 +699,7 @@ func apiBranchCoding() throws {
 // PunishmentEvent
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("PunishmentEvent basic construction")
 func punishmentEvent() {
     let url = URL(string: "https://example.com")
@@ -667,6 +716,7 @@ func punishmentEvent() {
 // TeamDefaults
 // ──────────────────────────────────────────────
 
+@MainActor
 @Test("TeamDefaults have expected values")
 func teamDefaults() {
     #expect(TeamDefaults.jiraBoardUrl == "https://easyjet.atlassian.net/browse/")

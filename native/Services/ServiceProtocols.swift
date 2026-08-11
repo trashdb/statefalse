@@ -24,7 +24,7 @@ enum GitError: LocalizedError {
 
 // MARK: - GitServiceProtocol
 
-protocol GitServiceProtocol: AnyObject {
+protocol GitServiceProtocol: AnyObject, Sendable {
     func listBranches(repoPath: String) async throws -> [(name: String, isCurrent: Bool)]
     func checkoutBranch(repoPath: String, name: String) async throws
     func hasUpstream(repoPath: String) async -> Bool

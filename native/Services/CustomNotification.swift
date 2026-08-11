@@ -146,7 +146,9 @@ final class NotificationBanner: NSObject {
         self.panel = p
 
         timer = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { [weak self] _ in
-            self?.dismiss()
+            Task { @MainActor [weak self] in
+                self?.dismiss()
+            }
         }
     }
 

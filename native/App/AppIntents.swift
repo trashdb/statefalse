@@ -5,8 +5,8 @@ import Foundation
 // MARK: - Open PR Intent
 
 struct OpenPRIntent: AppIntent {
-    static var title: LocalizedStringResource = "Open Pull Request"
-    static var description = IntentDescription("Opens a pull request in your browser")
+    nonisolated static let title: LocalizedStringResource = "Open Pull Request"
+    nonisolated static let description = IntentDescription("Opens a pull request in your browser")
     static var parameterSummary: any ParameterSummary { Summary("Open PR \(\.$prNumber) in \(\.$repository)") }
 
     @Parameter(title: "PR Number")
@@ -25,8 +25,8 @@ struct OpenPRIntent: AppIntent {
 // MARK: - Copy PR Link Intent
 
 struct CopyPRLinkIntent: AppIntent {
-    static var title: LocalizedStringResource = "Copy PR Link"
-    static var description = IntentDescription("Copies the pull request URL to clipboard")
+    nonisolated static let title: LocalizedStringResource = "Copy PR Link"
+    nonisolated static let description = IntentDescription("Copies the pull request URL to clipboard")
     static var parameterSummary: any ParameterSummary { Summary("Copy link for PR \(\.$prNumber) in \(\.$repository)") }
 
     @Parameter(title: "PR Number")
@@ -48,8 +48,8 @@ struct CopyPRLinkIntent: AppIntent {
 // MARK: - Get PR Status Intent
 
 struct GetPRStatusIntent: AppIntent {
-    static var title: LocalizedStringResource = "Get PR Status"
-    static var description = IntentDescription("Returns the status of a pull request")
+    nonisolated static let title: LocalizedStringResource = "Get PR Status"
+    nonisolated static let description = IntentDescription("Returns the status of a pull request")
     static var parameterSummary: any ParameterSummary { Summary("Get status of PR \(\.$prNumber) in \(\.$repository)") }
 
     @Parameter(title: "PR Number")
@@ -74,8 +74,8 @@ struct GetPRStatusIntent: AppIntent {
 // MARK: - List My PRs Intent
 
 struct ListMyPRsIntent: AppIntent {
-    static var title: LocalizedStringResource = "List My Pull Requests"
-    static var description = IntentDescription("Shows your active pull requests")
+    nonisolated static let title: LocalizedStringResource = "List My Pull Requests"
+    nonisolated static let description = IntentDescription("Shows your active pull requests")
 
     func perform() async throws -> some IntentResult & ReturnsValue<[String]> {
         let client = await MainActor.run { LiveApiClient.fromCurrentSession() }
