@@ -731,7 +731,7 @@
 				<key>GENERATE_INFOPLIST_FILE</key>
 				<string>YES</string>
 				<key>INFOPLIST_KEY_CFBundleDisplayName</key>
-				<string>StateFalse</string>
+				<string>Statefalse</string>
 				<key>INFOPLIST_KEY_LSUIElement</key>
 				<string>YES</string>
 				<key>INFOPLIST_KEY_NSHumanReadableCopyright</key>
@@ -790,7 +790,7 @@
 				<key>GENERATE_INFOPLIST_FILE</key>
 				<string>YES</string>
 				<key>INFOPLIST_KEY_CFBundleDisplayName</key>
-				<string>StateFalse</string>
+				<string>Statefalse</string>
 				<key>INFOPLIST_KEY_LSUIElement</key>
 				<string>YES</string>
 				<key>INFOPLIST_KEY_NSHumanReadableCopyright</key>

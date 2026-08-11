@@ -61,7 +61,7 @@ class OAuthService: OAuthServiceProtocol {
                         <head>
                           <meta charset="UTF-8">
                           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                          <title>StateFalse</title>
+                          <title>Statefalse</title>
                           <style>
                             *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
                             body {
@@ -119,7 +119,7 @@ class OAuthService: OAuthServiceProtocol {
                                 <polyline points="20 6 9 17 4 12"/>
                               </svg>
                             </div>
-                            <div class="badge">⚠ StateFalse</div>
+                            <div class="badge">⚠ Statefalse</div>
                             <h1>Authentication successful</h1>
                             <p>You're now connected to the CI/CD punishment system.<br>You may close this tab.</p>
                             <div class="divider"></div>
