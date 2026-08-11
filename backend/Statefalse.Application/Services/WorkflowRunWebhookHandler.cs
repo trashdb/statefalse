@@ -60,14 +60,15 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         }
 
         var repo = WebhookPayload.GetRepoOrUnknown(payload);
-        var name = run.TryGetProperty("name", out var wn) ? wn.GetString() : "Workflow";
-        var isIgnored = IgnoredWorkflows.IsIgnored(name);
-        var branch = run.TryGetProperty("head_branch", out var hb) ? hb.GetString() : null;
-        var headSha = run.TryGetProperty("head_sha", out var hs) ? hs.GetString() : null;
-        var url = run.TryGetProperty("html_url", out var hu) ? hu.GetString() : null;
-        var runId = run.GetProperty("id").GetInt64();
-        var startedAt = run.TryGetProperty("run_started_at", out var rsa) ? rsa.GetDateTime() : DateTime.UtcNow;
-        var trigger = run.TryGetProperty("event", out var ev) ? ev.GetString() : null;
+        var p = ParseRun(run);
+        var name = p.Name ?? "Workflow";
+        var isIgnored = IgnoredWorkflows.IsIgnored(p.Name);
+        var branch = p.Branch;
+        var headSha = p.HeadSha;
+        var url = p.Url;
+        var runId = p.RunId;
+        var startedAt = p.StartedAt;
+        var trigger = p.Trigger;
 
         var existingInProgress = await _runs.FindInProgressByRunIdAsync(runId);
         if (existingInProgress != null)
@@ -132,7 +133,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         // Always notify PR update so ciStatus refreshes even for ignored workflows
         await _notifier.NotifyPullRequestsUpdatedAsync();
 
-        var actor = culprit?.Login ?? "unknown";
+        var actor = culprit.Login;
         WebhookLog.Log("workflow_run", "in_progress", repo, name, isIgnored ? "ignored" : "processed", $"actor={actor}, runId={runId}");
         return ApiResult.Ok(new { runId });
     }
@@ -150,11 +151,12 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         }
 
         var repoFullName = WebhookPayload.GetRepoOrUnknown(payload);
-        var runId = workflowRun.GetProperty("id").GetInt64();
-        var workflowName = workflowRun.TryGetProperty("name", out var wn) ? wn.GetString() : null;
+        var p = ParseRun(workflowRun);
+        var runId = p.RunId;
+        var workflowName = p.Name;
         var isIgnored = IgnoredWorkflows.IsIgnored(workflowName);
-        var workflowUrl = workflowRun.TryGetProperty("html_url", out var wu) ? wu.GetString() : null;
-        var trigger = workflowRun.TryGetProperty("event", out var ev) ? ev.GetString() : null;
+        var workflowUrl = p.Url;
+        var trigger = p.Trigger;
 
         var dbStatus = WorkflowConclusionMapper.ToDbStatus(conclusion);
 
@@ -276,27 +278,15 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
             {
                 var pr = prs[0];
 
-                if (pr.TryGetProperty("merged_by", out var mergedBy))
-                {
-                    var id = mergedBy.TryGetProperty("id", out var mid) ? mid.GetInt64() : (long?)null;
-                    var login = mergedBy.GetProperty("login").GetString()!;
-                    return new CulpritInfo(login, id);
-                }
+                if (pr.TryGetProperty("merged_by", out var mergedBy) && CulpritFromUser(mergedBy) is { } mb)
+                    return mb;
 
-                if (pr.TryGetProperty("user", out var prUser))
-                {
-                    var id = prUser.TryGetProperty("id", out var pid) ? pid.GetInt64() : (long?)null;
-                    var login = prUser.GetProperty("login").GetString()!;
-                    return new CulpritInfo(login, id);
-                }
+                if (pr.TryGetProperty("user", out var prUser) && CulpritFromUser(prUser) is { } pu)
+                    return pu;
             }
 
-            if (payload.TryGetProperty("sender", out var sender))
-            {
-                var id = sender.TryGetProperty("id", out var sid) ? sid.GetInt64() : (long?)null;
-                var login = sender.GetProperty("login").GetString()!;
-                return new CulpritInfo(login, id);
-            }
+            if (payload.TryGetProperty("sender", out var sender) && CulpritFromUser(sender) is { } s)
+                return s;
 
             if (run.TryGetProperty("head_commit", out var commit) &&
                 commit.ValueKind != JsonValueKind.Null &&
@@ -304,7 +294,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
             {
                 var username = author.TryGetProperty("username", out var uname)
                     ? uname.GetString()
-                    : author.GetProperty("name").GetString();
+                    : author.TryGetProperty("name", out var name) ? name.GetString() : null;
 
                 if (!string.IsNullOrEmpty(username))
                     return new CulpritInfo(username, null);
@@ -316,6 +306,32 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         }
 
         return null;
+    }
+
+    /// <summary>Extracts {id, login} from a GitHub user object, or null when missing.</summary>
+    private static CulpritInfo? CulpritFromUser(JsonElement user)
+    {
+        if (user.ValueKind != JsonValueKind.Object) return null;
+        var id = user.TryGetProperty("id", out var idProp) ? idProp.GetInt64() : (long?)null;
+        var login = user.TryGetProperty("login", out var loginProp) ? loginProp.GetString() : null;
+        return string.IsNullOrEmpty(login) ? null : new CulpritInfo(login, id);
+    }
+
+    /// <summary>Reads the common workflow_run fields shared by in_progress and completed events.</summary>
+    private sealed record RunPayload(
+        long RunId, string? Name, string? Branch, string? HeadSha, string? Url,
+        string? Trigger, DateTime StartedAt);
+
+    private static RunPayload ParseRun(JsonElement run)
+    {
+        return new RunPayload(
+            RunId: run.GetProperty("id").GetInt64(),
+            Name: run.TryGetProperty("name", out var wn) ? wn.GetString() : null,
+            Branch: run.TryGetProperty("head_branch", out var hb) ? hb.GetString() : null,
+            HeadSha: run.TryGetProperty("head_sha", out var hs) ? hs.GetString() : null,
+            Url: run.TryGetProperty("html_url", out var hu) ? hu.GetString() : null,
+            Trigger: run.TryGetProperty("event", out var ev) ? ev.GetString() : null,
+            StartedAt: run.TryGetProperty("run_started_at", out var rsa) ? rsa.GetDateTime() : DateTime.UtcNow);
     }
 }
 
