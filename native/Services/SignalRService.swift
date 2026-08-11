@@ -373,32 +373,10 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     func setTargetGitHubIds(for dbId: Int, targetIds: [Int64]) {
         Task { @MainActor in
             for i in recentWorkflows.indices where recentWorkflows[i].dbId == dbId {
-                let old = recentWorkflows[i]
-                recentWorkflows[i] = WorkflowRun(
-                    id: old.id, dbId: old.dbId,
-                    runId: old.runId,
-                    workflowName: old.workflowName, repo: old.repo,
-                    actor: old.actor, headBranch: old.headBranch,
-                    trigger: old.trigger, prNumber: old.prNumber, prTitle: old.prTitle,
-                    status: old.status,
-                    htmlUrl: old.htmlUrl, startedAt: old.startedAt,
-                    completedAt: old.completedAt,
-                    targetGitHubIds: targetIds
-                )
+                recentWorkflows[i].targetGitHubIds = targetIds
             }
             for i in runningWorkflows.indices where runningWorkflows[i].dbId == dbId {
-                let old = runningWorkflows[i]
-                runningWorkflows[i] = WorkflowRun(
-                    id: old.id, dbId: old.dbId,
-                    runId: old.runId,
-                    workflowName: old.workflowName, repo: old.repo,
-                    actor: old.actor, headBranch: old.headBranch,
-                    trigger: old.trigger, prNumber: old.prNumber, prTitle: old.prTitle,
-                    status: old.status,
-                    htmlUrl: old.htmlUrl, startedAt: old.startedAt,
-                    completedAt: old.completedAt,
-                    targetGitHubIds: targetIds
-                )
+                runningWorkflows[i].targetGitHubIds = targetIds
             }
         }
     }
@@ -408,20 +386,10 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         if !saved.isEmpty {
             recentWorkflows = saved.map { run in
                 if run.status == "in_progress" {
-                    return WorkflowRun(
-                        id: run.id, dbId: run.dbId,
-                        runId: run.runId,
-                        workflowName: run.workflowName,
-                        repo: run.repo, actor: run.actor,
-                        headBranch: run.headBranch,
-                        trigger: run.trigger,
-                        prNumber: run.prNumber,
-                        prTitle: run.prTitle,
-                        status: "cancelled",
-                        htmlUrl: run.htmlUrl, startedAt: run.startedAt,
-                        completedAt: nil,
-                        targetGitHubIds: run.targetGitHubIds
-                    )
+                    var updated = run
+                    updated.status = "cancelled"
+                    updated.completedAt = nil
+                    return updated
                 }
                 return run
             }

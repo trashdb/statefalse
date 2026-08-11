@@ -31,11 +31,11 @@ struct WorkflowRun: Identifiable {
     let trigger: String?
     let prNumber: Int?
     let prTitle: String?
-    let status: String
+    var status: String
     let htmlUrl: String
     let startedAt: Date
-    let completedAt: Date?
-    let targetGitHubIds: [Int64]
+    var completedAt: Date?
+    var targetGitHubIds: [Int64]
 
     var isRunning: Bool { status == "in_progress" }
 

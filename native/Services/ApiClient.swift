@@ -289,18 +289,15 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func subscribeToPR(prNumber: Int64, repo: String) async -> Bool {
-        let repoEncoded = repo.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? repo
-        guard let url = URL(string: "\(baseUrl)/api/pullrequests/\(prNumber)/subscribe?repo=\(repoEncoded)") else { return false }
-        var req = makeRequest(url)
-        req.httpMethod = "POST"
-        guard let (_, resp) = try? await perform(req),
-              let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return false }
-        return true
+        await post("/api/pullrequests/\(prNumber)/subscribe", query: ["repo": repo])
     }
 
     func unsubscribeFromPR(prNumber: Int64, repo: String) async -> Bool {
-        let repoEncoded = repo.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? repo
-        guard let url = URL(string: "\(baseUrl)/api/pullrequests/\(prNumber)/unsubscribe?repo=\(repoEncoded)") else { return false }
+        await post("/api/pullrequests/\(prNumber)/unsubscribe", query: ["repo": repo])
+    }
+
+    private func post(_ path: String, query: [String: String] = [:]) async -> Bool {
+        guard let url = url(path, query: query) else { return false }
         var req = makeRequest(url)
         req.httpMethod = "POST"
         guard let (_, resp) = try? await perform(req),
