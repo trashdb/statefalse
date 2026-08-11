@@ -98,7 +98,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
 
         // Mark previous in_progress runs for same repo+workflow+branch as superseded
         // (GitHub does not send completed webhooks for superseded runs)
-        if (branch != null)
+        if (branch != null && name != null)
         {
             var superseded = await _runs.FindSupersededAsync(newRun.Id, repo, name, branch);
             if (superseded.Count > 0)
