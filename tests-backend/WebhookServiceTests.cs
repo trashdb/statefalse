@@ -196,6 +196,42 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task HandlerThrowing_Returns500_AndLogsError()
+    {
+        var factory = _factory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IWebhookHandler>();
+                services.AddScoped<IWebhookHandler>(_ => new ThrowingHandler());
+            }));
+        var payload = """{"x":1}""";
+        var client = factory.CreateClient();
+        var content = new StringContent(payload);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        content.Headers.Add("X-GitHub-Event", "boom_event");
+        content.Headers.Add("X-Hub-Signature-256", Sign(payload));
+
+        var response = await client.PostAsync("/api/webhook/github", content);
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+
+        var client2 = _factory.CreateClient();
+        client2.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            TestAuth.Token(_factory, 123, "alice"));
+        var logsResponse = await client2.GetAsync("/api/webhook/logs?limit=100");
+        using var logsJson = JsonDocument.Parse(await logsResponse.Content.ReadAsByteArrayAsync());
+        Assert.Contains(logsJson.RootElement.EnumerateArray(),
+            l => l.GetProperty("outcome").GetString() == "error");
+    }
+
+    private sealed class ThrowingHandler : IWebhookHandler
+    {
+        public string EventType => "boom_event";
+        public Task<ApiResult> HandleAsync(JsonElement payload) =>
+            throw new InvalidOperationException("boom");
+    }
+
+    [Fact]
     public async Task RejectedSignatures_AreLogged()
     {
         var payload = WorkflowRunPayload(1, "in_progress");

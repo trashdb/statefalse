@@ -62,7 +62,19 @@ public class WebhookService
             return ApiResult.BadRequest("Invalid JSON payload");
 
         if (_handlers.TryGetValue(eventType ?? "", out var handler))
-            return await handler.HandleAsync(body);
+        {
+            try
+            {
+                return await handler.HandleAsync(body);
+            }
+            catch (Exception ex)
+            {
+                // Log for visibility, then rethrow so GitHub retries the webhook.
+                WebhookLog.Log(handler.EventType, null, WebhookPayload.TryGetRepo(body), null, "error", ex.Message);
+                _logger.LogError(ex, "Webhook handler '{EventType}' failed", handler.EventType);
+                throw;
+            }
+        }
 
         WebhookLog.Log(eventType ?? "unknown", null, WebhookPayload.TryGetRepo(body), null, "ignored", "Unsupported event type");
         return ApiResult.Ok($"Ignored: unsupported event '{eventType}'.");
