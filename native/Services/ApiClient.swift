@@ -243,39 +243,33 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func fetchMe() async -> ApiMe? {
-        guard let url = URL(string: "\(baseUrl)/api/auth/me") else { return nil }
-        guard let (data, _) = try? await perform(makeRequest(url)) else { return nil }
-        return try? JSONDecoder().decode(ApiMe.self, from: data)
+        await fetchGET("/api/auth/me")
     }
 
     func fetchWorkflowRuns(limit: Int) async -> [ApiWorkflowRun]? {
-        guard let url = URL(string: "\(baseUrl)/api/workflows/runs?limit=\(limit)") else { return nil }
-        guard let (data, _) = try? await perform(makeRequest(url)) else { return nil }
-        return try? ApiJSON.decoder.decode([ApiWorkflowRun].self, from: data)
+        await fetchGET("/api/workflows/runs", query: ["limit": "\(limit)"])
     }
 
     func fetchActivePRs() async -> [ApiPullRequest]? {
-        guard let url = URL(string: "\(baseUrl)/api/pullrequests/active") else { return nil }
-        guard let (data, _) = try? await perform(makeRequest(url)) else { return nil }
-        return try? ApiJSON.decoder.decode([ApiPullRequest].self, from: data)
+        await fetchGET("/api/pullrequests/active")
     }
 
     func syncPRsFromGitHub() async -> Int {
-        guard let url = URL(string: "\(baseUrl)/api/pullrequests/sync") else { return 0 }
-        var request = makeRequest(url)
-        request.httpMethod = "POST"
-        do {
-            let (data, _) = try await perform(request)
-            struct SyncResult: Decodable { let synced: Int }
-            if let result = try? JSONDecoder().decode(SyncResult.self, from: data) {
-                return result.synced
-            }
-        } catch {}
-        return 0
+        await syncCount("/api/pullrequests/sync")
     }
 
     func syncActiveWorkflows() async -> Int {
-        guard let url = URL(string: "\(baseUrl)/api/workflows/sync-active") else { return 0 }
+        await syncCount("/api/workflows/sync-active")
+    }
+
+    private func fetchGET<T: Decodable>(_ path: String, query: [String: String] = [:]) async -> T? {
+        guard let url = url(path, query: query) else { return nil }
+        guard let (data, _) = try? await perform(makeRequest(url)) else { return nil }
+        return try? ApiJSON.decoder.decode(T.self, from: data)
+    }
+
+    private func syncCount(_ path: String) async -> Int {
+        guard let url = url(path) else { return 0 }
         var request = makeRequest(url)
         request.httpMethod = "POST"
         do {
@@ -314,21 +308,7 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func fetchPRDetails(prNumber: Int64, repo: String) async -> ApiFetch<ApiPRDetails> {
-        guard let url = url("/api/pullrequests/\(prNumber)/detail", query: ["repo": repo]) else {
-            return .failure("Invalid URL")
-        }
-        var req = makeRequest(url)
-        req.timeoutInterval = 15
-        do {
-            let (data, _) = try await perform(req)
-            guard let decoded = try? JSONDecoder().decode(ApiPRDetails.self, from: data) else {
-                let raw = String(data: data, encoding: .utf8) ?? "non-utf8"
-                return .failure("Parse error: \(raw.prefix(200))")
-            }
-            return .success(decoded)
-        } catch {
-            return .failure(error.localizedDescription)
-        }
+        await fetchJSON("/api/pullrequests/\(prNumber)/detail", query: ["repo": repo])
     }
 
     func mergePR(prNumber: Int64, repo: String, method: String) async -> ApiMergeResponse? {
@@ -381,26 +361,26 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func fetchCommits(prNumber: Int64, repo: String) async -> ApiFetch<[ApiCommitInfo]> {
-        await fetchList("/api/pullrequests/\(prNumber)/commits", prNumber: prNumber, repo: repo)
+        await fetchJSON("/api/pullrequests/\(prNumber)/commits", query: ["repo": repo])
     }
 
     func fetchFiles(prNumber: Int64, repo: String) async -> ApiFetch<[ApiFileInfo]> {
-        await fetchList("/api/pullrequests/\(prNumber)/files", prNumber: prNumber, repo: repo)
+        await fetchJSON("/api/pullrequests/\(prNumber)/files", query: ["repo": repo])
     }
 
     func fetchChecks(prNumber: Int64, repo: String) async -> ApiFetch<[ApiCheckInfo]> {
-        await fetchList("/api/pullrequests/\(prNumber)/checks", prNumber: prNumber, repo: repo)
+        await fetchJSON("/api/pullrequests/\(prNumber)/checks", query: ["repo": repo])
     }
 
-    private func fetchList<T: Decodable>(_ path: String, prNumber: Int64, repo: String) async -> ApiFetch<[T]> {
-        guard let url = url(path, query: ["repo": repo]) else {
+    private func fetchJSON<T: Decodable>(_ path: String, query: [String: String] = [:]) async -> ApiFetch<T> {
+        guard let url = url(path, query: query) else {
             return .failure("Invalid URL")
         }
         var req = makeRequest(url)
         req.timeoutInterval = 15
         do {
             let (data, _) = try await perform(req)
-            guard let decoded = try? JSONDecoder().decode([T].self, from: data) else {
+            guard let decoded = try? ApiJSON.decoder.decode(T.self, from: data) else {
                 return .failure("Parse error: \(errorLocalized(from: data))")
             }
             return .success(decoded)
@@ -432,16 +412,7 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func fetchAvailableUsers() async -> ApiFetch<[ApiAvailableUser]> {
-        guard let url = url("/api/users") else { return .failure("Invalid URL") }
-        do {
-            let (data, _) = try await perform(makeRequest(url))
-            guard let decoded = try? JSONDecoder().decode([ApiAvailableUser].self, from: data) else {
-                return .failure("Parse error: \(errorLocalized(from: data))")
-            }
-            return .success(decoded)
-        } catch {
-            return .failure(error.localizedDescription)
-        }
+        await fetchJSON("/api/users")
     }
 
     func addSubscriber(prNumber: Int64, repo: String, subscriberId: Int64) async -> String? {
@@ -505,9 +476,7 @@ final class LiveApiClient: ApiClientProtocol {
     // MARK: - Webhook logs
 
     func fetchWebhookLogs(limit: Int) async -> [WebhookLogEntry]? {
-        guard let url = URL(string: "\(baseUrl)/api/webhook/logs?limit=\(limit)") else { return nil }
-        guard let (data, _) = try? await perform(makeRequest(url)) else { return nil }
-        return try? ApiJSON.decoder.decode([WebhookLogEntry].self, from: data)
+        await fetchGET("/api/webhook/logs", query: ["limit": "\(limit)"])
     }
 
     // MARK: - Auth helpers
@@ -554,18 +523,7 @@ final class LiveApiClient: ApiClientProtocol {
     // MARK: - GitHub REST via backend
 
     func fetchMyBranches(repo: String) async -> ApiFetch<[ApiBranch]> {
-        guard let url = url("/api/github/my-branches", query: ["repo": repo]) else {
-            return .failure("Invalid URL")
-        }
-        do {
-            let (data, _) = try await perform(makeRequest(url))
-            guard let decoded = try? JSONDecoder().decode([ApiBranch].self, from: data) else {
-                return .failure("Parse error: \(errorLocalized(from: data))")
-            }
-            return .success(decoded)
-        } catch {
-            return .failure(error.localizedDescription)
-        }
+        await fetchJSON("/api/github/my-branches", query: ["repo": repo])
     }
 
     func createPR(repo: String, head: String, baseBranch: String, title: String, body: String?, subscribers: String?) async -> ApiFetch<ApiCreatePRResult> {
