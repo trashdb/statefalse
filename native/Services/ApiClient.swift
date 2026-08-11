@@ -245,7 +245,7 @@ final class LiveApiClient: ApiClientProtocol {
     func fetchActivePRs() async -> [ApiPullRequest]? {
         guard let url = URL(string: "\(baseUrl)/api/pullrequests/active") else { return nil }
         guard let (data, _) = try? await perform(makeRequest(url)) else { return nil }
-        return try? JSONDecoder().decode([ApiPullRequest].self, from: data)
+        return try? ApiJSON.decoder.decode([ApiPullRequest].self, from: data)
     }
 
     func syncPRsFromGitHub() async -> Int {
