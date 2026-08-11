@@ -46,7 +46,8 @@ Only respond with the JSON object, no other text.";
 
         try
         {
-            var parsed = JsonSerializer.Deserialize<InterpretResponse>(reply);
+            var parsed = JsonSerializer.Deserialize<InterpretResponse>(reply,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return parsed ?? new InterpretResponse { Action = "unknown", Message = reply };
         }
         catch

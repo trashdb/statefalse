@@ -10,12 +10,15 @@ namespace Statefalse.Application;
 /// </summary>
 public sealed class AiProviderClient : IAiProviderClient
 {
-    private static readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private readonly HttpClient _client;
     private readonly ILogger<AiProviderClient> _logger;
 
-    public AiProviderClient(ILogger<AiProviderClient> logger)
+    public AiProviderClient(ILogger<AiProviderClient> logger, HttpMessageHandler? handler = null)
     {
         _logger = logger;
+        _client = handler != null
+            ? new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) }
+            : new HttpClient() { Timeout = TimeSpan.FromSeconds(30) };
     }
 
     public async Task<string?> CompleteAsync(AiRequest request)
