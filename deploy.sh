@@ -16,17 +16,24 @@ ssh "$VPS" "sudo mkdir -p $REMOTE"
 rsync -az --delete --exclude='*.db' ./publish/ "$VPS:$REMOTE/"
 rsync -az "$SCRIPT_DIR/deploy/" "$VPS:$REMOTE/deploy/"
 
+echo "=== Installing systemd units ==="
+ssh "$VPS" "sudo cp $REMOTE/deploy/statefalse.service /etc/systemd/system/ && sudo cp $REMOTE/deploy/statefalse-tunnel.service /etc/systemd/system/ && sudo systemctl daemon-reload"
+
+echo "=== Installing environment file ==="
+if [ -f "$SCRIPT_DIR/deploy/statefalse.env" ]; then
+  ssh "$VPS" "sudo mkdir -p /etc/statefalse && sudo chmod 700 /etc/statefalse && sudo tee /etc/statefalse/statefalse.env >/dev/null && sudo chmod 600 /etc/statefalse/statefalse.env" < "$SCRIPT_DIR/deploy/statefalse.env"
+  echo "Installed /etc/statefalse/statefalse.env (mode 600)"
+else
+  echo "WARNING: deploy/statefalse.env not found - service will fail to start."
+  echo "Copy deploy/statefalse.env.example to deploy/statefalse.env and fill in real values."
+fi
+
 echo "=== Copying production config ==="
 if [ -f appsettings.Production.json ]; then
   scp appsettings.Production.json "$VPS:$REMOTE/"
 else
   echo "WARNING: appsettings.Production.json not found"
 fi
-
-echo "=== REMINDER ==="
-echo "Make sure Environment=WebhookSecret is set in the systemd service file"
-echo "or add it to appsettings.Production.json before restarting."
-echo "Generate a secret with: openssl rand -hex 32"
 
 echo "=== Setting permissions ==="
 ssh "$VPS" "sudo chmod +x $REMOTE/Statefalse.Api"
