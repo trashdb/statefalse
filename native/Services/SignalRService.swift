@@ -153,18 +153,24 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
             await syncFromApi()
             await syncPRsFromApi()
             startPolling()
+            await runReconnectLoop()
+        }
+    }
 
-            while !Task.isCancelled {
-                do {
-                    let token = await MainActor.run { self.authToken }
-                    guard let token else { break }
-                    try await self.signalRClient.connectAndListen(token: token, username: self.username) { [weak self] event in
-                        self?.handle(event)
-                    }
-                } catch {
-                    await MainActor.run { self.isConnected = false }
-                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+    /// Reconnect loop: keeps the SignalR websocket alive, backing off 5s
+    /// between failures. Exits when the session token disappears
+    /// (logout / session expiry).
+    private func runReconnectLoop() async {
+        while !Task.isCancelled {
+            do {
+                let token = await MainActor.run { self.authToken }
+                guard let token else { break }
+                try await self.signalRClient.connectAndListen(token: token, username: self.username) { [weak self] event in
+                    self?.handle(event)
                 }
+            } catch {
+                await MainActor.run { self.isConnected = false }
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
     }
