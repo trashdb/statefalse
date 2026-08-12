@@ -255,6 +255,8 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
 
     private func handle(_ event: HubEvent) {
         switch event {
+        case .connectionEstablished:
+            Task { @MainActor in self.isConnected = true }
         case .workflowStarted(let e): handleWorkflowStarted(e)
         case .workflowCompleted(let e): handleWorkflowCompleted(e)
         case .pullRequestsUpdated:
