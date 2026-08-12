@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Statefalse SQLite backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target
+

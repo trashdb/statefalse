@@ -128,16 +128,16 @@ Criterio de salida:
 
 ## 1.4 Backups y recuperación
 
-Implementar:
+Estado de implementación:
 
-- Backup SQLite diario.
-- Retención mínima de 7-30 días.
-- Copia fuera del mismo disco/VPS.
-- Backup antes de migraciones.
-- Script de restore probado en entorno aislado.
-- Verificación periódica de integridad con `PRAGMA integrity_check`.
-- Procedimiento de rollback de binario y base de datos.
-- Documentación de RPO/RTO iniciales.
+- [x] Backup SQLite diario mediante `statefalse-backup.timer`.
+- [x] Retención configurable; producción usa 14 días.
+- [ ] Copia fuera del mismo disco/VPS.
+- [x] Backup antes de cada deploy/migración mediante `deploy.sh`.
+- [x] Script de restore probado en entorno aislado.
+- [x] Verificación de integridad con `PRAGMA integrity_check`.
+- [ ] Procedimiento de rollback de binario y base de datos.
+- [ ] Documentación de RPO/RTO iniciales.
 
 No considerar backup terminado hasta haber restaurado una copia real.
 
@@ -223,9 +223,9 @@ Añadir una pantalla de entorno/debug visible solo en builds no productivas.
 
 ## Estado actual — 2026-08-12
 
-**Configuración de custom domain completada.** `api.statefalse.com` resuelve por HTTPS, `/health` responde `200`, webhooks reales de GitHub llegan y app nativa ya usa dominio propio. Falta validación end-to-end completa.
+**Configuración de custom domain completada.** `api.statefalse.com` resuelve por HTTPS, `/health` responde `200`, webhooks reales de GitHub llegan, SignalR registra conexiones y app nativa muestra notificaciones de builds fallidos. Ngrok quedó desactivado en producción.
 
-Incidencia detectada durante validación: backend procesa fallos (`failure handled`), pero conexión SignalR nativa recibía `400 Connection ID required` porque cliente abría WebSocket sin ejecutar negociación SignalR. Cliente actualizado para negociar antes de conectar. Pendiente desplegar y comprobar notificación real de build fallido.
+Incidencias resueltas durante validación: cliente nativo ahora negocia antes de abrir WebSocket y proxy Nginx declara explícitamente upgrade HTTP/1.1 para SignalR. Notificación real de build fallido validada el 2026-08-12.
 
 ## 3.1 Comprar y configurar dominio
 
@@ -298,12 +298,12 @@ Mantener redirección o mensaje de migración para instalaciones antiguas que to
 ## 3.4 Criterios de salida
 
 - [x] `https://api.statefalse.com/health` responde `200`.
-- [ ] SignalR conecta mediante HTTPS/WSS y registra conexión.
+- [x] SignalR conecta mediante HTTPS/WSS y registra conexión.
 - [x] OAuth básico funciona con dominio propio.
 - [x] Webhook real llega desde GitHub y procesa HMAC/configuración vigente.
 - [x] App nueva usa el dominio propio.
 - [x] ngrok detenido en producción.
-- [ ] Build fallido produce notificación visible en app.
+- [x] Build fallido produce notificación visible en app.
 
 ---
 
@@ -1211,6 +1211,8 @@ Statefalse estará listo para que lo use el equipo cuando:
 - CI valide backend, native y artefactos.
 - Haya monitorización y responsable de incidentes.
 - El equipo sepa cómo reportar errores y dónde consultar logs.
+
+
 
 
 

@@ -1,0 +1,8 @@
+[Unit]
+Description=Statefalse SQLite backup
+After=statefalse.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/statefalse/deploy/backup-statefalse.sh
+User=root
