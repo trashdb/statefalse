@@ -9,7 +9,9 @@ ExecStart=/opt/statefalse/Statefalse.Api
 Restart=always
 RestartSec=5
 Environment=ASPNETCORE_ENVIRONMENT=Production
-Environment=ASPNETCORE_URLS=http://localhost:5000
+# 172.18.0.1 is underlayer-net gateway on current VPS; nginx proxies through it.
+# Keep loopback for local health/debug access.
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5000;http://172.18.0.1:5000
 EnvironmentFile=/etc/statefalse/statefalse.env
 
 [Install]

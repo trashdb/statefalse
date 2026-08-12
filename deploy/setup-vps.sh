@@ -6,35 +6,23 @@ APP_DIR="/opt/statefalse"
 
 echo "=== Creating directory ==="
 sudo mkdir -p "$APP_DIR"
-
-echo "=== Installing ngrok ==="
-if ! command -v ngrok &>/dev/null; then
-  curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc |
-    sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-  echo "deb https://ngrok-agent.s3.amazonaws.com buster main" |
-    sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null
-  sudo apt update && sudo apt install -y ngrok
-else
-  echo "ngrok already installed"
-fi
+sudo mkdir -p /var/lib/statefalse
+sudo chmod 755 /var/lib/statefalse
 
 echo ""
 echo "=== NEXT STEP ==="
-echo "Run this to set your ngrok token (get it from https://dashboard.ngrok.com):"
-echo "  sudo ngrok config add-authtoken TU_NGROK_TOKEN"
-echo ""
 echo "Create the secrets directory (deploy.sh writes the env file here):"
 echo "  sudo mkdir -p /etc/statefalse && sudo chmod 700 /etc/statefalse"
 echo ""
-echo "After that, install the systemd services:"
+echo "The public API is served by shared nginx at https://api.statefalse.com."
+echo "Install statefalse.service after DNS and TLS proxy setup:"
 echo "  sudo cp deploy/statefalse.service          /etc/systemd/system/"
-echo "  sudo cp deploy/statefalse-tunnel.service    /etc/systemd/system/"
 echo "  sudo systemctl daemon-reload"
-echo "  sudo systemctl enable statefalse statefalse-tunnel"
+echo "  sudo systemctl enable statefalse"
 echo ""
 echo "Then deploy the binary from your Mac:"
 echo "  ./deploy.sh user@TU_VPS_IP"
 echo ""
 echo "Finally start everything:"
-echo "  sudo systemctl start statefalse statefalse-tunnel"
-echo "  sudo systemctl status statefalse statefalse-tunnel"
+echo "  sudo systemctl start statefalse"
+echo "  sudo systemctl status statefalse"

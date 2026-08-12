@@ -263,7 +263,7 @@ native/
 
 | Key | Default | Para qué |
 |-----|---------|----------|
-| `backendUrl` | `https://moonlike-silenced-sprung.ngrok-free.dev` | URL del backend |
+| `backendUrl` | `https://api.statefalse.com` | URL del backend |
 | `workspacePath` | `~/Desktop/dev` | Dónde buscar repos |
 | `jiraBoardUrl` | `https://easyjet.atlassian.net/browse/` | Base para tickets |
 | `jiraBoardViewUrl` | URL del board LOY | Vista del board |
@@ -299,7 +299,7 @@ pkill -x Statefalse; open ~/Applications/Statefalse.app
 ### Servicios systemd (`deploy/`)
 
 1. **`statefalse.service`**: Ejecuta `Statefalse.Api` en `localhost:5000` (envs: Jwt, GitHubOAuth, WebhookSecret, ConnectionStrings)
-2. **`statefalse-tunnel.service`**: Ejecuta `ngrok http --url=moonlike-silenced-sprung.ngrok-free.dev 5000`
+2. **Nginx compartido**: publica `api.statefalse.com` con HTTPS y proxy hacia el gateway Docker del host en `5000`
 
 ### Cómo desplegar
 
@@ -314,13 +314,13 @@ pkill -x Statefalse; open ~/Applications/Statefalse.app
 ### Configuración necesaria en GitHub
 
 1. **GitHub OAuth App** en `github.com/settings/developers`:
-   - Homepage URL: `https://moonlike-silenced-sprung.ngrok-free.dev`
-   - Callback URL: `https://moonlike-silenced-sprung.ngrok-free.dev/api/auth/callback`
+   - Homepage URL: `https://statefalse.com`
+   - Callback URL: `https://api.statefalse.com/api/auth/callback`
    - Scopes: `read:user`, `repo`
    - Client ID + Secret → env vars de systemd
 
 2. **Webhook** en cada repo (o a nivel org):
-   - URL: `https://moonlike-silenced-sprung.ngrok-free.dev/api/webhook/github`
+   - URL: `https://api.statefalse.com/api/webhook/github`
    - Eventos: Workflow runs, Check suites, Pull requests, Pull request reviews, Issue comments, Pull request review comments
    - Secret: `WebhookSecret` en systemd
 

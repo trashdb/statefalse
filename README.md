@@ -119,10 +119,12 @@ Notifications arrive via SignalR (instant) with a 60‑second polling fallback. 
 
 ## For repo admins: webhook setup
 
+Production API base URL: `https://api.statefalse.com`.
+
 Each repo needs a webhook pointing at the backend:
 
 1. **Repo Settings → Webhooks → Add webhook**
-2. **Payload URL:** `https://moonlike-silenced-sprung.ngrok-free.dev/api/webhook/github`
+2. **Payload URL:** `https://api.statefalse.com/api/webhook/github`
 3. **Content type:** `application/json`
 4. **Events:** ☑ Workflow runs, ☑ Pull requests, ☑ Check suites
 5. **Active:** ✅
