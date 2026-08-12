@@ -1146,7 +1146,8 @@ La documentación existente de monetización debe marcarse como propuesta, no co
 - [x] Dominio `statefalse.com`.
 - [x] `api.statefalse.com` con HTTPS.
 - [x] Migrar OAuth/webhooks desde ngrok.
-- [ ] Validar SignalR y notificación de build fallido end-to-end.
+- [x] Validar SignalR y notificación de build fallido end-to-end.
+- [x] Desactivar túnel ngrok de producción tras validar notificaciones.
 - [ ] Landing inicial.
 - [ ] GitHub Releases descargables.
 - [ ] Guía `DEVELOPMENT.md`.
@@ -1210,6 +1211,7 @@ Statefalse estará listo para que lo use el equipo cuando:
 - CI valide backend, native y artefactos.
 - Haya monitorización y responsable de incidentes.
 - El equipo sepa cómo reportar errores y dónde consultar logs.
+
 
 
 
