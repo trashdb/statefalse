@@ -1,0 +1,7 @@
+# Replace with GitHub team handles if team ownership is introduced.
+/backend/ @trashdb
+/native/ @trashdb
+/deploy/ @trashdb
+deploy.sh @trashdb
+/.github/ @trashdb
+SECURITY.md @trashdb

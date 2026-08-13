@@ -200,13 +200,12 @@ try
                 timestamp = DateTime.UtcNow
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return Results.Ok(new
             {
                 status = "unhealthy",
                 database = false,
-                error = ex.Message,
                 timestamp = DateTime.UtcNow
             });
         }
