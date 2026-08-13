@@ -34,17 +34,21 @@ dotnet restore
 dotnet publish -c Release --self-contained true -r linux-x64 -o "$PUBLISH_DIR"
 
 echo "=== Uploading to VPS ==="
+# shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
 ssh "$VPS" "sudo mkdir -p $REMOTE"
 rsync -az --delete --exclude='*.db' "$PUBLISH_DIR/" "$VPS:$REMOTE/"
 rsync -az --exclude='statefalse.env' "$SCRIPT_DIR/deploy/" "$VPS:$REMOTE/deploy/"
 
 echo "=== Installing backup timer ==="
+# shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
 ssh "$VPS" "sudo mkdir -p /var/backups/statefalse && sudo chmod 700 /var/backups/statefalse && sudo chmod +x $REMOTE/deploy/backup-statefalse.sh && sudo cp $REMOTE/deploy/statefalse-backup.service /etc/systemd/system/ && sudo cp $REMOTE/deploy/statefalse-backup.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now statefalse-backup.timer"
 
 echo "=== Backing up database ==="
+# shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
 ssh "$VPS" "sudo $REMOTE/deploy/backup-statefalse.sh"
 
 echo "=== Installing systemd unit ==="
+# shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
 ssh "$VPS" "sudo cp $REMOTE/deploy/statefalse.service /etc/systemd/system/ && sudo systemctl daemon-reload"
 
 echo "=== Installing environment file ==="
@@ -59,6 +63,7 @@ else
 fi
 
 echo "=== Setting permissions ==="
+# shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
 ssh "$VPS" "sudo chmod +x $REMOTE/Statefalse.Api"
 
 echo "=== Restarting service ==="
