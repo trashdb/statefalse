@@ -1,0 +1,27 @@
+name: Build Staging Artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package staging candidate
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet restore Statefalse.slnx
+      - run: dotnet test --no-restore Statefalse.slnx
+      - run: dotnet publish -c Release -r linux-x64 --self-contained true -o /tmp/statefalse-staging backend/Statefalse.Api.csproj
+      - run: tar -C /tmp/statefalse-staging -czf /tmp/statefalse-staging.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: statefalse-staging-${{ github.sha }}
+          path: /tmp/statefalse-staging.tar.gz
+

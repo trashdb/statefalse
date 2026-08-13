@@ -92,16 +92,18 @@ Prioridad máxima. Hacer antes de añadir funcionalidades o publicar ampliamente
 
 ## 1.2 Proteger GitHub
 
-- Activar protección de `main`.
-- Exigir Pull Request.
-- Exigir workflows de backend y native cuando los paths correspondan.
+- [ ] Activar protección de `main` (configuración GitHub externa).
+- [x] Documentar política de Pull Request y releases.
+- [x] Preparar workflows backend/native y check común.
 - Exigir review antes de merge cuando empiece a participar el equipo.
 - Desactivar push directo salvo emergencia documentada.
-- Añadir CODEOWNERS para backend, native, infraestructura y workflows.
+- [x] Añadir CODEOWNERS para backend, native, infraestructura y workflows.
 - Activar secret scanning, Dependabot y alertas de dependencias.
-- Definir política de commits y releases.
+- [x] Definir política de commits y releases.
 
 ## 1.3 Revisar autenticación y secretos
+
+`SECURITY.md` documenta controles y rotación. La revisión de credenciales reales, logs históricos y configuración GitHub/VPS requiere ejecución externa pendiente.
 
 Auditar:
 
@@ -159,6 +161,8 @@ Antes de que el equipo use la aplicación.
 - Native app apuntando explícitamente a localhost.
 
 ### Staging
+
+Plantillas de configuración, servicio systemd y workflow de artefacto ya preparados. Provisionamiento, DNS, OAuth App y secretos staging siguen pendientes.
 
 - VPS, contenedor o instancia separada.
 - Base de datos independiente.
@@ -1211,9 +1215,3 @@ Statefalse estará listo para que lo use el equipo cuando:
 - CI valide backend, native y artefactos.
 - Haya monitorización y responsable de incidentes.
 - El equipo sepa cómo reportar errores y dónde consultar logs.
-
-
-
-
-
-
