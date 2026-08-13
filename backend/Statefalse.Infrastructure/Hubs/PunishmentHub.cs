@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Statefalse.Domain.Contracts;
 using Statefalse.Domain.Models;
 using Statefalse.Infrastructure.Data;
 
@@ -46,6 +47,32 @@ public class PunishmentHub : Hub
 
         await _db.SaveChangesAsync();
         await Groups.AddToGroupAsync(Context.ConnectionId, gitHubId.ToString());
+
+        var pendingPunishments = await _db.PunishmentEvents
+            .Where(e => e.CulpritGitHubId == gitHubId
+                && !e.WasNotified
+                && e.OccurredAt >= DateTime.UtcNow.AddHours(-24))
+            .OrderBy(e => e.OccurredAt)
+            .Take(10)
+            .ToListAsync();
+
+        foreach (var punishment in pendingPunishments)
+        {
+            await Clients.Caller.SendAsync("WorkflowRunCompleted", new WorkflowRunCompletedPayload(
+                RunId: punishment.RunId,
+                Succeeded: false,
+                Conclusion: "failure",
+                WorkflowName: punishment.WorkflowName,
+                Repo: punishment.RepoFullName,
+                Actor: punishment.CulpritLogin,
+                HtmlUrl: punishment.WorkflowUrl,
+                Trigger: null));
+
+            punishment.WasNotified = true;
+        }
+
+        if (pendingPunishments.Count > 0)
+            await _db.SaveChangesAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
