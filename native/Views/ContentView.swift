@@ -30,6 +30,28 @@ struct ContentView: View {
 
                     Divider()
 
+                    if signalR.isLoggedIn && signalR.connectionState != .connected {
+                        HStack(spacing: DS.Spacing.md) {
+                            Image(systemName: "wifi.exclamationmark")
+                            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                                Text(connectionStatusTitle)
+                                    .font(DS.Font.small.medium())
+                                Text("Realtime notifications will resume automatically.")
+                                    .font(DS.Font.caption)
+                                    .foregroundStyle(DS.Color.textSecondary)
+                            }
+                            Spacer()
+                            Button("Retry now") {
+                                signalR.connect()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                        .foregroundStyle(.orange)
+                        .padding(DS.Spacing.md)
+                        .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: DS.Radius.lg))
+                    }
+
                     if signalR.isLoggedIn {
                         LoggedInCardView(username: signalR.username, avatarUrl: signalR.avatarUrl, onSignOut: logout)
                         KeepSignedInToggleView(isOn: $keepSignedIn)
@@ -305,6 +327,15 @@ struct ContentView: View {
             badge.connectionState = .hasRunning
         } else {
             badge.connectionState = .connected
+        }
+    }
+
+    private var connectionStatusTitle: String {
+        switch signalR.connectionState {
+        case .connecting: return "Connecting to realtime updates…"
+        case .reconnecting: return "Realtime connection lost"
+        case .disconnected: return "Realtime updates disconnected"
+        case .connected: return "Realtime updates connected"
         }
     }
 
