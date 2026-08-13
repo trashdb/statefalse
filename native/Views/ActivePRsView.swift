@@ -157,6 +157,7 @@ struct ActivePRsView: View {
                 }
                 .animation(DS.Animation.default, value: filteredPRs.count)
             }
+            .scrollBounceBehavior(.basedOnSize, axes: .vertical)
             .scrollDisabled(filteredPRs.count < 4)
             .frame(height: 180, alignment: .top)
         }

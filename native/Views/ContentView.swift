@@ -14,8 +14,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: DS.Spacing.xl) {
+            VStack(alignment: .leading, spacing: DS.Spacing.xl) {
                     // Header
                     HStack(spacing: DS.Spacing.md) {
                         Image(systemName: "flame.fill")
@@ -82,7 +81,6 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, DS.Spacing.xl)
                     .padding(.horizontal, DS.Spacing.xxl)
-                }
 
             Divider()
 
