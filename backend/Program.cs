@@ -38,7 +38,11 @@ try
         options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
     // SignalR
-    builder.Services.AddSignalR();
+    builder.Services.AddSignalR(options =>
+    {
+        options.KeepAliveInterval = TimeSpan.FromSeconds(10);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+    });
 
     // HttpClient for GitHub OAuth
     builder.Services.AddHttpClient<GitHubOAuthService>();

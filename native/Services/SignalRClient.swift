@@ -110,6 +110,7 @@ final class LiveSignalRClient: SignalRClientProtocol {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = Data("{}".utf8)
@@ -139,12 +140,29 @@ final class LiveSignalRClient: SignalRClientProtocol {
         try await ws.send(.string(register))
         onEvent(.connectionEstablished)
 
+        let watchdog = Task { [ws] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                guard !Task.isCancelled else { break }
+                ws.sendPing { error in
+                    if error != nil {
+                        ws.cancel(with: .abnormalClosure, reason: nil)
+                    }
+                }
+            }
+        }
+        defer { watchdog.cancel() }
+
         while !Task.isCancelled {
-            handleText(try await ws.receiveText(), ws: ws, onEvent: onEvent)
+            let text = try await ws.receiveText()
+            if handleText(text, ws: ws, onEvent: onEvent) {
+                throw SignalRClientError.connectionClosed
+            }
         }
     }
 
-    private func handleText(_ text: String, ws: URLSessionWebSocketTask, onEvent: (HubEvent) -> Void) {
+    @discardableResult
+    private nonisolated func handleText(_ text: String, ws: URLSessionWebSocketTask, onEvent: (HubEvent) -> Void) -> Bool {
         for part in text.components(separatedBy: "\u{1e}").filter({ !$0.isEmpty }) {
             guard let data = part.data(using: .utf8),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -159,13 +177,15 @@ final class LiveSignalRClient: SignalRClientProtocol {
                 Task { try? await ws.send(.string("{\"type\":6}\u{1e}")) }
             case 7:
                 onEvent(.connectionClosed)
+                return true
             default:
                 break
             }
         }
+        return false
     }
 
-    private func parseInvocation(_ json: [String: Any]) -> HubEvent? {
+    private nonisolated func parseInvocation(_ json: [String: Any]) -> HubEvent? {
         guard let target = json["target"] as? String,
               let args = json["arguments"] as? [[String: Any]],
               let data = args.first else { return nil }
@@ -197,6 +217,7 @@ final class LiveSignalRClient: SignalRClientProtocol {
     enum SignalRClientError: Error {
         case handshakeFailed
         case negotiateFailed
+        case connectionClosed
     }
 }
 

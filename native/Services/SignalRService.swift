@@ -5,10 +5,18 @@ enum RunStatus: Equatable {
     case idle, running, success, failure
 }
 
+enum SignalRConnectionState: Equatable {
+    case disconnected
+    case connecting
+    case connected
+    case reconnecting
+}
+
 /// Facade orchestrator: owns observable UI state and domain rules, delegates
 /// transport to `ApiClient` (REST) and `SignalRClient` (websocket).
 class SignalRService: ObservableObject, SignalRServiceProtocol {
     @Published var isConnected = false
+    @Published var connectionState: SignalRConnectionState = .disconnected
     @Published var isLoggedIn = false
     @Published var username = ""
     @Published var avatarUrl: String?
@@ -27,6 +35,8 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     private let signalRClient: SignalRClientProtocol
     private var task: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
+    private var connectionLossNotified = false
+    private var hasEstablishedConnection = false
     /// Tracks PRs we've already notified as "ready to merge" so we don't re-notify
     /// on every 30s poll. A PR is removed once it's no longer ready, so it can
     /// notify again if it regresses (new commits) and becomes ready once more.
@@ -146,6 +156,9 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
 
     func connect() {
         task?.cancel()
+        Task { @MainActor in
+            self.connectionState = self.isConnected ? .reconnecting : .connecting
+        }
         task = Task { [weak self] in
             guard let self else { return }
 
@@ -168,8 +181,21 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
                 try await self.signalRClient.connectAndListen(token: token, username: self.username) { [weak self] event in
                     self?.handle(event)
                 }
+            } catch is CancellationError {
+                break
             } catch {
-                await MainActor.run { self.isConnected = false }
+                await MainActor.run {
+                    self.isConnected = false
+                    self.connectionState = .reconnecting
+                    if self.hasEstablishedConnection && !self.connectionLossNotified {
+                        self.connectionLossNotified = true
+                        showNotification(
+                            title: "Statefalse connection lost",
+                            body: "Realtime updates are paused. Retrying automatically.",
+                            style: .info
+                        )
+                    }
+                }
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
@@ -233,6 +259,9 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         readyNotifier.reset()
         Task { @MainActor in
             isConnected = false
+            connectionState = .disconnected
+            connectionLossNotified = false
+            hasEstablishedConnection = false
             runStatus = .idle
             lastEvent = nil
             runningWorkflows = []
@@ -256,7 +285,22 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     private func handle(_ event: HubEvent) {
         switch event {
         case .connectionEstablished:
-            Task { @MainActor in self.isConnected = true }
+            Task { @MainActor in
+                let wasReconnecting = self.connectionLossNotified
+                self.isConnected = true
+                self.connectionState = .connected
+                self.hasEstablishedConnection = true
+                self.connectionLossNotified = false
+                if wasReconnecting {
+                    showNotification(
+                        title: "Statefalse connection restored",
+                        body: "Realtime updates are active again.",
+                        style: .info
+                    )
+                    await self.syncFromApi()
+                    await self.syncPRsFromApi()
+                }
+            }
         case .workflowStarted(let e): handleWorkflowStarted(e)
         case .workflowCompleted(let e): handleWorkflowCompleted(e)
         case .pullRequestsUpdated:
@@ -265,7 +309,18 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         case .prCommented(let e): handlePrCommented(e)
         case .mainBranchUpdated(let e): handleMainBranchUpdated(e)
         case .connectionClosed:
-            Task { @MainActor in self.isConnected = false }
+            Task { @MainActor in
+                self.isConnected = false
+                self.connectionState = .reconnecting
+                if self.hasEstablishedConnection && !self.connectionLossNotified {
+                    self.connectionLossNotified = true
+                    showNotification(
+                        title: "Statefalse connection lost",
+                        body: "Realtime updates are paused. Retrying automatically.",
+                        style: .info
+                    )
+                }
+            }
         }
     }
 
