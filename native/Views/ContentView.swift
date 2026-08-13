@@ -80,7 +80,7 @@ struct ContentView: View {
                 .foregroundStyle(DS.Color.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, DS.Spacing.xl)
-                .padding(.horizontal, DS.Spacing.xxl)
+                    .padding(.horizontal, DS.Spacing.xxl)
 
             Divider()
 

@@ -85,6 +85,7 @@ struct LocalBranchesView: View {
                     }
                     .animation(DS.Animation.default, value: repos.count)
                 }
+                .scrollBounceBehavior(.basedOnSize, axes: .vertical)
                 .frame(height: 180)
                 .onChange(of: repos.contains { $0.isExpanded }) { _, _ in
                     scrollTopIfCollapsed(proxy)
