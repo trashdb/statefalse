@@ -1,12 +1,17 @@
-name: Native Release Artifact
+name: Native Release
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build (for example, v0.2.0)
+        required: true
+        type: string
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   release:
@@ -14,20 +19,89 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
-      - name: Build Release
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          xcodebuild -project native/statefalse.xcodeproj -scheme Statefalse -configuration Release build \
-            -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
-      - name: Package and checksum
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Run native tests
         run: |
-          APP=$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*/Build/Products/Release/Statefalse.app' -print -quit)
-          test -n "$APP"
-          ditto -c -k --sequesterRsrc --keepParent "$APP" Statefalse-${GITHUB_REF_NAME}.zip
-          shasum -a 256 Statefalse-${GITHUB_REF_NAME}.zip > SHA256SUMS
+          set -euo pipefail
+          xcodebuild test \
+            -project native/statefalse.xcodeproj \
+            -scheme StatefalseTests \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+      - name: Build unsigned Release app
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project native/statefalse.xcodeproj \
+            -scheme Statefalse \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            MARKETING_VERSION="$RELEASE_VERSION" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+      - name: Package, validate and checksum
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/DerivedData/Build/Products/Release/Statefalse.app"
+          ZIP="Statefalse-${RELEASE_TAG}.zip"
+          test -d "$APP"
+
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")
+          MARKETING_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
+          BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")
+          [[ "$BUNDLE_ID" == "com.statefalse.app" ]]
+          [[ "$MARKETING_VERSION" == "$RELEASE_VERSION" ]]
+
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+          shasum -a 256 "$ZIP" > SHA256SUMS
+          cat > release-manifest.txt <<EOF
+          tag=$RELEASE_TAG
+          version=$MARKETING_VERSION
+          commit=$(git rev-parse HEAD)
+          built_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          bundle_id=$BUNDLE_ID
+          build_number=$BUILD_NUMBER
+          architectures=$(file "$APP/Contents/MacOS/Statefalse" | sed 's/^.*: //')
+          signing=unsigned
+          notarized=false
+          EOF
+
+          ditto -x -k "$ZIP" "$RUNNER_TEMP/verify"
+          test -d "$RUNNER_TEMP/verify/Statefalse.app"
+          shasum -a 256 -c SHA256SUMS
+
       - uses: actions/upload-artifact@v4
         with:
-          name: statefalse-${{ github.ref_name }}
+          name: statefalse-${{ inputs.tag || github.ref_name }}
           path: |
-            Statefalse-${{ github.ref_name }}.zip
+            Statefalse-${{ inputs.tag || github.ref_name }}.zip
             SHA256SUMS
+            release-manifest.txt
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            "Statefalse-${RELEASE_TAG}.zip" \
+            SHA256SUMS \
+            release-manifest.txt \
+            --verify-tag \
+            --title "Statefalse $RELEASE_TAG" \
+            --generate-notes
 

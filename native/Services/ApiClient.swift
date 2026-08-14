@@ -202,6 +202,7 @@ protocol ApiClientProtocol: AnyObject, Sendable {
 
 final class LiveApiClient: ApiClientProtocol {
     let baseUrl: String
+    private let apiPrefix = "/api/v1"
     var onUnauthorized: (() -> Void)?
     var authToken: String? {
         didSet { didFireUnauthorized = false }
@@ -243,23 +244,23 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func fetchMe() async -> ApiMe? {
-        await fetchGET("/api/auth/me")
+        await fetchGET("\(apiPrefix)/auth/me")
     }
 
     func fetchWorkflowRuns(limit: Int) async -> [ApiWorkflowRun]? {
-        await fetchGET("/api/workflows/runs", query: ["limit": "\(limit)"])
+        await fetchGET("\(apiPrefix)/workflows/runs", query: ["limit": "\(limit)"])
     }
 
     func fetchActivePRs() async -> [ApiPullRequest]? {
-        await fetchGET("/api/pullrequests/active")
+        await fetchGET("\(apiPrefix)/pullrequests/active")
     }
 
     func syncPRsFromGitHub() async -> Int {
-        await syncCount("/api/pullrequests/sync")
+        await syncCount("\(apiPrefix)/pullrequests/sync")
     }
 
     func syncActiveWorkflows() async -> Int {
-        await syncCount("/api/workflows/sync-active")
+        await syncCount("\(apiPrefix)/workflows/sync-active")
     }
 
     private func fetchGET<T: Decodable>(_ path: String, query: [String: String] = [:]) async -> T? {
@@ -283,11 +284,11 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func subscribeToPR(prNumber: Int64, repo: String) async -> Bool {
-        await post("/api/pullrequests/\(prNumber)/subscribe", query: ["repo": repo])
+        await post("\(apiPrefix)/pullrequests/\(prNumber)/subscribe", query: ["repo": repo])
     }
 
     func unsubscribeFromPR(prNumber: Int64, repo: String) async -> Bool {
-        await post("/api/pullrequests/\(prNumber)/unsubscribe", query: ["repo": repo])
+        await post("\(apiPrefix)/pullrequests/\(prNumber)/unsubscribe", query: ["repo": repo])
     }
 
     private func post(_ path: String, query: [String: String] = [:]) async -> Bool {
@@ -308,11 +309,11 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func fetchPRDetails(prNumber: Int64, repo: String) async -> ApiFetch<ApiPRDetails> {
-        await fetchJSON("/api/pullrequests/\(prNumber)/detail", query: ["repo": repo])
+        await fetchJSON("\(apiPrefix)/pullrequests/\(prNumber)/detail", query: ["repo": repo])
     }
 
     func mergePR(prNumber: Int64, repo: String, method: String) async -> ApiMergeResponse? {
-        guard let url = url("/api/pullrequests/\(prNumber)/merge", query: ["repo": repo, "method": method]) else { return nil }
+        guard let url = url("\(apiPrefix)/pullrequests/\(prNumber)/merge", query: ["repo": repo, "method": method]) else { return nil }
         var request = makeRequest(url)
         request.httpMethod = "POST"
         guard let (data, _) = try? await perform(request) else { return nil }
@@ -320,7 +321,7 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func setDraft(prNumber: Int64, repo: String, draft: Bool) async -> String? {
-        guard let url = url("/api/pullrequests/\(prNumber)/draft", query: ["repo": repo, "draft": draft ? "true" : "false"]) else {
+        guard let url = url("\(apiPrefix)/pullrequests/\(prNumber)/draft", query: ["repo": repo, "draft": draft ? "true" : "false"]) else {
             return "Invalid URL"
         }
         var request = makeRequest(url)
@@ -335,7 +336,7 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func updateBranch(prNumber: Int64, repo: String) async -> ApiUpdateBranchResult {
-        guard let url = url("/api/pullrequests/\(prNumber)/update-branch", query: ["repo": repo]) else {
+        guard let url = url("\(apiPrefix)/pullrequests/\(prNumber)/update-branch", query: ["repo": repo]) else {
             return .failed("Invalid URL")
         }
         var request = makeRequest(url)
@@ -361,15 +362,15 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func fetchCommits(prNumber: Int64, repo: String) async -> ApiFetch<[ApiCommitInfo]> {
-        await fetchJSON("/api/pullrequests/\(prNumber)/commits", query: ["repo": repo])
+        await fetchJSON("\(apiPrefix)/pullrequests/\(prNumber)/commits", query: ["repo": repo])
     }
 
     func fetchFiles(prNumber: Int64, repo: String) async -> ApiFetch<[ApiFileInfo]> {
-        await fetchJSON("/api/pullrequests/\(prNumber)/files", query: ["repo": repo])
+        await fetchJSON("\(apiPrefix)/pullrequests/\(prNumber)/files", query: ["repo": repo])
     }
 
     func fetchChecks(prNumber: Int64, repo: String) async -> ApiFetch<[ApiCheckInfo]> {
-        await fetchJSON("/api/pullrequests/\(prNumber)/checks", query: ["repo": repo])
+        await fetchJSON("\(apiPrefix)/pullrequests/\(prNumber)/checks", query: ["repo": repo])
     }
 
     private func fetchJSON<T: Decodable>(_ path: String, query: [String: String] = [:]) async -> ApiFetch<T> {
@@ -396,7 +397,7 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func fetchSubscribers(prNumber: Int64, repo: String) async -> ApiFetch<[ApiSubscriberInfo]> {
-        guard let url = url("/api/pullrequests/\(prNumber)/subscribers", query: ["repo": repo]) else {
+        guard let url = url("\(apiPrefix)/pullrequests/\(prNumber)/subscribers", query: ["repo": repo]) else {
             return .failure("Invalid URL")
         }
         do {
@@ -412,15 +413,15 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func fetchAvailableUsers() async -> ApiFetch<[ApiAvailableUser]> {
-        await fetchJSON("/api/users")
+        await fetchJSON("\(apiPrefix)/users")
     }
 
     func addSubscriber(prNumber: Int64, repo: String, subscriberId: Int64) async -> String? {
-        await mutateSubscriber("/api/pullrequests/\(prNumber)/add-subscriber", prNumber: prNumber, repo: repo, subscriberId: subscriberId)
+        await mutateSubscriber("\(apiPrefix)/pullrequests/\(prNumber)/add-subscriber", prNumber: prNumber, repo: repo, subscriberId: subscriberId)
     }
 
     func removeSubscriber(prNumber: Int64, repo: String, subscriberId: Int64) async -> String? {
-        await mutateSubscriber("/api/pullrequests/\(prNumber)/remove-subscriber", prNumber: prNumber, repo: repo, subscriberId: subscriberId)
+        await mutateSubscriber("\(apiPrefix)/pullrequests/\(prNumber)/remove-subscriber", prNumber: prNumber, repo: repo, subscriberId: subscriberId)
     }
 
     private func mutateSubscriber(_ path: String, prNumber: Int64, repo: String, subscriberId: Int64) async -> String? {
@@ -446,7 +447,7 @@ final class LiveApiClient: ApiClientProtocol {
     // MARK: - Workflow run management
 
     func rerunWorkflow(runId: Int64) async -> String? {
-        guard let url = URL(string: "\(baseUrl)/api/workflows/runs/\(runId)/rerun") else { return "Invalid URL" }
+        guard let url = URL(string: "\(baseUrl)\(apiPrefix)/workflows/runs/\(runId)/rerun") else { return "Invalid URL" }
         var request = makeRequest(url)
         request.httpMethod = "POST"
         do {
@@ -463,7 +464,7 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func setTargetGitHubIds(dbId: Int, targetIds: [Int64]) async -> Bool {
-        guard let url = URL(string: "\(baseUrl)/api/workflows/runs/\(dbId)/target") else { return false }
+        guard let url = URL(string: "\(baseUrl)\(apiPrefix)/workflows/runs/\(dbId)/target") else { return false }
         var request = makeRequest(url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -476,14 +477,14 @@ final class LiveApiClient: ApiClientProtocol {
     // MARK: - Webhook logs
 
     func fetchWebhookLogs(limit: Int) async -> [WebhookLogEntry]? {
-        await fetchGET("/api/webhook/logs", query: ["limit": "\(limit)"])
+        await fetchGET("\(apiPrefix)/webhook/logs", query: ["limit": "\(limit)"])
     }
 
     // MARK: - Auth helpers
 
     func savePAT(patToken: String, to backendUrl: String?) async -> Bool {
         let target = backendUrl ?? baseUrl
-        guard let url = URL(string: "\(target)/api/auth/pat") else { return false }
+        guard let url = URL(string: "\(target)\(apiPrefix)/auth/pat") else { return false }
         var request = makeRequest(url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -500,7 +501,7 @@ final class LiveApiClient: ApiClientProtocol {
         let headEncoded = head.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? head
         let baseEncoded = baseBranch.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? baseBranch
         let titleEncoded = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? title
-        guard let url = URL(string: "\(baseUrl)/api/github/pr-preview?repo=\(repoEncoded)&head=\(headEncoded)&baseBranch=\(baseEncoded)&title=\(titleEncoded)&useAI=\(useAI)") else {
+        guard let url = URL(string: "\(baseUrl)\(apiPrefix)/github/pr-preview?repo=\(repoEncoded)&head=\(headEncoded)&baseBranch=\(baseEncoded)&title=\(titleEncoded)&useAI=\(useAI)") else {
             return .failure("Invalid URL")
         }
         var request = makeRequest(url)
@@ -523,7 +524,7 @@ final class LiveApiClient: ApiClientProtocol {
     // MARK: - GitHub REST via backend
 
     func fetchMyBranches(repo: String) async -> ApiFetch<[ApiBranch]> {
-        await fetchJSON("/api/github/my-branches", query: ["repo": repo])
+        await fetchJSON("\(apiPrefix)/github/my-branches", query: ["repo": repo])
     }
 
     func createPR(repo: String, head: String, baseBranch: String, title: String, body: String?, subscribers: String?) async -> ApiFetch<ApiCreatePRResult> {
@@ -535,7 +536,7 @@ final class LiveApiClient: ApiClientProtocol {
         ]
         if let body, !body.isEmpty { query["body"] = body }
         if let subscribers, !subscribers.isEmpty { query["subscribers"] = subscribers }
-        guard let url = url("/api/github/create-pr", query: query) else {
+        guard let url = url("\(apiPrefix)/github/create-pr", query: query) else {
             return .failure("Invalid URL")
         }
         var request = makeRequest(url)
@@ -555,7 +556,7 @@ final class LiveApiClient: ApiClientProtocol {
     }
 
     func fetchPAT() async -> String? {
-        guard let url = URL(string: "\(baseUrl)/api/auth/token") else { return nil }
+        guard let url = URL(string: "\(baseUrl)\(apiPrefix)/auth/token") else { return nil }
         guard let (data, _) = try? await perform(makeRequest(url)) else { return nil }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: String],
               let token = json["token"], !token.isEmpty else { return nil }

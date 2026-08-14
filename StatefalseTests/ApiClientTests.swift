@@ -59,7 +59,7 @@ final class ApiClientTests: XCTestCase {
         MockURLProtocol.handler = { _ in self.jsonResponse(200, "{}") }
         _ = await makeClient().fetchPRDetails(prNumber: 7, repo: "owner/repo")
         let url = MockURLProtocol.lastRequest!.url!
-        XCTAssertEqual(url.path, "/api/pullrequests/7/detail")
+        XCTAssertEqual(url.path, "/api/v1/pullrequests/7/detail")
         XCTAssertEqual(queryItem("repo", in: url), "owner/repo")
         XCTAssertNil(queryItem("gitHubId", in: url))
     }
@@ -306,7 +306,7 @@ final class ApiClientTests: XCTestCase {
         let client = makeClient()
         client.authToken = "jwt"
         _ = await client.savePAT(patToken: "ghp_abc", to: "https://custom.example.com")
-        XCTAssertEqual(MockURLProtocol.lastRequest?.url?.absoluteString, "https://custom.example.com/api/auth/pat")
+        XCTAssertEqual(MockURLProtocol.lastRequest?.url?.absoluteString, "https://custom.example.com/api/v1/auth/pat")
     }
 
     // MARK: - PR preview

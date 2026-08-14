@@ -7,7 +7,7 @@ class OAuthService: OAuthServiceProtocol {
         try await withCheckedThrowingContinuation { continuation in
             let port = UInt16.random(in: 49152...65535)
             let redirectUri = "http://localhost:\(port)/callback"
-            let loginUrl = "\(backendUrl)/api/auth/login?redirect_uri=\(redirectUri)"
+            let loginUrl = "\(backendUrl)/api/v1/auth/login?redirect_uri=\(redirectUri)"
 
             do {
                 let listener = try NWListener(using: .tcp, on: .init(rawValue: port)!)
