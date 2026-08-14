@@ -260,6 +260,18 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
         var response = await noRedirectClient.GetAsync("/api/v1/auth/login");
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
+        var state = System.Web.HttpUtility.ParseQueryString(response.Headers.Location!.Query)["state"];
+        Assert.False(string.IsNullOrWhiteSpace(state));
+        Assert.DoesNotContain("://", System.Web.HttpUtility.UrlDecode(state));
+    }
+
+    [Fact]
+    public async Task GetAuthLogin_RejectsExternalRedirect()
+    {
+        var response = await _client.GetAsync(
+            "/api/v1/auth/login?redirect_uri=https%3A%2F%2Fattacker.example%2Fcallback");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

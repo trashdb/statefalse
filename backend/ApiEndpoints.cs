@@ -38,11 +38,19 @@ public static class ApiEndpoints
 
     private static void MapAuth(IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/auth/login", (string? redirect_uri, AuthService auth)
-            => Results.Redirect(auth.LoginUrl(redirect_uri))).AllowAnonymous();
+        routes.MapGet("/auth/login", (string? redirect_uri, AuthService auth) =>
+        {
+            var authorizationUrl = auth.LoginUrl(redirect_uri);
+            return authorizationUrl is null
+                ? Results.BadRequest(new { error = "Invalid local redirect URI." })
+                : Results.Redirect(authorizationUrl);
+        }).AllowAnonymous();
 
         routes.MapGet("/auth/me", async (HttpContext ctx, AuthService auth)
             => await MapAsync(auth.GetMeAsync(ctx.GitHubId()))).RequireAuthorization();
+
+        routes.MapPost("/auth/exchange", async (OAuthExchangeRequest request, AuthService auth)
+            => Map(auth.ExchangeCode(request.Code))).AllowAnonymous();
 
         routes.MapPost("/auth/pat", async (HttpContext ctx, PatRequest body, AuthService auth)
             => await MapAsync(auth.SavePatAsync(ctx.GitHubId(), body.PatToken))).RequireAuthorization();
@@ -193,4 +201,7 @@ public static class ApiEndpoints
         var result = await task;
         return Results.Json(result.Value, statusCode: result.StatusCode);
     }
+
+    private static IResult Map(ApiResult result)
+        => Results.Json(result.Value, statusCode: result.StatusCode);
 }

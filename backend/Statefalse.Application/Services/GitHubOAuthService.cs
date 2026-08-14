@@ -21,13 +21,18 @@ public class GitHubOAuthService
         _options = options.Value;
     }
 
-    public string GetAuthorizationUrl(string? redirectUri = null)
+    public string GetAuthorizationUrl(string state)
     {
-        var state = !string.IsNullOrEmpty(redirectUri)
-            ? Uri.EscapeDataString(redirectUri)
-            : string.Empty;
-
-        return $"https://github.com/login/oauth/authorize?client_id={_options.ClientId}&redirect_uri={_options.RedirectUri}&scope=read:user,repo&state={state}";
+        var query = new Dictionary<string, string>
+        {
+            ["client_id"] = _options.ClientId,
+            ["redirect_uri"] = _options.RedirectUri,
+            ["scope"] = "read:user,repo",
+            ["state"] = state
+        };
+        var encodedQuery = string.Join("&", query.Select(pair =>
+            $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
+        return "https://github.com/login/oauth/authorize?" + encodedQuery;
     }
 
     public async Task<GitHubUserInfo?> ExchangeCodeForUserInfoAsync(string code)

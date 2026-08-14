@@ -7,7 +7,16 @@ class OAuthService: OAuthServiceProtocol {
         try await withCheckedThrowingContinuation { continuation in
             let port = UInt16.random(in: 49152...65535)
             let redirectUri = "http://localhost:\(port)/callback"
-            let loginUrl = "\(backendUrl)/api/v1/auth/login?redirect_uri=\(redirectUri)"
+            let baseUrl = backendUrl.hasSuffix("/") ? String(backendUrl.dropLast()) : backendUrl
+            guard var loginComponents = URLComponents(string: "\(baseUrl)/api/v1/auth/login") else {
+                continuation.resume(throwing: OAuthError.failed)
+                return
+            }
+            loginComponents.queryItems = [URLQueryItem(name: "redirect_uri", value: redirectUri)]
+            guard let loginUrl = loginComponents.url else {
+                continuation.resume(throwing: OAuthError.failed)
+                return
+            }
 
             do {
                 let listener = try NWListener(using: .tcp, on: .init(rawValue: port)!)
@@ -43,17 +52,13 @@ class OAuthService: OAuthServiceProtocol {
                         guard let path = request.split(separator: " ").dropFirst().first,
                               let query = path.split(separator: "?").last,
                               let components = URLComponents(string: "://localhost?" + String(query)),
-                              let idStr = components.queryItems?.first(where: { $0.name == "id" })?.value,
-                              let id = Int64(idStr),
-                              let username = components.queryItems?.first(where: { $0.name == "username" })?.value,
-                              let token = components.queryItems?.first(where: { $0.name == "token" })?.value else {
+                              let exchangeCode = components.queryItems?.first(where: { $0.name == "code" })?.value,
+                              !exchangeCode.isEmpty else {
                             connection.cancel()
                             listener.cancel()
                             continuation.resume(throwing: OAuthError.failed)
                             return
                         }
-
-                        let avatarUrl = components.queryItems?.first(where: { $0.name == "avatar" })?.value
 
                         let body = """
                         <!DOCTYPE html>
@@ -133,7 +138,14 @@ class OAuthService: OAuthServiceProtocol {
                         connection.send(content: response.data(using: .utf8), completion: .contentProcessed { _ in
                             connection.cancel()
                             listener.cancel()
-                            continuation.resume(returning: (id, username, avatarUrl, token))
+                            Task {
+                                do {
+                                    let result = try await self.exchange(code: exchangeCode, backendUrl: baseUrl)
+                                    continuation.resume(returning: result)
+                                } catch {
+                                    continuation.resume(throwing: error)
+                                }
+                            }
                         })
                     }
                 }
@@ -147,11 +159,42 @@ class OAuthService: OAuthServiceProtocol {
                 }
 
                 listener.start(queue: .main)
-                NSWorkspace.shared.open(URL(string: loginUrl)!)
+                NSWorkspace.shared.open(loginUrl)
             } catch {
                 continuation.resume(throwing: error)
             }
         }
+    }
+
+    private struct ExchangeRequest: Encodable {
+        let code: String
+    }
+
+    private struct ExchangeResponse: Decodable {
+        let id: Int64
+        let username: String
+        let avatarUrl: String?
+        let token: String
+    }
+
+    private func exchange(code: String, backendUrl: String) async throws -> (id: Int64, username: String, avatarUrl: String?, token: String) {
+        guard let url = URL(string: "\(backendUrl)/api/v1/auth/exchange") else {
+            throw OAuthError.failed
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(ExchangeRequest(code: code))
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200..<300).contains(httpResponse.statusCode),
+              let result = try? JSONDecoder().decode(ExchangeResponse.self, from: data) else {
+            throw OAuthError.failed
+        }
+
+        return (result.id, result.username, result.avatarUrl, result.token)
     }
 
     enum OAuthError: Error {
