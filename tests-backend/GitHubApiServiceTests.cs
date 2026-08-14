@@ -91,7 +91,7 @@ public class GitHubApiServiceTests : IClassFixture<WebApplicationFactory<Program
     {
         var uid = SeedUser(pat: null);
         var response = await AuthClient(uid)
-            .PostAsync("/api/github/create-pr?repo=acme/repo&head=feature/x&baseBranch=main&title=Hi", null);
+            .PostAsync("/api/v1/github/create-pr?repo=acme/repo&head=feature/x&baseBranch=main&title=Hi", null);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -109,7 +109,7 @@ public class GitHubApiServiceTests : IClassFixture<WebApplicationFactory<Program
         });
 
         var response = await AuthClient(uid).PostAsync(
-            "/api/github/create-pr?repo=acme/repo&head=feature/x&baseBranch=main&title=Add%20feature&subscribers=subone,subtwo", null);
+            "/api/v1/github/create-pr?repo=acme/repo&head=feature/x&baseBranch=main&title=Add%20feature&subscribers=subone,subtwo", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -142,7 +142,7 @@ public class GitHubApiServiceTests : IClassFixture<WebApplicationFactory<Program
         });
 
         var response = await AuthClient(uid).PostAsync(
-            "/api/github/create-pr?repo=acme/repo&head=feature/x&baseBranch=main&title=Hi", null);
+            "/api/v1/github/create-pr?repo=acme/repo&head=feature/x&baseBranch=main&title=Hi", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -161,7 +161,7 @@ public class GitHubApiServiceTests : IClassFixture<WebApplicationFactory<Program
         StubCreatePr(new { message = "Head branch was not found" }, status: 422);
 
         var response = await AuthClient(uid).PostAsync(
-            "/api/github/create-pr?repo=acme/repo&head=nope&baseBranch=main&title=Hi", null);
+            "/api/v1/github/create-pr?repo=acme/repo&head=nope&baseBranch=main&title=Hi", null);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -175,7 +175,7 @@ public class GitHubApiServiceTests : IClassFixture<WebApplicationFactory<Program
         StubCreatePr(new { }, status: 0);
 
         var response = await AuthClient(uid).PostAsync(
-            "/api/github/create-pr?repo=acme/repo&head=feature/x&baseBranch=main&title=Hi", null);
+            "/api/v1/github/create-pr?repo=acme/repo&head=feature/x&baseBranch=main&title=Hi", null);
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
     }
 
@@ -200,7 +200,7 @@ public class GitHubApiServiceTests : IClassFixture<WebApplicationFactory<Program
             commit = new { author = new { login = "someoneelse" } }
         });
 
-        var response = await AuthClient(uid).GetAsync("/api/github/my-branches?repo=acme/repo");
+        var response = await AuthClient(uid).GetAsync("/api/v1/github/my-branches?repo=acme/repo");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var branches = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -214,7 +214,7 @@ public class GitHubApiServiceTests : IClassFixture<WebApplicationFactory<Program
     public async Task MyBranches_NoPat_Unauthorized()
     {
         var uid = SeedUser(pat: null);
-        var response = await AuthClient(uid).GetAsync("/api/github/my-branches?repo=acme/repo");
+        var response = await AuthClient(uid).GetAsync("/api/v1/github/my-branches?repo=acme/repo");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -224,7 +224,7 @@ public class GitHubApiServiceTests : IClassFixture<WebApplicationFactory<Program
         var uid = SeedUser();
         _fakeGithub.GetResponses["/repos/acme/repo/branches?per_page=100"] = new GitHubResponse(0, null);
 
-        var response = await AuthClient(uid).GetAsync("/api/github/my-branches?repo=acme/repo");
+        var response = await AuthClient(uid).GetAsync("/api/v1/github/my-branches?repo=acme/repo");
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
     }
 

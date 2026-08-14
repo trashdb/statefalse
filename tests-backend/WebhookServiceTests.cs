@@ -218,7 +218,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
         var client2 = _factory.CreateClient();
         client2.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
             TestAuth.Token(_factory, 123, "alice"));
-        var logsResponse = await client2.GetAsync("/api/webhook/logs?limit=100");
+        var logsResponse = await client2.GetAsync("/api/v1/webhook/logs?limit=100");
         using var logsJson = JsonDocument.Parse(await logsResponse.Content.ReadAsByteArrayAsync());
         Assert.Contains(logsJson.RootElement.EnumerateArray(),
             l => l.GetProperty("outcome").GetString() == "error");
@@ -241,7 +241,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
             TestAuth.Token(_factory, 123, "alice"));
-        var response = await client.GetAsync("/api/webhook/logs?limit=100");
+        var response = await client.GetAsync("/api/v1/webhook/logs?limit=100");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsByteArrayAsync());

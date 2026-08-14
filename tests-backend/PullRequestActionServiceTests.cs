@@ -143,7 +143,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
         StubMergePr();
         StubMergeResult(new { merged = true });
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/merge?repo=acme/repo", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/merge?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -155,7 +155,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
         StubMergePr();
         StubMergeResult(new { merged = true, sha = "abc123", message = "Pull Request successfully merged" });
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/merge?repo=acme/repo", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/merge?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -175,7 +175,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
         StubMergePr();
         StubMergeResult(new { message = "Pull Request is not mergeable" }, status: 405);
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/merge?repo=acme/repo", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/merge?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -189,7 +189,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
         SeedPr(uid);
         _fakeGithub.Responses["/repos/acme/repo/pulls/42"] = new GitHubResponse(0, null);
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/merge?repo=acme/repo", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/merge?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
     }
 
@@ -201,7 +201,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
         var uid = SeedUser(pat: null);
         SeedPr(uid);
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/draft?repo=acme/repo&draft=true", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/draft?repo=acme/repo&draft=true", null);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -219,7 +219,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
             }
         });
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/draft?repo=acme/repo&draft=true", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/draft?repo=acme/repo&draft=true", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -245,7 +245,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
             }
         });
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/draft?repo=acme/repo&draft=false", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/draft?repo=acme/repo&draft=false", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var scope = _factory.Services.CreateScope();
@@ -264,7 +264,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
             errors = new[] { new { message = "Can only convert a pull request that is open to draft." } }
         });
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/draft?repo=acme/repo&draft=true", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/draft?repo=acme/repo&draft=true", null);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     }
 
@@ -282,7 +282,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
         SeedWorkflowRun("acme/repo", "feature/x", "failure", runId: 2);
         StubUpdateBranch(new { message = "Branch updated" });
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/update-branch?repo=acme/repo", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/update-branch?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var scope = _factory.Services.CreateScope();
@@ -296,7 +296,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
         var uid = SeedUser();
         StubUpdateBranch(new { message = "Branch updated" });
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/update-branch?repo=acme/repo", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/update-branch?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -306,7 +306,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
         var uid = SeedUser();
         StubUpdateBranch(new { message = "Branch protection rule prevented update" }, status: 403);
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/42/update-branch?repo=acme/repo", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/update-branch?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());

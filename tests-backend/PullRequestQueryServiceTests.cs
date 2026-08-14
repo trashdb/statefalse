@@ -404,7 +404,7 @@ public class PullRequestQueryServiceTests : IClassFixture<WebApplicationFactory<
 
     private async Task<List<PullRequestDto>> GetActive(long gitHubId)
     {
-        var response = await AuthClient(gitHubId).GetAsync("/api/pullrequests/active");
+        var response = await AuthClient(gitHubId).GetAsync("/api/v1/pullrequests/active");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<List<PullRequestDto>>())!;
     }

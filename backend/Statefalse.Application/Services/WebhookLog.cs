@@ -4,7 +4,7 @@ namespace Statefalse.Application;
 
 /// <summary>
 /// Bounded in-memory ring buffer of recent webhook outcomes, surfaced at
-/// GET /api/webhook/logs for the native webhook-log panel.
+/// GET /api/v1/webhook/logs for the native webhook-log panel.
 /// </summary>
 public static class WebhookLog
 {

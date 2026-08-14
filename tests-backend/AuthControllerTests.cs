@@ -62,7 +62,7 @@ public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task GetToken_NoAuth_ReturnsUnauthorized()
     {
-        var response = await _client.GetAsync("/api/auth/token");
+        var response = await _client.GetAsync("/api/v1/auth/token");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -70,7 +70,7 @@ public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GetToken_WithoutUser_ReturnsUnauthorized()
     {
         Authenticate(99999);
-        var response = await _client.GetAsync("/api/auth/token");
+        var response = await _client.GetAsync("/api/v1/auth/token");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -80,7 +80,7 @@ public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
         var id = SeedUser(u => u.UserPatToken = "ghp_test_pat_token");
         Authenticate(id);
 
-        var response = await _client.GetAsync("/api/auth/token");
+        var response = await _client.GetAsync("/api/v1/auth/token");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
@@ -94,7 +94,7 @@ public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
         var id = SeedUser(u => u.AccessToken = "gho_access_token");
         Authenticate(id);
 
-        var response = await _client.GetAsync("/api/auth/token");
+        var response = await _client.GetAsync("/api/v1/auth/token");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
@@ -112,7 +112,7 @@ public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
         });
         Authenticate(id);
 
-        var response = await _client.GetAsync("/api/auth/me");
+        var response = await _client.GetAsync("/api/v1/auth/me");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
@@ -124,7 +124,7 @@ public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GetMe_NonExistent_ReturnsNotFound()
     {
         Authenticate(999);
-        var response = await _client.GetAsync("/api/auth/me");
+        var response = await _client.GetAsync("/api/v1/auth/me");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 

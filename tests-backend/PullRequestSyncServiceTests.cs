@@ -112,7 +112,7 @@ public class PullRequestSyncServiceTests : IClassFixture<WebApplicationFactory<P
     public async Task Sync_NoPat_Unauthorized()
     {
         var uid = SeedUser(pat: null);
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/sync", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/sync", null);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -123,7 +123,7 @@ public class PullRequestSyncServiceTests : IClassFixture<WebApplicationFactory<P
         StubSearch($"user{uid}", new object[] { SearchItem(42, title: "Add feature") });
         StubRepoPulls(new object[] { RepoPull(42) });
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/sync", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/sync", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -167,7 +167,7 @@ public class PullRequestSyncServiceTests : IClassFixture<WebApplicationFactory<P
         StubSearch($"user{uid}", new object[] { SearchItem(42, title: "New title") });
         StubRepoPulls(new object[] { RepoPull(42) });
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/sync", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/sync", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var checkScope = _factory.Services.CreateScope();
@@ -184,7 +184,7 @@ public class PullRequestSyncServiceTests : IClassFixture<WebApplicationFactory<P
         var uid = SeedUser();
         StubSearch($"user{uid}", Array.Empty<object>());
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/sync", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/sync", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -201,7 +201,7 @@ public class PullRequestSyncServiceTests : IClassFixture<WebApplicationFactory<P
         _fakeGithub.Responses[$"/search/issues?q=type:pr+state:open+author:user{uid}&per_page=100&page=1"]
             = JsonResponse(500, new { message = "boom" });
 
-        var response = await AuthClient(uid).PostAsync("/api/pullrequests/sync", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/sync", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
