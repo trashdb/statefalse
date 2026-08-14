@@ -31,4 +31,6 @@ Create a SemVer tag such as `v0.2.0` and push it. `.github/workflows/release.yml
 - `SHA256SUMS`
 - `release-manifest.txt`
 
-Workflow can also be dispatched manually with an existing tag. Current package is unsigned and not notarized; users may need to Control-click the app and choose **Open** on first launch. Do not describe package as App Store or notarized distribution until Developer ID signing and notarization are enabled.
+Latest release: <https://github.com/trashdb/statefalse/releases/latest>. Users should download ZIP and checksum from GitHub Releases, not Actions artifacts.
+
+Workflow can also be dispatched manually with an existing tag. Current package is unsigned and not notarized; users may need to verify the checksum and remove the download quarantine before opening it. Do not describe package as App Store or notarized distribution until Developer ID signing and notarization are enabled.

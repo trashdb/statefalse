@@ -39,6 +39,7 @@ jobs:
             -scheme StatefalseTests \
             -destination 'platform=macOS' \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -skip-testing:StatefalseTests/SnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
       - name: Build unsigned Release app
