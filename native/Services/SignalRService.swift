@@ -35,6 +35,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     private let signalRClient: SignalRClientProtocol
     private var task: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
+    private var hasRestoredSession = false
     private var connectionLossNotified = false
     private var hasEstablishedConnection = false
     /// Tracks PRs we've already notified as "ready to merge" so we don't re-notify
@@ -76,6 +77,9 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     }
 
     func restoreSession() {
+        guard !hasRestoredSession else { return }
+        hasRestoredSession = true
+
         guard let session = keychain.load() else { return }
         // Sessions stored before JWT auth have no token — force a fresh login
         // instead of showing a logged-in but dead UI.
@@ -94,7 +98,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         // Show cached PRs immediately so the UI is not empty while loading
         activePRs = persistence.loadPRs()
 
-        // Refresh workflows + avatar on every popover open
+        // Refresh workflows + avatar once after the initial session restore.
         Task {
             _ = await syncPRsFromGitHub()
             await syncFromApi()
