@@ -61,6 +61,24 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
         return client;
     }
 
+    private async Task<string> BeginOAuthAsync(string? redirectUri = null)
+    {
+        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+        var path = redirectUri is null
+            ? "/api/v1/auth/login"
+            : $"/api/v1/auth/login?redirect_uri={Uri.EscapeDataString(redirectUri)}";
+        var response = await client.GetAsync(path);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var location = response.Headers.Location;
+        Assert.NotNull(location);
+        var state = System.Web.HttpUtility.ParseQueryString(location.Query)["state"];
+        Assert.NotNull(state);
+        return state!;
+    }
+
     private long SeedUser(Action<GitHubUser>? configure = null)
     {
         var id = Interlocked.Increment(ref _counter) + 9000L;
@@ -89,9 +107,19 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
     }
 
     [Fact]
+    public async Task Callback_InvalidState_BadRequest()
+    {
+        var response = await _factory.CreateClient().GetAsync(
+            "/api/auth/callback?code=abc123&state=unknown-state");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Callback_NewUser_CreatesUserAndReturnsToken()
     {
-        var response = await _factory.CreateClient().GetAsync("/api/auth/callback?code=abc123");
+        var state = await BeginOAuthAsync();
+        var response = await _factory.CreateClient().GetAsync($"/api/auth/callback?code=abc123&state={Uri.EscapeDataString(state)}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -118,7 +146,8 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
             u.AccessToken = "old_token";
         });
 
-        var response = await _factory.CreateClient().GetAsync("/api/auth/callback?code=abc123");
+        var state = await BeginOAuthAsync();
+        var response = await _factory.CreateClient().GetAsync($"/api/auth/callback?code=abc123&state={Uri.EscapeDataString(state)}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var scope = _factory.Services.CreateScope();
@@ -135,13 +164,24 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
         {
             AllowAutoRedirect = false
         });
-        var state = System.Net.WebUtility.UrlEncode("statefalse://callback");
-        var response = await client.GetAsync($"/api/auth/callback?code=abc123&state={state}");
+        var state = await BeginOAuthAsync("http://localhost:51623/callback");
+        var response = await client.GetAsync($"/api/auth/callback?code=abc123&state={Uri.EscapeDataString(state)}");
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
 
-        Assert.StartsWith("statefalse://callback/?", response.Headers.Location!.ToString());
+        Assert.StartsWith("http://localhost:51623/callback?", response.Headers.Location!.ToString());
         Assert.Contains("id=777", response.Headers.Location!.ToString());
         Assert.Contains("token=", response.Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Callback_StateCanOnlyBeConsumedOnce()
+    {
+        var state = await BeginOAuthAsync();
+        var client = _factory.CreateClient();
+        var callback = $"/api/auth/callback?code=abc123&state={Uri.EscapeDataString(state)}";
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(callback)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync(callback)).StatusCode);
     }
 
     [Fact]
@@ -150,7 +190,8 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
         FakeGitHubOAuthHandler.NoAccessToken = true;
         try
         {
-            var response = await _factory.CreateClient().GetAsync("/api/auth/callback?code=bad");
+            var state = await BeginOAuthAsync();
+            var response = await _factory.CreateClient().GetAsync($"/api/auth/callback?code=bad&state={Uri.EscapeDataString(state)}");
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
         finally

@@ -7,7 +7,16 @@ class OAuthService: OAuthServiceProtocol {
         try await withCheckedThrowingContinuation { continuation in
             let port = UInt16.random(in: 49152...65535)
             let redirectUri = "http://localhost:\(port)/callback"
-            let loginUrl = "\(backendUrl)/api/v1/auth/login?redirect_uri=\(redirectUri)"
+            let baseUrl = backendUrl.hasSuffix("/") ? String(backendUrl.dropLast()) : backendUrl
+            guard var loginComponents = URLComponents(string: "\(baseUrl)/api/v1/auth/login") else {
+                continuation.resume(throwing: OAuthError.failed)
+                return
+            }
+            loginComponents.queryItems = [URLQueryItem(name: "redirect_uri", value: redirectUri)]
+            guard let loginUrl = loginComponents.url else {
+                continuation.resume(throwing: OAuthError.failed)
+                return
+            }
 
             do {
                 let listener = try NWListener(using: .tcp, on: .init(rawValue: port)!)
@@ -147,7 +156,7 @@ class OAuthService: OAuthServiceProtocol {
                 }
 
                 listener.start(queue: .main)
-                NSWorkspace.shared.open(URL(string: loginUrl)!)
+                NSWorkspace.shared.open(loginUrl)
             } catch {
                 continuation.resume(throwing: error)
             }

@@ -23,27 +23,30 @@ public class GitHubOAuthServiceTests
     public void GetAuthorizationUrl_IncludesClientIdAndScope()
     {
         var service = CreateService();
-        var url = service.GetAuthorizationUrl();
-        Assert.Contains($"client_id={ClientId}", url);
-        Assert.Contains("scope=read:user,repo", url);
-        Assert.Contains("redirect_uri=statefalse://callback", url);
+        var url = service.GetAuthorizationUrl("opaque-state");
+        var query = System.Web.HttpUtility.ParseQueryString(new Uri(url).Query);
+        Assert.Equal(ClientId, query["client_id"]);
+        Assert.Equal("read:user,repo", query["scope"]);
+        Assert.Equal("statefalse://callback", query["redirect_uri"]);
     }
 
     [Fact]
-    public void GetAuthorizationUrl_WithRedirectUri_EncodesState()
+    public void GetAuthorizationUrl_EncodesOpaqueState()
     {
         var service = CreateService();
-        var url = service.GetAuthorizationUrl("statefalse://cb?x=1");
+        var url = service.GetAuthorizationUrl("opaque-state");
 
         var state = url[(url.IndexOf("state=", StringComparison.Ordinal) + "state=".Length)..];
-        Assert.Equal("statefalse://cb?x=1", System.Web.HttpUtility.UrlDecode(state));
+        Assert.Equal("opaque-state", System.Web.HttpUtility.UrlDecode(state));
+        Assert.DoesNotContain("statefalse://", System.Web.HttpUtility.UrlDecode(state));
     }
 
     [Fact]
-    public void GetAuthorizationUrl_NoRedirectUri_EmptyState()
+    public void GetAuthorizationUrl_AlwaysIncludesState()
     {
         var service = CreateService();
-        Assert.EndsWith("state=", service.GetAuthorizationUrl());
+        var url = service.GetAuthorizationUrl("another-state");
+        Assert.Contains("state=another-state", url);
     }
 
     [Fact]

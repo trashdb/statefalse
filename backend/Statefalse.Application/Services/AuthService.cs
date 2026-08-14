@@ -17,22 +17,34 @@ public class AuthService
     private readonly IUnitOfWork _uow;
     private readonly IConfiguration _configuration;
     private readonly JwtTokenService _jwt;
+    private readonly OAuthStateStore _stateStore;
 
-    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, IConfiguration configuration, JwtTokenService jwt)
+    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, IConfiguration configuration, JwtTokenService jwt, OAuthStateStore stateStore)
     {
         _oauth = oauth;
         _users = users;
         _uow = uow;
         _configuration = configuration;
         _jwt = jwt;
+        _stateStore = stateStore;
     }
 
-    public string LoginUrl(string? redirectUri) => _oauth.GetAuthorizationUrl(redirectUri);
+    public string? LoginUrl(string? redirectUri)
+    {
+        if (redirectUri is not null && !IsAllowedLocalRedirect(redirectUri))
+            return null;
+
+        var state = _stateStore.Create(redirectUri);
+        return _oauth.GetAuthorizationUrl(state);
+    }
 
     public async Task<AuthCallbackResponse> HandleCallbackAsync(string code, string? state)
     {
         if (string.IsNullOrEmpty(code))
             return new AuthCallbackResponse(ApiResult.BadRequest("No authorization code provided."), null, null);
+
+        if (string.IsNullOrEmpty(state) || !_stateStore.TryConsume(state, out var redirectUri))
+            return new AuthCallbackResponse(ApiResult.BadRequest("Invalid or expired OAuth state."), null, null);
 
         var userInfo = await _oauth.ExchangeCodeForUserInfoAsync(code);
         if (userInfo == null)
@@ -65,12 +77,11 @@ public class AuthService
 
         var token = _jwt.GenerateToken(userInfo.Id, userInfo.Login, userInfo.AvatarUrl);
 
-        // If a redirect_uri was passed via state, redirect there with user info + session token
-        if (!string.IsNullOrEmpty(state))
+        if (!string.IsNullOrEmpty(redirectUri))
         {
             var avatar = userInfo.AvatarUrl is not null ? $"&avatar={HttpUtility.UrlEncode(userInfo.AvatarUrl)}" : "";
-            var redirectUri = $"{state}?id={userInfo.Id}&username={HttpUtility.UrlEncode(userInfo.Login)}{avatar}&token={HttpUtility.UrlEncode(token)}";
-            return new AuthCallbackResponse(null, redirectUri, null);
+            var callbackUri = $"{redirectUri}?id={userInfo.Id}&username={HttpUtility.UrlEncode(userInfo.Login)}{avatar}&token={HttpUtility.UrlEncode(token)}";
+            return new AuthCallbackResponse(null, callbackUri, null);
         }
 
         return new AuthCallbackResponse(null, null, new { id = userInfo.Id, username = userInfo.Login, avatarUrl = userInfo.AvatarUrl, token });
@@ -110,5 +121,20 @@ public class AuthService
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No access token found" });
         return ApiResult.Ok(new TokenDto(token));
+    }
+
+    private static bool IsAllowedLocalRedirect(string redirectUri)
+    {
+        if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttp
+            || (uri.Host != "localhost" && uri.Host != "127.0.0.1")
+            || uri.Port is < 1 or > 65535
+            || uri.AbsolutePath != "/callback"
+            || !string.IsNullOrEmpty(uri.UserInfo)
+            || !string.IsNullOrEmpty(uri.Query)
+            || !string.IsNullOrEmpty(uri.Fragment))
+            return false;
+
+        return true;
     }
 }

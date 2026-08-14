@@ -38,8 +38,13 @@ public static class ApiEndpoints
 
     private static void MapAuth(IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/auth/login", (string? redirect_uri, AuthService auth)
-            => Results.Redirect(auth.LoginUrl(redirect_uri))).AllowAnonymous();
+        routes.MapGet("/auth/login", (string? redirect_uri, AuthService auth) =>
+        {
+            var authorizationUrl = auth.LoginUrl(redirect_uri);
+            return authorizationUrl is null
+                ? Results.BadRequest(new { error = "Invalid local redirect URI." })
+                : Results.Redirect(authorizationUrl);
+        }).AllowAnonymous();
 
         routes.MapGet("/auth/me", async (HttpContext ctx, AuthService auth)
             => await MapAsync(auth.GetMeAsync(ctx.GitHubId()))).RequireAuthorization();

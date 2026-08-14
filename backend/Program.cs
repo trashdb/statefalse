@@ -71,6 +71,7 @@ try
     builder.Services.AddScoped<GitHubApiService>();
     builder.Services.AddScoped<WorkflowService>();
     builder.Services.AddScoped<AuthService>();
+    builder.Services.AddSingleton<OAuthStateStore>();
     builder.Services.AddScoped<PunishmentService>();
 
     // Periodic data maintenance (stuck/superseded workflow runs)
