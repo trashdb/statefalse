@@ -22,3 +22,13 @@ Migrations are forward-only until tested recovery exists. Binary rollback is not
 ## Artifacts
 
 Build artifacts are immutable and accompanied by SHA-256 checksums. Never publish secrets, databases, `.env` files or local Xcode data. Production deploy requires explicit approval; push must not silently become production release.
+
+## Native macOS release
+
+Create a SemVer tag such as `v0.2.0` and push it. `.github/workflows/release.yml` runs native tests, builds an isolated Release app, verifies bundle metadata, and publishes these GitHub Release assets:
+
+- `Statefalse-vX.Y.Z.zip`
+- `SHA256SUMS`
+- `release-manifest.txt`
+
+Workflow can also be dispatched manually with an existing tag. Current package is unsigned and not notarized; users may need to Control-click the app and choose **Open** on first launch. Do not describe package as App Store or notarized distribution until Developer ID signing and notarization are enabled.
