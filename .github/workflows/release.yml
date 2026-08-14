@@ -89,7 +89,7 @@ jobs:
         with:
           name: statefalse-${{ inputs.tag || github.ref_name }}
           path: |
-            Statefalse-${{ env.RELEASE_TAG }}.zip
+            Statefalse-${{ inputs.tag || github.ref_name }}.zip
             SHA256SUMS
             release-manifest.txt
 
