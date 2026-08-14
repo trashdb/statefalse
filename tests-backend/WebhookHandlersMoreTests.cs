@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
 using Statefalse.Infrastructure.Data;
 using Statefalse.Domain.Models;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -13,6 +15,7 @@ namespace Statefalse.Api.Tests;
 [Collection("BackendIntegration")]
 public class WebhookHandlersMoreTests : IClassFixture<WebApplicationFactory<Program>>, IDisposable
 {
+    private const string WebhookSecret = "test-secret";
     private readonly WebApplicationFactory<Program> _factory;
     private readonly SqliteConnection _sqliteConnection;
 
@@ -24,6 +27,7 @@ public class WebhookHandlersMoreTests : IClassFixture<WebApplicationFactory<Prog
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Jwt:Secret", TestAuth.Secret);
+            builder.UseSetting("WebhookSecret", WebhookSecret);
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<DbContextOptions<AppDbContext>>();
@@ -83,6 +87,8 @@ public class WebhookHandlersMoreTests : IClassFixture<WebApplicationFactory<Prog
         var content = new StringContent(payload);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         content.Headers.Add("X-GitHub-Event", eventType);
+        var hash = HMACSHA256.HashData(Encoding.UTF8.GetBytes(WebhookSecret), Encoding.UTF8.GetBytes(payload));
+        content.Headers.Add("X-Hub-Signature-256", "sha256=" + Convert.ToHexString(hash).ToLowerInvariant());
         return await client.PostAsync("/api/webhook/github", content);
     }
 

@@ -88,6 +88,15 @@ try
     builder.Services.Configure<GitHubOAuthOptions>(
         builder.Configuration.GetSection("GitHubOAuth"));
 
+    var webhookSecret = builder.Configuration["WebhookSecret"];
+    if (builder.Environment.IsProduction()
+        && (string.IsNullOrWhiteSpace(webhookSecret)
+            || webhookSecret == "set-me-in-env-vars"
+            || webhookSecret == "set-your-github-webhook-secret-here"))
+    {
+        throw new InvalidOperationException("WebhookSecret must be configured in production.");
+    }
+
     // Session JWT config + token issuance
     var jwtSecret = builder.Configuration["Jwt:Secret"];
     if (string.IsNullOrWhiteSpace(jwtSecret) || Encoding.UTF8.GetByteCount(jwtSecret) < 32)
