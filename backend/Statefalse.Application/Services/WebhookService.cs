@@ -33,28 +33,32 @@ public class WebhookService
         Func<Task<JsonElement?>> readJsonBody,
         string? eventType)
     {
-        // Verify HMAC signature if WebhookSecret is configured
         var webhookSecret = _configuration["WebhookSecret"];
-        if (!string.IsNullOrEmpty(webhookSecret) && webhookSecret != "set-me-in-env-vars" && webhookSecret != "set-your-github-webhook-secret-here")
+        if (string.IsNullOrWhiteSpace(webhookSecret)
+            || webhookSecret == "set-me-in-env-vars"
+            || webhookSecret == "set-your-github-webhook-secret-here")
         {
-            if (string.IsNullOrEmpty(signatureHeader))
-            {
-                WebhookLog.Log("unknown", null, null, null, "rejected", "Missing X-Hub-Signature-256");
-                return ApiResult.Unauthorized("Missing X-Hub-Signature-256");
-            }
+            WebhookLog.Log("unknown", null, null, null, "rejected", "Webhook secret is not configured");
+            return ApiResult.Unauthorized("Webhook secret is not configured");
+        }
 
-            var rawBody = await readRawBody();
-            var key = Encoding.UTF8.GetBytes(webhookSecret);
-            var hash = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(rawBody));
-            var expected = "sha256=" + Convert.ToHexString(hash).ToLowerInvariant();
+        if (string.IsNullOrEmpty(signatureHeader))
+        {
+            WebhookLog.Log("unknown", null, null, null, "rejected", "Missing X-Hub-Signature-256");
+            return ApiResult.Unauthorized("Missing X-Hub-Signature-256");
+        }
 
-            if (!CryptographicOperations.FixedTimeEquals(
-                    Encoding.UTF8.GetBytes(signatureHeader),
-                    Encoding.UTF8.GetBytes(expected)))
-            {
-                WebhookLog.Log("unknown", null, null, null, "rejected", "Invalid webhook signature");
-                return ApiResult.Unauthorized("Invalid signature");
-            }
+        var rawBody = await readRawBody();
+        var key = Encoding.UTF8.GetBytes(webhookSecret);
+        var hash = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(rawBody));
+        var expected = "sha256=" + Convert.ToHexString(hash).ToLowerInvariant();
+
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(signatureHeader),
+                Encoding.UTF8.GetBytes(expected)))
+        {
+            WebhookLog.Log("unknown", null, null, null, "rejected", "Invalid webhook signature");
+            return ApiResult.Unauthorized("Invalid signature");
         }
 
         var payload = await readJsonBody();

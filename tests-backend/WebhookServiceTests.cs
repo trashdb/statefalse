@@ -157,9 +157,10 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Theory]
+    [InlineData("")]
     [InlineData("set-me-in-env-vars")]
     [InlineData("set-your-github-webhook-secret-here")]
-    public async Task PlaceholderSecret_SkipsVerification(string placeholder)
+    public async Task MissingOrPlaceholderSecret_Unauthorized(string placeholder)
     {
         var factory = _factory.WithWebHostBuilder(builder =>
             builder.UseSetting("WebhookSecret", placeholder));
@@ -170,7 +171,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
 
         var response = await client.PostAsync("/api/webhook/github", content);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
