@@ -121,14 +121,16 @@ try
                 ClockSkew = TimeSpan.FromSeconds(30)
             };
 
-            // SignalR JS/WebSocket clients cannot set Authorization headers;
-            // the SDK sends the token as the access_token query param instead.
+            // SignalR WebSocket clients cannot set Authorization headers;
+            // accept access_token in the query string only for the hub route.
             options.Events = new JwtBearerEvents
             {
                 OnMessageReceived = context =>
                 {
+                    var isPunishmentHubRequest = context.HttpContext.Request.Path
+                        .StartsWithSegments("/hub/punishment");
                     var accessToken = context.Request.Query["access_token"];
-                    if (!string.IsNullOrEmpty(accessToken))
+                    if (isPunishmentHubRequest && !string.IsNullOrEmpty(accessToken))
                         context.Token = accessToken;
                     return Task.CompletedTask;
                 }

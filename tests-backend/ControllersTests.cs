@@ -139,6 +139,26 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task AccessTokenQuery_OnRestEndpoint_IsIgnored()
+    {
+        var token = TestAuth.Token(_factory, 1001, "user1001");
+        var response = await _client.GetAsync($"/api/v1/users?access_token={Uri.EscapeDataString(token)}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AccessTokenQuery_OnSignalRNegotiate_IsAccepted()
+    {
+        var token = TestAuth.Token(_factory, 1001, "user1001");
+        var response = await _client.PostAsync(
+            $"/hub/punishment/negotiate?negotiateVersion=1&access_token={Uri.EscapeDataString(token)}",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     // ───────────── Users ─────────────
 
     [Fact]
