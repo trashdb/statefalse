@@ -33,7 +33,7 @@ Validate:
 
 ```bash
 curl -fsS https://api.statefalse.com/health
-curl -fsS -o /dev/null -w '%{http_code}\n' https://api.statefalse.com/api/auth/login
+curl -fsS -o /dev/null -w '%{http_code}\n' https://api.statefalse.com/api/v1/auth/login
 ```
 
 GitHub OAuth App:

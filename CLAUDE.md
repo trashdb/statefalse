@@ -100,5 +100,5 @@ ssh underlayer 'sudo journalctl -u statefalse -f'
 - Native: server URL in `UserDefaults["backendUrl"]` (`backendUrl` in Models.swift). Default: `TeamDefaults.backendUrl`.
 - `TargetGitHubIds` (CSV string) on `WorkflowRun` → which users get notified.
 - Multi-tenant: all DB queries scoped by authenticated GitHub user.
-- JWT: required on all endpoints except `/health`, `/api/auth/login`, `/api/auth/callback`, `/api/webhook/github`. SignalR reads token from `access_token` query param.
+- JWT: required on all endpoints except `/health`, `/api/v1/auth/login`, `/api/auth/callback`, `/api/webhook/github`. SignalR reads token from `access_token` query param.
 - Token precedence: User PAT > OAuth access token > shared server PAT.
