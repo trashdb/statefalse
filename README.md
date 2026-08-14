@@ -10,7 +10,58 @@ macOS menu bar app that tracks GitHub Actions workflows, notifies you on failure
 
 ## Install
 
-Download latest macOS release from [GitHub Releases](https://github.com/trashdb/statefalse/releases/latest). Current package is unsigned and not notarized; verify `SHA256SUMS`, then use Control-click → **Open** on first launch if Gatekeeper blocks it.
+### Install published release
+
+Download latest macOS release from [GitHub Releases](https://github.com/trashdb/statefalse/releases/latest). Current package is unsigned and not notarized; verify `SHA256SUMS` before opening it.
+
+Set `VERSION` to release tag you downloaded:
+
+```bash
+VERSION=v0.2.0
+RELEASE_DIR="$HOME/Downloads/statefalse-$VERSION"
+mkdir -p "$RELEASE_DIR"
+cd "$RELEASE_DIR"
+curl -fLO "https://github.com/trashdb/statefalse/releases/download/$VERSION/Statefalse-$VERSION.zip"
+curl -fLO "https://github.com/trashdb/statefalse/releases/download/$VERSION/SHA256SUMS"
+shasum -a 256 -c SHA256SUMS
+```
+
+Expected result:
+
+```text
+Statefalse-v0.2.0.zip: OK
+```
+
+Extract and install into the user Applications folder:
+
+```bash
+ditto -x -k "Statefalse-$VERSION.zip" .
+mkdir -p "$HOME/Applications"
+if [ -d "$HOME/Applications/Statefalse.app" ]; then
+  mv "$HOME/Applications/Statefalse.app" \
+	 "$HOME/Applications/Statefalse.app.backup-$(date +%Y%m%d%H%M%S)"
+fi
+ditto Statefalse.app "$HOME/Applications/Statefalse.app"
+```
+
+Open it:
+
+```bash
+open "$HOME/Applications/Statefalse.app"
+```
+
+If macOS reports that the app is damaged or blocks it, remove download quarantine **only after the checksum above reports `OK`**, then open it again:
+
+```bash
+xattr -dr com.apple.quarantine "$HOME/Applications/Statefalse.app"
+open "$HOME/Applications/Statefalse.app"
+```
+
+This quarantine step is required because current packages are unsigned and not notarized. Do not run it for packages from an untrusted source.
+
+### Build from source
+
+`install.sh` is for development, not for installing a published release. It requires Xcode or the Xcode command-line tools, builds the project locally, copies it to `~/Applications/Statefalse.app`, and relaunches it. If the build fails, it can fall back to a previous local build.
 
 ```bash
 git clone git@github.com:trashdb/statefalse.git
