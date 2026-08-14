@@ -135,7 +135,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         SeedRun(uid, runId: 2);
         SeedPr(uid);
 
-        var response = await AuthClient(uid).GetAsync("/api/workflows/runs?limit=20");
+        var response = await AuthClient(uid).GetAsync("/api/v1/workflows/runs?limit=20");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var runs = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -152,7 +152,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         var other = SeedUser();
         SeedRun(other, runId: 1);
 
-        var response = await AuthClient(uid).GetAsync("/api/workflows/runs?limit=20");
+        var response = await AuthClient(uid).GetAsync("/api/v1/workflows/runs?limit=20");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var runs = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -168,7 +168,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
     public async Task SetTarget_NotFound_404()
     {
         var uid = SeedUser();
-        var response = await AuthClient(uid).PutAsync("/api/workflows/runs/999/target", TargetBody(1, 2));
+        var response = await AuthClient(uid).PutAsync("/api/v1/workflows/runs/999/target", TargetBody(1, 2));
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -178,7 +178,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         var uid = SeedUser();
         SeedRun(uid, runId: 1);
 
-        var response = await AuthClient(uid).PutAsync("/api/workflows/runs/1/target", TargetBody(111, 222));
+        var response = await AuthClient(uid).PutAsync("/api/v1/workflows/runs/1/target", TargetBody(111, 222));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var scope = _factory.Services.CreateScope();
@@ -194,7 +194,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         SeedRun(other, runId: 1);
         SeedPr(uid, headBranch: "other-branch");
 
-        var response = await AuthClient(uid).PutAsync("/api/workflows/runs/1/target", TargetBody(111));
+        var response = await AuthClient(uid).PutAsync("/api/v1/workflows/runs/1/target", TargetBody(111));
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
@@ -204,7 +204,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
     public async Task Rerun_NotFound_404()
     {
         var uid = SeedUser();
-        var response = await AuthClient(uid).PostAsync("/api/workflows/runs/999/rerun", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/workflows/runs/999/rerun", null);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -214,7 +214,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         var uid = SeedUser(pat: null);
         SeedRun(uid, runId: 1);
 
-        var response = await AuthClient(uid).PostAsync("/api/workflows/runs/1/rerun", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/workflows/runs/1/rerun", null);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -225,7 +225,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         SeedRun(uid, runId: 1);
         _fakeGithub.Responses["/repos/acme/repo/actions/runs/1/rerun"] = JsonResponse(204, null!);
 
-        var response = await AuthClient(uid).PostAsync("/api/workflows/runs/1/rerun", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/workflows/runs/1/rerun", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -248,7 +248,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         SeedRun(uid, runId: 1);
         _fakeGithub.Responses["/repos/acme/repo/actions/runs/1/rerun"] = JsonResponse(409, new { message = "conflict" });
 
-        var response = await AuthClient(uid).PostAsync("/api/workflows/runs/1/rerun", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/workflows/runs/1/rerun", null);
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
 
@@ -258,7 +258,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
     public async Task SyncActive_NoPat_Unauthorized()
     {
         var uid = SeedUser(pat: null);
-        var response = await AuthClient(uid).PostAsync("/api/workflows/sync-active", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/workflows/sync-active", null);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -266,7 +266,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
     public async Task SyncActive_NoPrs_ZeroSynced()
     {
         var uid = SeedUser();
-        var response = await AuthClient(uid).PostAsync("/api/workflows/sync-active", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/workflows/sync-active", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -289,7 +289,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         });
         SeedRun(uid, runId: 10, status: "in_progress");
 
-        var response = await AuthClient(uid).PostAsync("/api/workflows/sync-active", null);
+        var response = await AuthClient(uid).PostAsync("/api/v1/workflows/sync-active", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());

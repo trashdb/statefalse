@@ -15,23 +15,17 @@ public static class ApiEndpoints
 {
     public static void MapApiEndpoints(this WebApplication app)
     {
-        var legacy = app.MapGroup("/api");
         var v1 = app.MapGroup("/api/v1");
 
-        MapAuth(legacy, includeCallback: true);
-        MapAuth(v1, includeCallback: false);
-        MapPunishments(legacy);
+        MapAuth(v1);
         MapPunishments(v1);
-        MapPullRequests(legacy);
         MapPullRequests(v1);
-        MapWebhook(legacy, includeReceiver: true);
-        MapWebhook(v1, includeReceiver: false);
-        MapGitHub(legacy);
+        MapWebhook(v1);
         MapGitHub(v1);
-        MapWorkflows(legacy);
         MapWorkflows(v1);
-        MapUsers(legacy);
         MapUsers(v1);
+        MapAuthCallback(app);
+        MapGitHubWebhook(app);
     }
 
     private static long GitHubId(this HttpContext ctx)
@@ -42,23 +36,10 @@ public static class ApiEndpoints
         return id;
     }
 
-    private static void MapAuth(IEndpointRouteBuilder routes, bool includeCallback)
+    private static void MapAuth(IEndpointRouteBuilder routes)
     {
         routes.MapGet("/auth/login", (string? redirect_uri, AuthService auth)
             => Results.Redirect(auth.LoginUrl(redirect_uri))).AllowAnonymous();
-
-        if (includeCallback)
-        {
-            routes.MapGet("/auth/callback", async (string code, string? state, AuthService auth) =>
-            {
-                var result = await auth.HandleCallbackAsync(code, state);
-                if (result.Error != null)
-                    return Results.Json(result.Error.Value, statusCode: result.Error.StatusCode);
-                if (result.RedirectUrl != null)
-                    return Results.Redirect(result.RedirectUrl);
-                return Results.Ok(result.OkBody);
-            }).AllowAnonymous();
-        }
 
         routes.MapGet("/auth/me", async (HttpContext ctx, AuthService auth)
             => await MapAsync(auth.GetMeAsync(ctx.GitHubId()))).RequireAuthorization();
@@ -68,6 +49,19 @@ public static class ApiEndpoints
 
         routes.MapGet("/auth/token", async (HttpContext ctx, AuthService auth)
             => await MapAsync(auth.GetTokenAsync(ctx.GitHubId()))).RequireAuthorization();
+    }
+
+    private static void MapAuthCallback(IEndpointRouteBuilder routes)
+    {
+        routes.MapGet("/api/auth/callback", async (string code, string? state, AuthService auth) =>
+        {
+            var result = await auth.HandleCallbackAsync(code, state);
+            if (result.Error != null)
+                return Results.Json(result.Error.Value, statusCode: result.Error.StatusCode);
+            if (result.RedirectUrl != null)
+                return Results.Redirect(result.RedirectUrl);
+            return Results.Ok(result.OkBody);
+        }).AllowAnonymous();
     }
 
     private static void MapPunishments(IEndpointRouteBuilder routes)
@@ -124,14 +118,15 @@ public static class ApiEndpoints
             => await MapAsync(service.RemoveSubscriberAsync(prNumber, repo, ctx.GitHubId(), subscriberId))).RequireAuthorization().RequireRateLimiting("api");
     }
 
-    private static void MapWebhook(IEndpointRouteBuilder routes, bool includeReceiver)
+    private static void MapWebhook(IEndpointRouteBuilder routes)
     {
         routes.MapGet("/webhook/logs", (WebhookService service, int limit = 30)
             => Results.Ok(service.GetLogs(limit))).RequireAuthorization();
+    }
 
-        if (!includeReceiver) return;
-
-        routes.MapPost("/webhook/github", async (HttpContext ctx, WebhookService service) =>
+    private static void MapGitHubWebhook(IEndpointRouteBuilder routes)
+    {
+        routes.MapPost("/api/webhook/github", async (HttpContext ctx, WebhookService service) =>
         {
             var signature = ctx.Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
             var eventType = ctx.Request.Headers["X-GitHub-Event"].FirstOrDefault() ?? "";

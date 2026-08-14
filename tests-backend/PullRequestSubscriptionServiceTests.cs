@@ -111,7 +111,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         var user = SeedUser();
         SeedPr(author);
 
-        var response = await AuthClient(user).PostAsync("/api/pullrequests/42/subscribe?repo=acme/repo", null);
+        var response = await AuthClient(user).PostAsync("/api/v1/pullrequests/42/subscribe?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         Assert.Contains(user.ToString(), DbSubscriberIds());
@@ -124,8 +124,8 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         var user = SeedUser();
         SeedPr(author);
 
-        await AuthClient(user).PostAsync("/api/pullrequests/42/subscribe?repo=acme/repo", null);
-        await AuthClient(user).PostAsync("/api/pullrequests/42/subscribe?repo=acme/repo", null);
+        await AuthClient(user).PostAsync("/api/v1/pullrequests/42/subscribe?repo=acme/repo", null);
+        await AuthClient(user).PostAsync("/api/v1/pullrequests/42/subscribe?repo=acme/repo", null);
 
         Assert.Single(DbSubscriberIds());
     }
@@ -134,7 +134,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
     public async Task Subscribe_UntrackedPr_NotFound()
     {
         var user = SeedUser();
-        var response = await AuthClient(user).PostAsync("/api/pullrequests/42/subscribe?repo=acme/repo", null);
+        var response = await AuthClient(user).PostAsync("/api/v1/pullrequests/42/subscribe?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -145,7 +145,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         var user = SeedUser();
         SeedPr(author, subscriberIds: $"[{user}]");
 
-        var response = await AuthClient(user).PostAsync("/api/pullrequests/42/unsubscribe?repo=acme/repo", null);
+        var response = await AuthClient(user).PostAsync("/api/v1/pullrequests/42/unsubscribe?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         Assert.Empty(DbSubscriberIds());
@@ -158,7 +158,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         var user = SeedUser();
         SeedPr(author);
 
-        var response = await AuthClient(user).PostAsync("/api/pullrequests/42/unsubscribe?repo=acme/repo", null);
+        var response = await AuthClient(user).PostAsync("/api/v1/pullrequests/42/unsubscribe?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -175,7 +175,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         var sub2 = SeedUser(username: "subtwo");
         SeedPr(author, subscriberIds: $"[{sub1},{sub2}]");
 
-        var response = await AuthClient(author).GetAsync("/api/pullrequests/42/subscribers?repo=acme/repo");
+        var response = await AuthClient(author).GetAsync("/api/v1/pullrequests/42/subscribers?repo=acme/repo");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -192,7 +192,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         var author = SeedUser();
         SeedPr(author);
 
-        var response = await AuthClient(author).GetAsync("/api/pullrequests/42/subscribers?repo=acme/repo");
+        var response = await AuthClient(author).GetAsync("/api/v1/pullrequests/42/subscribers?repo=acme/repo");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -203,7 +203,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
     public async Task GetSubscribers_UntrackedPr_NotFound()
     {
         var user = SeedUser();
-        var response = await AuthClient(user).GetAsync("/api/pullrequests/42/subscribers?repo=acme/repo");
+        var response = await AuthClient(user).GetAsync("/api/v1/pullrequests/42/subscribers?repo=acme/repo");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -217,7 +217,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         SeedPr(author);
 
         var response = await AuthClient(author)
-            .PostAsync("/api/pullrequests/42/add-subscriber?repo=acme/repo&username=targetuser", null);
+            .PostAsync("/api/v1/pullrequests/42/add-subscriber?repo=acme/repo&username=targetuser", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         Assert.Contains(target.ToString(), DbSubscriberIds());
@@ -231,7 +231,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         SeedPr(author);
 
         var response = await AuthClient(author)
-            .PostAsync($"/api/pullrequests/42/add-subscriber?repo=acme/repo&subscriberId={target}", null);
+            .PostAsync($"/api/v1/pullrequests/42/add-subscriber?repo=acme/repo&subscriberId={target}", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         Assert.Contains(target.ToString(), DbSubscriberIds());
@@ -246,7 +246,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         SeedPr(author);
 
         var response = await AuthClient(other)
-            .PostAsync($"/api/pullrequests/42/add-subscriber?repo=acme/repo&subscriberId={target}", null);
+            .PostAsync($"/api/v1/pullrequests/42/add-subscriber?repo=acme/repo&subscriberId={target}", null);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(DbSubscriberIds());
     }
@@ -258,7 +258,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         SeedPr(author);
 
         var response = await AuthClient(author)
-            .PostAsync("/api/pullrequests/42/add-subscriber?repo=acme/repo&username=nobody", null);
+            .PostAsync("/api/v1/pullrequests/42/add-subscriber?repo=acme/repo&username=nobody", null);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -269,7 +269,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         SeedPr(author);
 
         var response = await AuthClient(author)
-            .PostAsync("/api/pullrequests/42/add-subscriber?repo=acme/repo", null);
+            .PostAsync("/api/v1/pullrequests/42/add-subscriber?repo=acme/repo", null);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -281,7 +281,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         SeedPr(author, subscriberIds: $"[{target}]");
 
         var response = await AuthClient(author)
-            .PostAsync($"/api/pullrequests/42/remove-subscriber?repo=acme/repo&subscriberId={target}", null);
+            .PostAsync($"/api/v1/pullrequests/42/remove-subscriber?repo=acme/repo&subscriberId={target}", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(DbSubscriberIds());
     }
@@ -294,7 +294,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         SeedPr(author, subscriberIds: $"[{user}]");
 
         var response = await AuthClient(user)
-            .PostAsync($"/api/pullrequests/42/remove-subscriber?repo=acme/repo&subscriberId={user}", null);
+            .PostAsync($"/api/v1/pullrequests/42/remove-subscriber?repo=acme/repo&subscriberId={user}", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(DbSubscriberIds());
     }
@@ -308,7 +308,7 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         SeedPr(author, subscriberIds: $"[{target}]");
 
         var response = await AuthClient(other)
-            .PostAsync($"/api/pullrequests/42/remove-subscriber?repo=acme/repo&subscriberId={target}", null);
+            .PostAsync($"/api/v1/pullrequests/42/remove-subscriber?repo=acme/repo&subscriberId={target}", null);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Contains(target.ToString(), DbSubscriberIds());
     }

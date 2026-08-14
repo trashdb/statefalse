@@ -165,7 +165,7 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
     public async Task SavePat_SetsToken()
     {
         var uid = SeedUser();
-        var response = await AuthClient(uid).PostAsync("/api/auth/pat",
+        var response = await AuthClient(uid).PostAsync("/api/v1/auth/pat",
             JsonContent.Create(new { patToken = "ghp_new_pat" }));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -178,7 +178,7 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
     public async Task SavePat_Empty_ClearsToken()
     {
         var uid = SeedUser(u => u.UserPatToken = "ghp_old_pat");
-        var response = await AuthClient(uid).PostAsync("/api/auth/pat",
+        var response = await AuthClient(uid).PostAsync("/api/v1/auth/pat",
             JsonContent.Create(new { patToken = "" }));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -190,7 +190,7 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
     [Fact]
     public async Task SavePat_NoAuth_Unauthorized()
     {
-        var response = await _factory.CreateClient().PostAsync("/api/auth/pat",
+        var response = await _factory.CreateClient().PostAsync("/api/v1/auth/pat",
             JsonContent.Create(new { patToken = "ghp_x" }));
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

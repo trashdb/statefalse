@@ -97,7 +97,7 @@ public class PunishmentServiceTests : IClassFixture<WebApplicationFactory<Progra
         SeedPunishment("alice", "acme/repo", "CI", now.AddHours(-1), 1);
         SeedPunishment("bob", "acme/repo", "CI", now.AddDays(-10), 2);
 
-        var response = await AuthClient(uid).GetAsync("/api/punishments?days=7");
+        var response = await AuthClient(uid).GetAsync("/api/v1/punishments?days=7");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var events = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -115,7 +115,7 @@ public class PunishmentServiceTests : IClassFixture<WebApplicationFactory<Progra
         SeedPunishment("bob", "acme/repo", "CI", now.AddHours(-2), 2);
         SeedPunishment("carol", "acme/repo", "CI", now.AddHours(-3), 3);
 
-        var response = await AuthClient(uid).GetAsync("/api/punishments?days=7&limit=2");
+        var response = await AuthClient(uid).GetAsync("/api/v1/punishments?days=7&limit=2");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var events = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -126,7 +126,7 @@ public class PunishmentServiceTests : IClassFixture<WebApplicationFactory<Progra
     public async Task GetRecent_NoEvents_EmptyList()
     {
         var uid = SeedUser();
-        var response = await AuthClient(uid).GetAsync("/api/punishments");
+        var response = await AuthClient(uid).GetAsync("/api/v1/punishments");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var events = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -143,7 +143,7 @@ public class PunishmentServiceTests : IClassFixture<WebApplicationFactory<Progra
         SeedPunishment("alice", "other/repo", "Tests", now.AddHours(-3), 3);
         SeedPunishment("bob", "acme/repo", "CI", now.AddHours(-4), 4);
 
-        var response = await AuthClient(uid).GetAsync("/api/punishments/summary");
+        var response = await AuthClient(uid).GetAsync("/api/v1/punishments/summary");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
@@ -173,7 +173,7 @@ public class PunishmentServiceTests : IClassFixture<WebApplicationFactory<Progra
         for (var i = 1; i <= 7; i++)
             SeedPunishment($"culprit{i}", "acme/repo", "CI", now.AddHours(-i), i);
 
-        var response = await AuthClient(uid).GetAsync("/api/punishments/summary");
+        var response = await AuthClient(uid).GetAsync("/api/v1/punishments/summary");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());

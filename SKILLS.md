@@ -81,7 +81,7 @@ Add new SwiftUI view.
 Debug webhook processing.
 
 1. Check VPS logs: `ssh underlayer 'sudo journalctl -u statefalse -f'`
-2. Check recent webhooks: `curl http://localhost:5000/api/webhook/logs?limit=10`
+2. Check recent webhooks: `curl http://localhost:5000/api/v1/webhook/logs?limit=10`
 3. Verify HMAC: check `WebhookSecret` in systemd env
 4. Test payload: use `docs.md` curl examples
 

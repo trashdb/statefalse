@@ -98,48 +98,48 @@ Api → Application → Domain
 #### Auth
 | Método | Ruta | Función | Auth |
 |--------|------|---------|------|
-| GET | `/api/auth/login` | Redirige al usuario a GitHub OAuth | anónimo |
+| GET | `/api/v1/auth/login` | Redirige al usuario a GitHub OAuth | anónimo |
 | GET | `/api/auth/callback` | Exchange code → token, upsert usuario, redirect a app | anónimo |
-| GET | `/api/auth/me` | Perfil del usuario | JWT |
-| POST | `/api/auth/pat` | Guardar/borrar PAT del usuario | JWT |
-| GET | `/api/auth/token` | Token efectivo resuelto | JWT |
+| GET | `/api/v1/auth/me` | Perfil del usuario | JWT |
+| POST | `/api/v1/auth/pat` | Guardar/borrar PAT del usuario | JWT |
+| GET | `/api/v1/auth/token` | Token efectivo resuelto | JWT |
 
 #### Pull Requests
 | Método | Ruta | Función | Auth |
 |--------|------|---------|------|
-| POST | `/api/pullrequests/sync` | Sync desde GitHub API | JWT+limit |
-| GET | `/api/pullrequests/active?page=&pageSize=` | PRs activos con ciStatus, comentarios, self-healing | JWT+limit |
-| GET | `/api/pullrequests/{n}/detail?repo=` | Mergeable state, behind/ahead | JWT+limit |
-| GET | `/api/pullrequests/{n}/commits` · `/files` · `/checks` | Proxies a GitHub | JWT |
-| POST | `/api/pullrequests/{n}/merge` · `/draft` · `/update-branch` | Acciones | JWT |
-| POST | `/api/pullrequests/{n}/subscribe` · `/unsubscribe` | Subscripción a PR | JWT+limit |
-| GET | `/api/pullrequests/{n}/subscribers` | Lista subscriptores | JWT+limit |
-| POST | `/api/pullrequests/{n}/add-subscriber` · `/remove-subscriber` | Gestionar subscriptores | JWT+limit |
+| POST | `/api/v1/pullrequests/sync` | Sync desde GitHub API | JWT+limit |
+| GET | `/api/v1/pullrequests/active?page=&pageSize=` | PRs activos con ciStatus, comentarios, self-healing | JWT+limit |
+| GET | `/api/v1/pullrequests/{n}/detail?repo=` | Mergeable state, behind/ahead | JWT+limit |
+| GET | `/api/v1/pullrequests/{n}/commits` · `/files` · `/checks` | Proxies a GitHub | JWT |
+| POST | `/api/v1/pullrequests/{n}/merge` · `/draft` · `/update-branch` | Acciones | JWT |
+| POST | `/api/v1/pullrequests/{n}/subscribe` · `/unsubscribe` | Subscripción a PR | JWT+limit |
+| GET | `/api/v1/pullrequests/{n}/subscribers` | Lista subscriptores | JWT+limit |
+| POST | `/api/v1/pullrequests/{n}/add-subscriber` · `/remove-subscriber` | Gestionar subscriptores | JWT+limit |
 
 #### Workflows
 | Método | Ruta | Función | Auth |
 |--------|------|---------|------|
-| GET | `/api/workflows/runs?limit=` | Runs recientes (propios + targeted + subscribed) | JWT+limit |
-| PUT | `/api/workflows/runs/{id}/target` | Asignar usuarios a notificar | JWT |
-| POST | `/api/workflows/runs/{runId}/rerun` | Re-ejecutar workflow | JWT |
-| POST | `/api/workflows/sync-active` | Sincroniza runs in_progress desde GitHub API | JWT |
+| GET | `/api/v1/workflows/runs?limit=` | Runs recientes (propios + targeted + subscribed) | JWT+limit |
+| PUT | `/api/v1/workflows/runs/{id}/target` | Asignar usuarios a notificar | JWT |
+| POST | `/api/v1/workflows/runs/{runId}/rerun` | Re-ejecutar workflow | JWT |
+| POST | `/api/v1/workflows/sync-active` | Sincroniza runs in_progress desde GitHub API | JWT |
 
 #### GitHub API proxy
 | Método | Ruta | Función | Auth |
 |--------|------|---------|------|
-| GET | `/api/github/my-branches?repo=` | Ramas del usuario en un repo | JWT |
-| POST | `/api/github/create-pr` | Crear PR | JWT |
-| POST | `/api/github/pr-preview` | Preview con template + commits + resumen Copilot | JWT |
-| POST | `/api/github/interpret` | Interpretar lenguaje natural (legacy, fuera del UI) | JWT |
+| GET | `/api/v1/github/my-branches?repo=` | Ramas del usuario en un repo | JWT |
+| POST | `/api/v1/github/create-pr` | Crear PR | JWT |
+| POST | `/api/v1/github/pr-preview` | Preview con template + commits + resumen Copilot | JWT |
+| POST | `/api/v1/github/interpret` | Interpretar lenguaje natural (legacy, fuera del UI) | JWT |
 
 #### Webhook + sistema
 | Método | Ruta | Función | Auth |
 |--------|------|---------|------|
 | POST | `/api/webhook/github` | Webhook GitHub, verificación HMAC-SHA256 | anónimo+limit |
-| GET | `/api/webhook/logs` | Ring buffer de últimos webhooks | JWT |
+| GET | `/api/v1/webhook/logs` | Ring buffer de últimos webhooks | JWT |
 | GET | `/health` | Health check (DB connect) | anónimo |
-| GET | `/api/punishments` · `/api/punishments/summary` | Histórico de castigos | JWT |
-| GET | `/api/users` | Lista usuarios registrados | JWT |
+| GET | `/api/v1/punishments` · `/api/v1/punishments/summary` | Histórico de castigos | JWT |
+| GET | `/api/v1/users` | Lista usuarios registrados | JWT |
 | GET | `/scalar` · OpenAPI | Documentación | - |
 
 ### Webhooks de GitHub que maneja
@@ -178,7 +178,7 @@ UserPatToken (PAT propio) > AccessToken (OAuth) > GitHub:PatToken (PAT compartid
 - Client detecta 401 → auto-logout
 
 ### Flujo de OAuth
-1. App abre `{backend}/api/auth/login?redirect_uri=http://localhost:{random_port}/callback`
+1. App abre `{backend}/api/v1/auth/login?redirect_uri=http://localhost:{random_port}/callback`
 2. Backend redirige a GitHub → usuario autoriza → GitHub redirige a `/api/auth/callback`
 3. Backend cambia code por access_token, busca/crea usuario en DB, emite JWT, redirige de vuelta a `localhost`
 4. App captura la respuesta en un `NWListener` TCP, extrae `id`, `username`, `avatar`, `token`
@@ -252,7 +252,7 @@ native/
 1. **Inicio**: `SMAppService.mainApp.register()` → auto-arranque. `MenuBarExtra` con icono 🔥 + popover.
 2. **Login**: `OAuthService` abre Safari para OAuth de GitHub. App captura callback vía TCP local. Sesión opcional en Keychain.
 3. **Tiempo real**: `SignalRService` (facade) delega en `SignalRClient` (WebSocket a `/hub/punishment`) y `ApiClient` (REST).
-4. **PRs activos**: Cada 30s (o al recibir `PullRequestsUpdated`), refetch `GET /api/pullrequests/active`.
+4. **PRs activos**: Cada 30s (o al recibir `PullRequestsUpdated`), refetch `GET /api/v1/pullrequests/active`.
 5. **Acciones en PRs**: Desde el popover de detalle: togglear draft, merge, update branch, comentarios.
 6. **Ramas locales**: `GitService` descubre repos recursivamente (max 3 niveles) desde `workspacePath`.
 7. **Spotlight (⌘K)**: Queries inteligentes: ticket Jira, checkout de rama, crear PR, abrir board.
@@ -338,7 +338,7 @@ Workflow runs se matching con PRs por `(repo, headSha)`. El `headSha` es el comm
 
 ### SyncCheckRunsForCommit
 
-En cada `GET /api/pullrequests/active`, el backend fetchea check-runs de GitHub para cada head SHA único y hace upsert en DB (`PullRequestSyncService`).
+En cada `GET /api/v1/pullrequests/active`, el backend fetchea check-runs de GitHub para cada head SHA único y hace upsert en DB (`PullRequestSyncService`).
 
 ### Lógica (`CiStatusCalculator` en Domain)
 
