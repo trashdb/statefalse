@@ -168,9 +168,44 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
         var response = await client.GetAsync($"/api/auth/callback?code=abc123&state={Uri.EscapeDataString(state)}");
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
 
-        Assert.StartsWith("http://localhost:51623/callback?", response.Headers.Location!.ToString());
-        Assert.Contains("id=777", response.Headers.Location!.ToString());
-        Assert.Contains("token=", response.Headers.Location!.ToString());
+        var location = response.Headers.Location!;
+        Assert.StartsWith("http://localhost:51623/callback?", location.ToString());
+        var query = System.Web.HttpUtility.ParseQueryString(location.Query);
+        Assert.False(string.IsNullOrEmpty(query["code"]));
+        Assert.Null(query["token"]);
+        Assert.Null(query["id"]);
+    }
+
+    [Fact]
+    public async Task ExchangeCode_ReturnsSessionAndCanOnlyBeUsedOnce()
+    {
+        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+        var state = await BeginOAuthAsync("http://localhost:51624/callback");
+        var callback = await client.GetAsync($"/api/auth/callback?code=abc123&state={Uri.EscapeDataString(state)}");
+        var location = callback.Headers.Location!;
+        var code = System.Web.HttpUtility.ParseQueryString(location.Query)["code"];
+        Assert.False(string.IsNullOrEmpty(code));
+
+        var exchange = await client.PostAsJsonAsync("/api/v1/auth/exchange", new { code });
+        Assert.Equal(HttpStatusCode.OK, exchange.StatusCode);
+        var body = await exchange.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(777L, body.GetProperty("id").GetInt64());
+        Assert.False(string.IsNullOrEmpty(body.GetProperty("token").GetString()));
+
+        var replay = await client.PostAsJsonAsync("/api/v1/auth/exchange", new { code });
+        Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExchangeCode_InvalidCode_Unauthorized()
+    {
+        var response = await _factory.CreateClient().PostAsJsonAsync(
+            "/api/v1/auth/exchange", new { code = "invalid-code" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]

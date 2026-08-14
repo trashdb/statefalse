@@ -1,4 +1,3 @@
-using System.Web;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
@@ -18,8 +17,9 @@ public class AuthService
     private readonly IConfiguration _configuration;
     private readonly JwtTokenService _jwt;
     private readonly OAuthStateStore _stateStore;
+    private readonly OAuthCodeStore _codeStore;
 
-    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, IConfiguration configuration, JwtTokenService jwt, OAuthStateStore stateStore)
+    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, IConfiguration configuration, JwtTokenService jwt, OAuthStateStore stateStore, OAuthCodeStore codeStore)
     {
         _oauth = oauth;
         _users = users;
@@ -27,6 +27,7 @@ public class AuthService
         _configuration = configuration;
         _jwt = jwt;
         _stateStore = stateStore;
+        _codeStore = codeStore;
     }
 
     public string? LoginUrl(string? redirectUri)
@@ -79,12 +80,20 @@ public class AuthService
 
         if (!string.IsNullOrEmpty(redirectUri))
         {
-            var avatar = userInfo.AvatarUrl is not null ? $"&avatar={HttpUtility.UrlEncode(userInfo.AvatarUrl)}" : "";
-            var callbackUri = $"{redirectUri}?id={userInfo.Id}&username={HttpUtility.UrlEncode(userInfo.Login)}{avatar}&token={HttpUtility.UrlEncode(token)}";
+            var exchangeCode = _codeStore.Create(userInfo.Id, userInfo.Login, userInfo.AvatarUrl, token);
+            var callbackUri = $"{redirectUri}?code={Uri.EscapeDataString(exchangeCode)}";
             return new AuthCallbackResponse(null, callbackUri, null);
         }
 
         return new AuthCallbackResponse(null, null, new { id = userInfo.Id, username = userInfo.Login, avatarUrl = userInfo.AvatarUrl, token });
+    }
+
+    public ApiResult ExchangeCode(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code) || !_codeStore.TryConsume(code, out var result) || result is null)
+            return ApiResult.Unauthorized(new { error = "Invalid or expired OAuth exchange code" });
+
+        return ApiResult.Ok(result);
     }
 
     public async Task<ApiResult> GetUsersAsync()

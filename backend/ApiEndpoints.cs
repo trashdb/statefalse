@@ -49,6 +49,9 @@ public static class ApiEndpoints
         routes.MapGet("/auth/me", async (HttpContext ctx, AuthService auth)
             => await MapAsync(auth.GetMeAsync(ctx.GitHubId()))).RequireAuthorization();
 
+        routes.MapPost("/auth/exchange", async (OAuthExchangeRequest request, AuthService auth)
+            => Map(auth.ExchangeCode(request.Code))).AllowAnonymous();
+
         routes.MapPost("/auth/pat", async (HttpContext ctx, PatRequest body, AuthService auth)
             => await MapAsync(auth.SavePatAsync(ctx.GitHubId(), body.PatToken))).RequireAuthorization();
 
@@ -198,4 +201,7 @@ public static class ApiEndpoints
         var result = await task;
         return Results.Json(result.Value, statusCode: result.StatusCode);
     }
+
+    private static IResult Map(ApiResult result)
+        => Results.Json(result.Value, statusCode: result.StatusCode);
 }
