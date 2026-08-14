@@ -10,6 +10,8 @@ macOS menu bar app that tracks GitHub Actions workflows, notifies you on failure
 
 ## Install
 
+Download latest macOS release from [GitHub Releases](https://github.com/trashdb/statefalse/releases/latest). Current package is unsigned and not notarized; verify `SHA256SUMS`, then use Control-click → **Open** on first launch if Gatekeeper blocks it.
+
 ```bash
 git clone git@github.com:trashdb/statefalse.git
 cd statefalse/native
