@@ -13,13 +13,13 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Statefalse.Api.Tests;
 
 [Collection("BackendIntegration")]
-public class WebhookHandlersMoreTests : IClassFixture<WebApplicationFactory<Program>>, IDisposable
+public class WebhookHandlersAdditionalTests : IClassFixture<WebApplicationFactory<Program>>, IDisposable
 {
     private const string WebhookSecret = "test-secret";
     private readonly WebApplicationFactory<Program> _factory;
     private readonly SqliteConnection _sqliteConnection;
 
-    public WebhookHandlersMoreTests(WebApplicationFactory<Program> factory)
+    public WebhookHandlersAdditionalTests(WebApplicationFactory<Program> factory)
     {
         _sqliteConnection = new SqliteConnection("DataSource=:memory:");
         _sqliteConnection.Open();
@@ -379,3 +379,4 @@ public class WebhookHandlersMoreTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal("nit", pr.LastCommentBody);
     }
 }
+
