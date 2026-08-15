@@ -28,6 +28,7 @@ public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Jwt:Secret", TestAuth.Secret);
+            builder.UseSetting("GitHub:PatToken", "ghp_server_only_test_token");
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<DbContextOptions<AppDbContext>>();
@@ -100,6 +101,17 @@ public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
         var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
         Assert.NotNull(body);
         Assert.Equal("gho_access_token", body["token"]);
+    }
+
+    [Fact]
+    public async Task GetToken_WithoutUserCredential_DoesNotExposeGlobalPat()
+    {
+        var id = SeedUser(_ => { });
+        Authenticate(id);
+
+        var response = await _client.GetAsync("/api/v1/auth/token");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]

@@ -14,17 +14,15 @@ public class AuthService
     private readonly GitHubOAuthService _oauth;
     private readonly IGitHubUserRepository _users;
     private readonly IUnitOfWork _uow;
-    private readonly IConfiguration _configuration;
     private readonly JwtTokenService _jwt;
     private readonly OAuthStateStore _stateStore;
     private readonly OAuthCodeStore _codeStore;
 
-    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, IConfiguration configuration, JwtTokenService jwt, OAuthStateStore stateStore, OAuthCodeStore codeStore)
+    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, JwtTokenService jwt, OAuthStateStore stateStore, OAuthCodeStore codeStore)
     {
         _oauth = oauth;
         _users = users;
         _uow = uow;
-        _configuration = configuration;
         _jwt = jwt;
         _stateStore = stateStore;
         _codeStore = codeStore;
@@ -124,9 +122,9 @@ public class AuthService
     public async Task<ApiResult> GetTokenAsync(long gitHubId)
     {
         var user = await _users.FindByIdAsync(gitHubId);
-        // Mirror the fallback chain used by create-pr / merge so the client can obtain
-        // the same token that already works server-side (incl. the shared global PAT).
-        var token = user?.UserPatToken ?? user?.AccessToken ?? _configuration["GitHub:PatToken"];
+        // Never expose the server-wide PAT to a client. Backend services may still
+        // use their configured fallback through IGitHubTokenResolver internally.
+        var token = user?.UserPatToken ?? user?.AccessToken;
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No access token found" });
         return ApiResult.Ok(new TokenDto(token));
