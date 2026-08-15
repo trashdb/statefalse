@@ -138,13 +138,15 @@ class MockApiClient: ApiClientProtocol {
 class MockKeychainService: KeychainServiceProtocol {
     var savedSession: KeychainService.Session?
     var shouldReturnSession = true
+    private(set) var loadCount = 0
 
     func save(gitHubId: Int64, username: String, avatarUrl: String?, token: String?) {
         savedSession = KeychainService.Session(gitHubId: gitHubId, username: username, avatarUrl: avatarUrl, token: token)
     }
 
     func load() -> KeychainService.Session? {
-        shouldReturnSession ? savedSession : nil
+        loadCount += 1
+        return shouldReturnSession ? savedSession : nil
     }
 
     func delete() {

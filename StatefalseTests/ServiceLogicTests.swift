@@ -441,4 +441,24 @@ final class SessionExpiryTests: XCTestCase {
         await MainActor.run { XCTAssertFalse(service.isLoggedIn) }
         XCTAssertNil(keychain.savedSession)
     }
+
+    @MainActor
+    func testRestoreSessionOnlyRunsOnce() {
+        let keychain = MockKeychainService()
+        keychain.savedSession = KeychainService.Session(gitHubId: 123, username: "alice", avatarUrl: nil, token: "jwt")
+        let service = SignalRService(
+            baseUrl: "https://mock.example.com",
+            keychain: keychain,
+            persistence: MockPersistenceService(),
+            oauth: MockOAuthService(),
+            api: MockApiClient(),
+            signalRClient: MockSignalRTransport()
+        )
+
+        service.restoreSession()
+        service.restoreSession()
+
+        XCTAssertEqual(keychain.loadCount, 1)
+        XCTAssertTrue(service.isLoggedIn)
+    }
 }

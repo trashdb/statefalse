@@ -5,7 +5,7 @@ struct ContentView: View {
     @ObservedObject var signalR: SignalRService
     @Environment(\.dependencies) private var deps
 
-    @State private var keepSignedIn = true
+    @AppStorage("keepSignedIn") private var keepSignedIn = true
     @State private var isLoading = false
     @State private var loginError: String?
     @State private var showQuickSearch = false
