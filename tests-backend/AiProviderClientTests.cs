@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
 using Statefalse.Application;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -91,21 +90,6 @@ public class AiProviderClientTests
         var request = OpenAiRequest() with { Provider = "anthropic", ApiKey = null };
         Assert.Null(await client.CompleteAsync(request));
         Assert.Null(handler.LastRequestUri);
-    }
-
-    [Fact]
-    public async Task Complete_Gemini_ParsesCandidatesText()
-    {
-        var handler = new FakeHttpHandler(HttpStatusCode.OK,
-            """{"candidates":[{"content":{"parts":[{"text":"gemini answer"}]}}]}""");
-        var client = CreateClient(handler);
-
-        var request = OpenAiRequest() with { Provider = "gemini" };
-        var result = await client.CompleteAsync(request);
-
-        Assert.Equal("gemini answer", result);
-        Assert.Contains("generativelanguage.googleapis.com", handler.LastRequestUri);
-        Assert.Contains("key=sk-test", handler.LastRequestUri);
     }
 
     private sealed class FakeHttpHandler : HttpMessageHandler

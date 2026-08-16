@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace Statefalse.Application;
 
 /// <summary>
-/// AI provider orchestration: OpenAI-compatible / Copilot / Anthropic / Gemini
+/// AI provider orchestration: OpenAI-compatible / Copilot / Anthropic
 /// chat-completions. Single responsibility: turn a prompt into provider text.
 /// </summary>
 public sealed class AiProviderClient : IAiProviderClient
@@ -29,7 +29,6 @@ public sealed class AiProviderClient : IAiProviderClient
         return provider switch
         {
             "anthropic" => await CallAnthropicAsync(request, model ?? "claude-sonnet-4-20250514"),
-            "gemini" => await CallGeminiAsync(request, model ?? "gemini-2.5-flash"),
             _ => await CallOpenAICompatibleAsync(request, provider, model ?? "gpt-4o")
         };
     }
@@ -119,56 +118,6 @@ public sealed class AiProviderClient : IAiProviderClient
                     if (item.TryGetProperty("type", out var type) && type.GetString() == "text" &&
                         item.TryGetProperty("text", out var text))
                         return text.GetString();
-                }
-            }
-            return null;
-        });
-    }
-
-    private async Task<string?> CallGeminiAsync(AiRequest request, string model)
-    {
-        if (string.IsNullOrEmpty(request.ApiKey)) return null;
-
-        var body = new
-        {
-            contents = new[]
-            {
-                new
-                {
-                    role = "user",
-                    parts = new[]
-                    {
-                        new { text = $"{request.SystemPrompt}\n\n{request.UserPrompt}" }
-                    }
-                }
-            },
-            generationConfig = new
-            {
-                maxOutputTokens = request.MaxTokens,
-                temperature = request.Temperature
-            }
-        };
-
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={request.ApiKey}";
-        var req = new HttpRequestMessage(HttpMethod.Post, url);
-        req.Headers.UserAgent.ParseAdd("Statefalse");
-        req.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-
-        return await SendAsync(req, response =>
-        {
-            if (response.TryGetProperty("candidates", out var candidates) && candidates.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var candidate in candidates.EnumerateArray())
-                {
-                    if (candidate.TryGetProperty("content", out var c) &&
-                        c.TryGetProperty("parts", out var parts) && parts.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var part in parts.EnumerateArray())
-                        {
-                            if (part.TryGetProperty("text", out var text))
-                                return text.GetString();
-                        }
-                    }
                 }
             }
             return null;

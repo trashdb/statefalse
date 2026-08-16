@@ -1,7 +1,7 @@
 namespace Statefalse.Application;
 
 /// <summary>
-/// Chat-completion transport over OpenAI-compatible / Copilot / Anthropic / Gemini.
+/// Chat-completion transport over OpenAI-compatible / Copilot / Anthropic.
 /// Returns null when the provider rejects the request or the response has no text.
 /// </summary>
 public interface IAiProviderClient
