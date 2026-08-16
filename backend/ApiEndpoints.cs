@@ -128,8 +128,20 @@ public static class ApiEndpoints
 
     private static void MapWebhook(IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/webhook/logs", (WebhookService service, int limit = 30)
-            => Results.Ok(service.GetLogs(limit))).RequireAuthorization();
+        routes.MapGet("/webhook/logs", (HttpContext ctx, WebhookService service, IConfiguration configuration, int limit = 30) =>
+        {
+            var adminIds = configuration.GetSection("WebhookLogs:AdminGitHubIds")
+                .GetChildren()
+                .Select(section => long.TryParse(section.Value, out var id) ? (long?)id : null)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToHashSet();
+
+            if (!adminIds.Contains(ctx.GitHubId()))
+                return Results.Forbid();
+
+            return Results.Ok(service.GetLogs(Math.Clamp(limit, 1, 100)));
+        }).RequireAuthorization();
     }
 
     private static void MapGitHubWebhook(IEndpointRouteBuilder routes)

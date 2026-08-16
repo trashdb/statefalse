@@ -32,6 +32,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
         {
             builder.UseSetting("Jwt:Secret", TestAuth.Secret);
             builder.UseSetting("WebhookSecret", Secret);
+            builder.UseSetting("WebhookLogs:AdminGitHubIds:0", "123");
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<DbContextOptions<AppDbContext>>();
@@ -220,6 +221,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
         client2.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
             TestAuth.Token(_factory, 123, "alice"));
         var logsResponse = await client2.GetAsync("/api/v1/webhook/logs?limit=100");
+        Assert.Equal(HttpStatusCode.OK, logsResponse.StatusCode);
         using var logsJson = JsonDocument.Parse(await logsResponse.Content.ReadAsByteArrayAsync());
         Assert.Contains(logsJson.RootElement.EnumerateArray(),
             l => l.GetProperty("outcome").GetString() == "error");
