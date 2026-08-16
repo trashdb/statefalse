@@ -183,7 +183,7 @@ public sealed class AiProviderClient : IAiProviderClient
             var content = await resp.Content.ReadAsStringAsync();
             if (!resp.IsSuccessStatusCode)
             {
-                _logger.LogWarning("AI provider error: status={Status} body={Body}", (int)resp.StatusCode, content);
+                _logger.LogWarning("AI provider error: status={Status}", (int)resp.StatusCode);
                 return null;
             }
 

@@ -241,7 +241,7 @@ public class PullRequestQueryService
         if (resp.StatusCode == 0)
             return ApiResult.FromGitHubStatus(0, new { error = "GitHub API unreachable" });
         if (resp.StatusCode is < 200 or >= 300 || resp.Body is not { } body)
-            return ApiResult.FromGitHubStatus(resp.StatusCode, new { error = "Failed to fetch commits", detail = resp.Body });
+            return ApiResult.FromGitHubStatus(resp.StatusCode, new { error = "Failed to fetch commits" });
 
         var commits = body.EnumerateArray().Select(c => new CommitDto(
             c.GetProperty("sha").GetString(),
@@ -265,7 +265,7 @@ public class PullRequestQueryService
         if (resp.StatusCode == 0)
             return ApiResult.FromGitHubStatus(0, new { error = "GitHub API unreachable" });
         if (resp.StatusCode is < 200 or >= 300 || resp.Body is not { } body)
-            return ApiResult.FromGitHubStatus(resp.StatusCode, new { error = "Failed to fetch files", detail = resp.Body });
+            return ApiResult.FromGitHubStatus(resp.StatusCode, new { error = "Failed to fetch files" });
 
         var files = body.EnumerateArray().Select(f => new PrFileDto(
             f.GetProperty("filename").GetString(),

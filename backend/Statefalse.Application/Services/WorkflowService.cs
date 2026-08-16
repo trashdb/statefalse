@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
@@ -151,8 +152,9 @@ public class WorkflowService
             return ApiResult.FromGitHubStatus(0, "GitHub API unreachable");
         if (response.StatusCode is < 200 or >= 300)
         {
-            _logger.LogWarning("GitHub rerun failed: {Status} {Body}", response.StatusCode, response.Body?.GetRawText());
-            return ApiResult.FromGitHubStatus(response.StatusCode, response.Body?.GetRawText() ?? "Rerun failed");
+            var detail = SafeGitHubError(response.Body);
+            _logger.LogWarning("GitHub rerun failed: status={Status} detail={Detail}", response.StatusCode, detail);
+            return ApiResult.FromGitHubStatus(response.StatusCode, new { error = detail });
         }
 
         // Create an in_progress record immediately so syncFromApi picks it up
@@ -187,6 +189,19 @@ public class WorkflowService
         await _notifier.NotifyPullRequestsUpdatedAsync();
 
         return ApiResult.Ok(new { rerun = true });
+    }
+
+    private static string SafeGitHubError(JsonElement? body)
+    {
+        if (body is { } document && document.ValueKind == JsonValueKind.Object
+            && document.TryGetProperty("message", out var message)
+            && message.ValueKind == JsonValueKind.String)
+        {
+            var value = message.GetString()?.ReplaceLineEndings(" ").Trim() ?? "Rerun failed";
+            return value.Length <= 256 ? value : value[..256] + "…";
+        }
+
+        return "Rerun failed";
     }
 
     public async Task<ApiResult> SyncActiveAsync(long gitHubId)
