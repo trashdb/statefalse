@@ -128,9 +128,6 @@ public class PrPreviewService
         return await _ai.CompleteAsync(new AiRequest(
             SystemPrompt: systemPrompt,
             UserPrompt: prompt,
-            ApiKey: null,
-            Provider: "copilot",
-            Model: "gpt-4o",
             OAuthToken: oauthToken,
             MaxTokens: 1000,
             Temperature: 0.7)) ?? "";

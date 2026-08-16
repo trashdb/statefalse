@@ -34,9 +34,6 @@ Only respond with the JSON object, no other text.";
         var reply = await _ai.CompleteAsync(new AiRequest(
             SystemPrompt: systemPrompt,
             UserPrompt: userPrompt,
-            ApiKey: request.ApiKey,
-            Provider: request.AiProvider,
-            Model: request.Model,
             OAuthToken: oauthToken,
             MaxTokens: 500,
             Temperature: 0.3));

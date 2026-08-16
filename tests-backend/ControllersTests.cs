@@ -586,7 +586,7 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
     }
 
     [Fact]
-    public async Task Interpret_NoApiKeyOrToken_ReturnsBadRequest()
+    public async Task Interpret_WithoutGitHubOAuth_ReturnsBadRequest()
     {
         var id = SeedUser(u => u.AccessToken = null);
         var client = AuthClient(id);

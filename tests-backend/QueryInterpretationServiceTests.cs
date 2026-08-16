@@ -15,10 +15,7 @@ public class QueryInterpretationServiceTests
     private static InterpretRequest Request(string query) => new()
     {
         Query = query,
-        GitHubId = 1,
-        ApiKey = "sk-test",
-        AiProvider = "openai",
-        Model = "gpt-4o"
+        GitHubId = 1
     };
 
     [Fact]
@@ -26,7 +23,7 @@ public class QueryInterpretationServiceTests
     {
         _ai.Reply = """{"action":"checkoutBranch","message":"Cambiando a rama…","params":{"branch":"fix/x"}}""";
 
-        var result = await CreateService().InterpretAsync(Request("checkout fix/x"), null);
+        var result = await CreateService().InterpretAsync(Request("checkout fix/x"), "gho_test");
 
         var response = Assert.IsType<InterpretResponse>(result);
         Assert.Equal("checkoutBranch", response.Action);
@@ -39,7 +36,7 @@ public class QueryInterpretationServiceTests
     {
         _ai.Reply = null;
 
-        var result = await CreateService().InterpretAsync(Request("hmm"), null);
+        var result = await CreateService().InterpretAsync(Request("hmm"), "gho_test");
         var json = JsonSerializer.Serialize(result);
 
         using var doc = JsonDocument.Parse(json);
@@ -52,7 +49,7 @@ public class QueryInterpretationServiceTests
     {
         _ai.Reply = "not json at all";
 
-        var result = await CreateService().InterpretAsync(Request("hmm"), null);
+        var result = await CreateService().InterpretAsync(Request("hmm"), "gho_test");
 
         var response = Assert.IsType<InterpretResponse>(result);
         Assert.Equal("unknown", response.Action);
@@ -64,11 +61,10 @@ public class QueryInterpretationServiceTests
     {
         _ai.Reply = """{"action":"openPRs","message":"Abriendo PRs"}""";
 
-        await CreateService().InterpretAsync(Request("ver mis pull requests"), null);
+        await CreateService().InterpretAsync(Request("ver mis pull requests"), "gho_test");
 
         Assert.Contains("ver mis pull requests", _ai.LastRequest!.UserPrompt);
-        Assert.Equal("openai", _ai.LastRequest.Provider);
-        Assert.Equal("gpt-4o", _ai.LastRequest.Model);
+        Assert.Equal("gho_test", _ai.LastRequest.OAuthToken);
     }
 
     private sealed class FakeAiClient : IAiProviderClient

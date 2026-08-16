@@ -250,8 +250,8 @@ public class GitHubApiService
 
         var user = await _tokens.GetUserAsync(request.GitHubId);
         var oauthToken = user?.AccessToken;
-        if (string.IsNullOrEmpty(request.ApiKey) && string.IsNullOrEmpty(oauthToken))
-            return ApiResult.BadRequest(new { error = "No API key configured and no OAuth token available. Set an API key in Settings or login with GitHub." });
+        if (string.IsNullOrEmpty(oauthToken))
+            return ApiResult.BadRequest(new { error = "GitHub OAuth is required to use Copilot." });
 
         var result = await _interpreter.InterpretAsync(request, oauthToken);
         return ApiResult.Ok(result);
