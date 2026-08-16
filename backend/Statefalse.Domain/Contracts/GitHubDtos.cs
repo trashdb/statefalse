@@ -17,9 +17,6 @@ public sealed record InterpretRequest
 {
     public string Query { get; init; } = "";
     public long GitHubId { get; init; }
-    public string? ApiKey { get; init; }
-    public string? AiProvider { get; init; }
-    public string? Model { get; init; }
 }
 
 public sealed record InterpretResponse

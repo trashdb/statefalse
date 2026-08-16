@@ -1,7 +1,7 @@
 namespace Statefalse.Application;
 
 /// <summary>
-/// Chat-completion transport over OpenAI-compatible / Copilot / Anthropic.
+/// Chat-completion transport over GitHub Copilot.
 /// Returns null when the provider rejects the request or the response has no text.
 /// </summary>
 public interface IAiProviderClient
@@ -12,9 +12,6 @@ public interface IAiProviderClient
 public sealed record AiRequest(
     string SystemPrompt,
     string UserPrompt,
-    string? ApiKey,
-    string? Provider,
-    string? Model,
     string? OAuthToken,
     int MaxTokens = 500,
     double Temperature = 0.3);

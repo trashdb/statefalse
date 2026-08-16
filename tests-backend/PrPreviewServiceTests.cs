@@ -80,9 +80,7 @@ public class PrPreviewServiceTests
         Assert.Equal("This PR fixes the login flow.", result.Summary);
         Assert.Null(result.SummaryError);
         Assert.Contains("This PR fixes the login flow.", result.SuggestedBody);
-        Assert.Equal("copilot", _ai.LastRequest!.Provider);
-        Assert.Equal("gpt-4o", _ai.LastRequest.Model);
-        Assert.Equal("gho_1", _ai.LastRequest.OAuthToken);
+        Assert.Equal("gho_1", _ai.LastRequest!.OAuthToken);
         Assert.Contains("Fix login", _ai.LastRequest.UserPrompt);
     }
 
