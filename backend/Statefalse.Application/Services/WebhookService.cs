@@ -74,7 +74,7 @@ public class WebhookService
             catch (Exception ex)
             {
                 // Log for visibility, then rethrow so GitHub retries the webhook.
-                WebhookLog.Log(handler.EventType, null, WebhookPayload.TryGetRepo(body), null, "error", ex.Message);
+                WebhookLog.Log(handler.EventType, null, WebhookPayload.TryGetRepo(body), null, "error", "Webhook handler failed");
                 _logger.LogError(ex, "Webhook handler '{EventType}' failed", handler.EventType);
                 throw;
             }

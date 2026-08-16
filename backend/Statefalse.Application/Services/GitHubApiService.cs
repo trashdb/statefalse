@@ -106,8 +106,8 @@ public class GitHubApiService
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No token" });
 
-        _logger.LogInformation("CreatePr: repo={Repo} head={Head} baseBranch={Base} title={Title} gitHubId={Id}",
-            repo, head, baseBranch, title, gitHubId);
+        _logger.LogInformation("CreatePr started: repo={Repo} head={Head} baseBranch={Base} gitHubId={Id}",
+            repo, head, baseBranch, gitHubId);
 
         var payload = new
         {
@@ -118,8 +118,7 @@ public class GitHubApiService
         };
 
         var resp = await _github.PostAsync($"/repos/{repo}/pulls", token, payload);
-        _logger.LogInformation("GitHub API responded: status={Status} body={Body}",
-            resp.StatusCode, resp.Body?.GetRawText());
+        _logger.LogInformation("GitHub API responded to CreatePr: status={Status}", resp.StatusCode);
 
         if (resp.StatusCode == 0)
             return ApiResult.FromGitHubStatus(0, new { error = "GitHub API unreachable" });
@@ -141,7 +140,8 @@ public class GitHubApiService
                 }
             }
 
-            _logger.LogWarning("CreatePr failed for repo={Repo} head={Head}: {Status} {Detail}",
+            detail = TruncateLogValue(detail ?? "Unknown error");
+            _logger.LogWarning("CreatePr failed for repo={Repo} head={Head}: status={Status} detail={Detail}",
                 repo, head, resp.StatusCode, detail);
 
             if (resp.StatusCode == StatusCodes.Status422UnprocessableEntity &&
@@ -165,14 +165,14 @@ public class GitHubApiService
                 }
             }
 
-            return ApiResult.FromGitHubStatus(resp.StatusCode, new { error = detail ?? "Unknown error" });
+            return ApiResult.FromGitHubStatus(resp.StatusCode, new { error = detail });
         }
 
         var prUrl = doc.GetProperty("html_url").GetString() ?? "";
         var prNumber = doc.GetProperty("number").GetInt64();
         var prTitle = doc.TryGetProperty("title", out var t) ? t.GetString() ?? title : title;
 
-        _logger.LogInformation("CreatePr success: pr={PrNumber} url={Url}", prNumber, prUrl);
+        _logger.LogInformation("CreatePr succeeded: repo={Repo} pr={PrNumber}", repo, prNumber);
 
         // Sync to DB so the PR appears immediately in the active PRs list
         try
@@ -217,6 +217,13 @@ public class GitHubApiService
         }
 
         return ApiResult.Ok(new { prNumber, url = prUrl });
+    }
+
+    private static string TruncateLogValue(string value)
+    {
+        const int maxLength = 256;
+        var normalized = value.ReplaceLineEndings(" ").Trim();
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength] + "…";
     }
 
     public async Task<ApiResult> PrPreviewAsync(long gitHubId, string repo, string head, string baseBranch, string title, bool useAI)

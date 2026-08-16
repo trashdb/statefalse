@@ -120,14 +120,14 @@ public class PullRequestActionService
         {
             var msg = "";
             try { msg = gqlJson is { } d && d.TryGetProperty("message", out var m) ? m.GetString() ?? "" : ""; } catch { }
-            return ApiResult.FromGitHubStatus(gqlResp.StatusCode, new { error = msg, detail = gqlJson });
+            return ApiResult.FromGitHubStatus(gqlResp.StatusCode, new { error = string.IsNullOrWhiteSpace(msg) ? "GitHub GraphQL request failed" : msg });
         }
 
         // Check for GraphQL-level errors
         if (gqlDoc.TryGetProperty("errors", out var errors) && errors.GetArrayLength() > 0)
         {
             var firstErr = errors[0].TryGetProperty("message", out var em) ? em.GetString() ?? "" : "Unknown GraphQL error";
-            return ApiResult.Error(StatusCodes.Status422UnprocessableEntity, new { error = firstErr, detail = gqlDoc.GetRawText() });
+            return ApiResult.Error(StatusCodes.Status422UnprocessableEntity, new { error = firstErr });
         }
 
         // Update DB

@@ -65,7 +65,7 @@ public class PrPreviewService
                 if (string.IsNullOrEmpty(summary))
                 {
                     summaryError = "Copilot API returned empty response. Token may be expired — re-login to GitHub.";
-                    _logger.LogWarning("PrPreview: Copilot returned empty summary (token prefix={Prefix})", copilotToken[..Math.Min(8, copilotToken.Length)]);
+                    _logger.LogWarning("PrPreview: Copilot returned empty summary");
                 }
                 else
                     _logger.LogInformation("PrPreview: Copilot summary generated ({Len} chars)", summary.Length);
