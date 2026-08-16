@@ -30,6 +30,7 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Jwt:Secret", TestAuth.Secret);
+            builder.UseSetting("WebhookLogs:AdminGitHubIds:0", "1001");
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<DbContextOptions<AppDbContext>>();
@@ -266,6 +267,15 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
 
         var logs = await response.Content.ReadFromJsonAsync<List<Dictionary<string, object>>>();
         Assert.NotNull(logs);
+    }
+
+    [Fact]
+    public async Task GetWebhookLogs_NonAdmin_ReturnsForbidden()
+    {
+        var client = AuthClient(1002);
+        var response = await client.GetAsync("/api/v1/webhook/logs");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     // ───────────── Auth ─────────────
