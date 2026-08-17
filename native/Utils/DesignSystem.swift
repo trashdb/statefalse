@@ -631,6 +631,22 @@ extension DS.Color {
         default:             return state.uppercased()
         }
     }
+
+    // Adds context from CI/conclusion to avoid showing false failures for cancelled/superseded workflow runs.
+    static func mergeableLabel(_ state: String?, ciStatus: String?, conclusion: String?) -> String {
+        guard let state else { return "UNKNOWN" }
+        if state == "unstable" {
+            if ciStatus == "failed" || conclusion == "failure" {
+                return "CHECKS FAILING"
+            }
+            if conclusion == "cancelled" {
+                return "CHECKS CANCELLED"
+            }
+            return "CHECKS PENDING"
+        }
+
+        return mergeableLabel(state)
+    }
 }
 
 // MARK: - Workflow Run Status
