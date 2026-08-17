@@ -14,10 +14,10 @@
 <body>
   <header class="site-header">
     <a class="brand" href="#top" aria-label="Statefalse home">
-      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" role="img"><path d="M13.5 2.5c.35 3.1-1.65 4.65-3.1 6.2C9.1 10.1 8.5 11.5 9 13c.4 1.2 1.35 2.05 2.55 2.45-.25-1.35.4-2.55 1.55-3.35 1.55 1.25 2.4 2.65 2.4 4.25 0 1.05-.35 2.05-1 2.85 2.55-.8 4.5-3.15 4.5-5.85 0-3.7-2.55-6.1-5.5-10.85ZM9.55 19.6c-1.45-.75-2.4-2.25-2.4-4 0-1.45.6-2.75 1.55-3.75-.2 2.35 1.25 3.55 2.7 4.25-.1 1.4-.75 2.55-1.85 3.5Z"/></svg></span>
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" role="img"><path d="M3 9c2.3-2.3 4.7-2.3 7 0l4 4c2.3 2.3 4.7 2.3 7 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></span>
       <span>statefalse</span>
     </a>
-    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav"><span class="menu-label">Menu</span><span class="menu-icon" aria-hidden="true"><i></i><i></i></span></button>
     <nav id="site-nav" class="site-nav" aria-label="Main navigation">
       <a href="#features">Features</a>
       <a href="#how-it-works">How it works</a>
@@ -37,9 +37,10 @@
           <a class="button button-quiet" href="https://github.com/trashdb/statefalse">View on GitHub <span aria-hidden="true">↗</span></a>
         </div>
         <p class="microcopy"><span class="release-pill">v0.2.2</span> Requires macOS Sequoia or newer · Direct download</p>
+        <div class="platform-status" aria-label="Platform availability"><span class="platform-item platform-available"><i aria-hidden="true"></i> macOS available</span><span class="platform-item platform-coming"><i aria-hidden="true"></i> Windows coming soon</span></div>
       </div>
       <div class="product-window native-popover" aria-label="Statefalse app preview">
-        <div class="native-header"><div class="native-title"><span class="native-flame"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2.5c.35 3.1-1.65 4.65-3.1 6.2C9.1 10.1 8.5 11.5 9 13c.4 1.2 1.35 2.05 2.55 2.45-.25-1.35.4-2.55 1.55-3.35 1.55 1.25 2.4 2.65 2.4 4.25 0 1.05-.35 2.05-1 2.85 2.55-.8 4.5-3.15 4.5-5.85 0-3.7-2.55-6.1-5.5-10.85ZM9.55 19.6c-1.45-.75-2.4-2.25-2.4-4 0-1.45.6-2.75 1.55-3.75-.2 2.35 1.25 3.55 2.7 4.25-.1 1.4-.75 2.55-1.85 3.5Z"/></svg></span><div><strong>Statefalse</strong><small>CI/CD notifications when a merged PR breaks the build.</small></div></div><span class="native-connection"><i></i>Connected</span></div>
+        <div class="native-header"><div class="native-title"><span class="native-flame"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9c2.3-2.3 4.7-2.3 7 0l4 4c2.3 2.3 4.7 2.3 7 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></span><div><strong>Statefalse</strong><small>CI/CD notifications when a merged PR breaks the build.</small></div></div><span class="native-connection"><i></i>Connected</span></div>
         <div class="native-auth"><div class="auth-avatar">AL</div><div><small>You are logged in as</small><strong>@alvarolopezsierra</strong></div><span class="auth-signout">↪</span></div>
         <label class="signin-toggle"><span>Keep me signed in</span><i></i></label>
         <div class="native-section-head"><strong>Active PRs <b>(3)</b></strong><span>See all</span></div>
@@ -50,7 +51,7 @@
         <div class="native-pr-row"><span class="status-dot status-red">!</span><div><strong>Fix workflow permissions</strong><small>statefalse <b>→ main</b></small></div><em class="native-badge native-fail">FAIL</em></div>
         <div class="native-divider"></div>
         <div class="native-section-head"><strong>Last Notification</strong><span class="native-time">2m ago</span></div>
-        <div class="native-notification"><span class="notification-flame"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2.5c.35 3.1-1.65 4.65-3.1 6.2C9.1 10.1 8.5 11.5 9 13c.4 1.2 1.35 2.05 2.55 2.45-.25-1.35.4-2.55 1.55-3.35 1.55 1.25 2.4 2.65 2.4 4.25 0 1.05-.35 2.05-1 2.85 2.55-.8 4.5-3.15 4.5-5.85 0-3.7-2.55-6.1-5.5-10.85ZM9.55 19.6c-1.45-.75-2.4-2.25-2.4-4 0-1.45.6-2.75 1.55-3.75-.1 1.4-.75 2.55-1.85 3.5Z"/></svg></span><div><strong>Workflow Failed</strong><small>@mike-dev · CI · statefalse · Run #215</small></div><a href="https://github.com/trashdb/statefalse" aria-label="Open in GitHub">↗</a></div>
+        <div class="native-notification"><span class="notification-flame"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9c2.3-2.3 4.7-2.3 7 0l4 4c2.3 2.3 4.7 2.3 7 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></span><div><strong>Workflow Failed</strong><small>@mike-dev · CI · statefalse · Run #215</small></div><a href="https://github.com/trashdb/statefalse" aria-label="Open in GitHub">↗</a></div>
         <div class="native-divider"></div>
         <div class="native-section-head"><strong>⑂ &nbsp;Branches</strong><span class="native-tabs">Local &nbsp; Remote</span></div>
         <div class="native-branch"><span class="branch-current">●</span><code>feature/realtime-status</code><small>LOY-218</small></div>
@@ -83,10 +84,10 @@
 
     <section id="security" class="security section-shell"><div class="security-copy"><p class="eyebrow">Designed with boundaries</p><h2>Your credentials.<br><em>Your control.</em></h2><p>Statefalse uses GitHub OAuth for sign-in and a separate GitHub token for actions that need repository permissions. Webhooks are signed and the backend uses short-lived session tokens.</p><a class="text-link" href="https://github.com/trashdb/statefalse/blob/main/SECURITY.md">Read the security notes <span aria-hidden="true">↗</span></a></div><div class="security-list"><div><span>◈</span><strong>GitHub OAuth</strong><small>For your signed-in session</small></div><div><span>⌁</span><strong>Signed webhooks</strong><small>Verified with HMAC</small></div><div><span>▣</span><strong>Local-first workspace</strong><small>Your repositories stay on your Mac</small></div></div></section>
 
-    <section class="final-cta section-shell"><p class="eyebrow">Less dashboard. More momentum.</p><h2>Make your next merge<br><em>the easy part.</em></h2><a class="button button-primary" href="https://github.com/trashdb/statefalse/releases/download/v0.2.2/Statefalse-v0.2.2.zip" download>Download v0.2.2 for macOS <span aria-hidden="true">↓</span></a><p class="microcopy">Direct download · Unsigned release · <a href="https://github.com/trashdb/statefalse/releases/latest">View release notes</a></p></section>
+    <section class="final-cta section-shell"><p class="eyebrow">Less dashboard. More momentum.</p><h2>Make your next merge<br><em>the easy part.</em></h2><a class="button button-primary" href="https://github.com/trashdb/statefalse/releases/download/v0.2.2/Statefalse-v0.2.2.zip" download>Download v0.2.2 for macOS <span aria-hidden="true">↓</span></a><p class="microcopy">macOS available · Windows coming soon · <a href="https://github.com/trashdb/statefalse/releases/latest">View release notes</a></p></section>
   </main>
 
-  <footer class="site-footer section-shell"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" role="img"><path d="M13.5 2.5c.35 3.1-1.65 4.65-3.1 6.2C9.1 10.1 8.5 11.5 9 13c.4 1.2 1.35 2.05 2.55 2.45-.25-1.35.4-2.55 1.55-3.35 1.55 1.25 2.4 2.65 2.4 4.25 0 1.05-.35 2.05-1 2.85 2.55-.8 4.5-3.15 4.5-5.85 0-3.7-2.55-6.1-5.5-10.85ZM9.55 19.6c-1.45-.75-2.4-2.25-2.4-4 0-1.45.6-2.75 1.55-3.75-.2 1.4-.75 2.55-1.85 3.5Z"/></svg></span><span>statefalse</span></a><span>GitHub workflows and PRs, from your menu bar.</span><div><a href="https://github.com/trashdb/statefalse">GitHub</a><a href="https://github.com/trashdb/statefalse/releases/latest">Releases</a><a href="https://github.com/trashdb/statefalse/blob/main/README.md">Docs</a></div></footer>
-  <script>const button=document.querySelector('.menu-toggle');const nav=document.querySelector('.site-nav');button.addEventListener('click',()=>{const open=nav.classList.toggle('is-open');button.setAttribute('aria-expanded',open);});</script>
+  <footer class="site-footer section-shell"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" role="img"><path d="M3 9c2.3-2.3 4.7-2.3 7 0l4 4c2.3 2.3 4.7 2.3 7 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></span><span>statefalse</span></a><span>GitHub workflows and PRs, from your menu bar.</span><div><a href="https://github.com/trashdb/statefalse">GitHub</a><a href="https://github.com/trashdb/statefalse/releases/latest">Releases</a><a href="https://github.com/trashdb/statefalse/blob/main/README.md">Docs</a></div></footer>
+  <script>const button=document.querySelector('.menu-toggle');const nav=document.querySelector('.site-nav');const closeMenu=()=>{nav.classList.remove('is-open');button.setAttribute('aria-expanded','false');};button.addEventListener('click',()=>{const open=nav.classList.toggle('is-open');button.setAttribute('aria-expanded',open);});nav.querySelectorAll('a').forEach(link=>link.addEventListener('click',closeMenu));document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});document.addEventListener('click',event=>{if(!event.target.closest('.site-header'))closeMenu();});</script>
 </body>
 </html>
