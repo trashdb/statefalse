@@ -2,6 +2,8 @@
 
 macOS menu bar app that tracks GitHub Actions workflows, notifies you on failures, lets you rerun workflows, assign targets, track open PRs with real‑time status, and manage local/remote git branches with checkout, delete, Jira integration, and direct PR creation from the app.
 
+For the user-facing installation and feature guide, see [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md).
+
 ## Requirements
 
 - macOS Sequoia or newer
@@ -193,4 +195,4 @@ Each repo needs a webhook pointing at the backend:
 
 ## Architecture
 
-See [ARQUITECTURA.md](./ARQUITECTURA.md) for the full architecture docs.
+The public guide covers the product behavior and setup. Deeper architecture and security notes are maintained separately as local-only documentation for the project owner.
