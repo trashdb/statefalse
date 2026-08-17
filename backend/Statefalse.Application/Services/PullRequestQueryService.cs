@@ -50,7 +50,7 @@ public class PullRequestQueryService
         bool Merged,
         DateTime? MergedAt);
 
-    private sealed record RunInfo(string Repo, string? HeadSha, string? WorkflowName, int Id, string Status);
+    private sealed record RunInfo(string Repo, string? HeadSha, string? WorkflowName, int Id, long RunId, string Status);
 
     private sealed record CheckSuiteInfo(string Repo, string HeadSha, int Id, string Conclusion);
 
@@ -487,7 +487,7 @@ public class PullRequestQueryService
     {
         if (repos.Count == 0) return [];
         var raw = await _runs.GetByShasForReposAsync(repos);
-        return raw.Select(r => new RunInfo(r.Repo, r.HeadSha, r.WorkflowName, r.Id, r.Status)).ToList();
+        return raw.Select(r => new RunInfo(r.Repo, r.HeadSha, r.WorkflowName, r.Id, r.RunId, r.Status)).ToList();
     }
 
     private async Task<List<CheckSuiteInfo>> LoadCheckSuitesAsync(HashSet<(string Repo, string Sha)> shaRepoSet)
@@ -523,7 +523,9 @@ public class PullRequestQueryService
         var latestRun = allRuns
             .Where(r => r.Repo == repo && r.HeadSha == headSha
                 && r.Status != "superseded" && r.Status != "in_progress")
-            .OrderByDescending(r => r.Id)
+            // Prefer GitHub chronology over local insert order.
+            .OrderByDescending(r => r.RunId)
+            .ThenByDescending(r => r.Id)
             .FirstOrDefault();
         if (latestRun != null)
         {

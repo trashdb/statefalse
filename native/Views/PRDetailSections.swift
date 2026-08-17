@@ -8,8 +8,9 @@ struct PRDetailBadges: View {
     var body: some View {
         HStack(spacing: DS.Spacing.md) {
             let mergeColor = DS.Color.mergeableColor(pr.mergeableState)
-            Text(DS.Color.mergeableLabel(pr.mergeableState))
-                .badge(DS.Color.mergeableLabel(pr.mergeableState), color: mergeColor)
+            let mergeLabel = DS.Color.mergeableLabel(pr.mergeableState, ciStatus: pr.ciStatus, conclusion: pr.conclusion)
+            Text(mergeLabel)
+                .badge(mergeLabel, color: mergeColor)
 
             let ciColor = DS.Color.ciStatusColor(pr.ciStatus)
             let ciLabel = DS.Color.ciStatusLabel(pr.ciStatus)

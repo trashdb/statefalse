@@ -102,7 +102,13 @@ public class PullRequestQueryServiceTests : IClassFixture<WebApplicationFactory<
         db.SaveChanges();
     }
 
-    private void SeedWorkflowRun(string repo, string sha, string status, string workflowName = "CI", long runId = 1)
+    private void SeedWorkflowRun(
+        string repo,
+        string sha,
+        string status,
+        string workflowName = "CI",
+        long runId = 1,
+        DateTime? startedAt = null)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -116,7 +122,7 @@ public class PullRequestQueryServiceTests : IClassFixture<WebApplicationFactory<
             HeadBranch = "feature/x",
             HeadSha = sha,
             Status = status,
-            StartedAt = DateTime.UtcNow
+            StartedAt = startedAt ?? DateTime.UtcNow
         });
         db.SaveChanges();
     }
@@ -220,6 +226,35 @@ public class PullRequestQueryServiceTests : IClassFixture<WebApplicationFactory<
 
         var pr = Assert.Single(await GetActive(uid));
         Assert.Equal("waiting", pr.CiStatus);
+    }
+
+    [Fact]
+    public async Task Active_OlderCancelledInsertedLater_DoesNotOverrideNewerSuccessConclusion()
+    {
+        var uid = SeedUser();
+        SeedPr(uid);
+        SeedWorkflowRun("acme/repo", "sha1", "success", runId: 200);
+        // Simulate out-of-order persistence: old run is inserted later by a delayed webhook.
+        SeedWorkflowRun("acme/repo", "sha1", "cancelled", runId: 100);
+        StubPull(42);
+        StubCheckRuns("sha1");
+
+        var pr = Assert.Single(await GetActive(uid));
+        Assert.Equal("success", pr.Conclusion);
+    }
+
+    [Fact]
+    public async Task Active_NewerCancelledRun_OverridesOlderFailureConclusion()
+    {
+        var uid = SeedUser();
+        SeedPr(uid);
+        SeedWorkflowRun("acme/repo", "sha1", "failure", runId: 100);
+        SeedWorkflowRun("acme/repo", "sha1", "cancelled", runId: 200);
+        StubPull(42);
+        StubCheckRuns("sha1");
+
+        var pr = Assert.Single(await GetActive(uid));
+        Assert.Equal("cancelled", pr.Conclusion);
     }
 
     // ───────────── Self-healing ─────────────
