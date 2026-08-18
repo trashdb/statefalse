@@ -44,6 +44,10 @@ struct SettingsView: View {
                     }
                     .padding(.bottom, DS.Spacing.xl)
 
+                    CollapsibleSection(title: "About", icon: "info.circle") {
+                        aboutSection
+                    }
+
                     CollapsibleSection(title: "Workspace", icon: "folder") {
                         workspaceSection
                     }
@@ -127,6 +131,32 @@ struct SettingsView: View {
         }
         .toggleStyle(.switch)
         .tint(DS.Color.success)
+    }
+
+    @ViewBuilder
+    private var aboutSection: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            HStack(alignment: .top, spacing: DS.Spacing.md) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 24))
+                    .foregroundStyle(DS.Color.accent)
+                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                    Text("Statefalse")
+                        .font(DS.Font.body.medium())
+                        .foregroundStyle(DS.Color.textPrimary)
+                    Text(ReleaseInfo.displayVersion)
+                        .font(DS.Font.small)
+                        .foregroundStyle(DS.Color.textSecondary)
+                    Text("GitHub workflows and pull requests from your menu bar.")
+                        .font(DS.Font.small)
+                        .foregroundStyle(DS.Color.textSecondary)
+                }
+            }
+
+            actionButton("View What's New", color: .blue, help: "Read the release notes for this version") {
+                SettingsPanelManager.shared.showReleaseNotes()
+            }
+        }
     }
 
     @ViewBuilder
@@ -402,5 +432,117 @@ struct SettingsView: View {
             (result.isSuccess ? DS.Color.success : DS.Color.destructive).opacity(0.1),
             in: RoundedRectangle(cornerRadius: DS.Radius.sm)
         )
+    }
+}
+// MARK: - Release information
+
+enum ReleaseInfo {
+    static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+    static let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+    static let displayVersion = "Version \(version) (Build \(build))"
+}
+
+struct ReleaseNoteSection: Identifiable {
+    let id = UUID()
+    let title: String
+    let icon: String
+    let items: [String]
+}
+
+struct ReleaseNotesEntry {
+    let version: String
+    let title: String
+    let summary: String
+    let sections: [ReleaseNoteSection]
+}
+
+enum ReleaseNotesStore {
+    private static let lastSeenVersionKey = "releaseNotes.lastSeenVersion"
+
+    static var current: ReleaseNotesEntry {
+        ReleaseNotesEntry(
+            version: ReleaseInfo.version,
+            title: "What's new in Statefalse \(ReleaseInfo.version)",
+            summary: "The latest improvements to your GitHub workflow companion.",
+            sections: [
+                ReleaseNoteSection(
+                    title: "Reliability",
+                    icon: "checkmark.shield",
+                    items: [
+                        "Improved GitHub login through the production proxy.",
+                        "Retry now performs a clean realtime connection reset."
+                    ]
+                ),
+                ReleaseNoteSection(
+                    title: "Release experience",
+                    icon: "sparkles",
+                    items: [
+                        "See the installed app version and build in Settings.",
+                        "Open these release notes again whenever you need them."
+                    ]
+                )
+            ]
+        )
+    }
+
+    static var shouldPresentCurrentVersion: Bool {
+        UserDefaults.standard.string(forKey: lastSeenVersionKey) != current.version
+    }
+
+    static func markCurrentVersionAsSeen() {
+        UserDefaults.standard.set(current.version, forKey: lastSeenVersionKey)
+    }
+}
+
+struct ReleaseNotesView: View {
+    private let release = ReleaseNotesStore.current
+
+    var body: some View {
+        ZStack {
+            VisualEffectBackground(material: .sidebar)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: DS.Spacing.xl) {
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                        HStack(spacing: DS.Spacing.md) {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(DS.Color.accent)
+                            Text(release.title)
+                                .font(DS.Font.largeTitle)
+                                .foregroundStyle(DS.Color.textPrimary)
+                        }
+                        Text(release.summary)
+                            .font(DS.Font.body)
+                            .foregroundStyle(DS.Color.textSecondary)
+                    }
+
+                    ForEach(release.sections) { section in
+                        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                            Label(section.title, systemImage: section.icon)
+                                .font(DS.Font.section)
+                                .foregroundStyle(DS.Color.textPrimary)
+
+                            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                                ForEach(section.items, id: \.self) { item in
+                                    HStack(alignment: .top, spacing: DS.Spacing.sm) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(DS.Color.success)
+                                        Text(item)
+                                            .font(DS.Font.body)
+                                            .foregroundStyle(DS.Color.textSecondary)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(DS.Spacing.lg)
+                        .background(DS.Color.cardBackground, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
+                    }
+                }
+                .padding(DS.Spacing.xxl)
+            }
+        }
+        .frame(width: 560, height: 620)
+        .closeOnEscape { SettingsPanelManager.shared.closeReleaseNotes() }
+        .closeOnCmdW { SettingsPanelManager.shared.closeReleaseNotes() }
     }
 }
