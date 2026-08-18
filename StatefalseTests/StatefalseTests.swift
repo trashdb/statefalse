@@ -654,12 +654,6 @@ func badgeInit() {
     #expect(badge.connectionState == .disconnected)
 }
 
-@MainActor
-@Test("MenuBarBadgeService iconName is flame.fill")
-func badgeIconName() {
-    let badge = MenuBarBadgeService()
-    #expect(badge.iconName == "flame.fill")
-}
 
 // ──────────────────────────────────────────────
 // CachedBranch

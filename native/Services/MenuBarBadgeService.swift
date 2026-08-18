@@ -28,14 +28,6 @@ class MenuBarBadgeService: ObservableObject {
     @Published var currentBranches: [CachedBranch] = []
     @Published var connectionState: MenuBarConnectionState = .disconnected
 
-    var iconName: String {
-        switch connectionState {
-        case .disconnected:  return "flame.fill"
-        case .connected:     return "flame.fill"
-        case .hasFailures:   return "flame.trianglebadge.exclamationmark"
-        case .hasRunning:    return "flame.fill"
-        }
-    }
 
     var iconColor: SwiftUI.Color {
         switch connectionState {

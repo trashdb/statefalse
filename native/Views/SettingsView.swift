@@ -137,9 +137,8 @@ struct SettingsView: View {
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             HStack(alignment: .top, spacing: DS.Spacing.md) {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(DS.Color.accent)
+                WaveMark(color: DS.Color.accent)
+                    .frame(width: 24, height: 24)
                 VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                     Text("Statefalse")
                         .font(DS.Font.body.medium())

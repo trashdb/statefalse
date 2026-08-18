@@ -24,9 +24,9 @@ bash deploy/deploy-landing.sh user@vps-ip
 
 The script publishes the files to `/var/www/statefalse`, changes only the `statefalse.com` nginx vhost, validates nginx before reloading it, and leaves `api.statefalse.com` proxied to the backend.
 
-The download buttons currently point directly to the confirmed `v0.2.2` ZIP asset:
+The download buttons point directly to the `v0.2.6` ZIP asset that will be published with the next native release:
 
-`https://github.com/trashdb/statefalse/releases/download/v0.2.2/Statefalse-v0.2.2.zip`
+`https://github.com/trashdb/statefalse/releases/download/v0.2.6/Statefalse-v0.2.6.zip`
 
 Update the three CTA links when a new release becomes the public download. The release-notes link remains dynamic.
 

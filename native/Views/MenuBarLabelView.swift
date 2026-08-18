@@ -4,8 +4,8 @@ struct MenuBarLabelView: View {
     @ObservedObject private var badge = MenuBarBadgeService.shared
 
     var body: some View {
-        Image(systemName: "flame.fill")
-            .foregroundStyle(.red)
+        WaveMark(color: badge.iconColor)
+            .frame(width: 18, height: 18)
             .help(tooltip)
     }
 
