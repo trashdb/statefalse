@@ -14,12 +14,12 @@ For the user-facing installation and feature guide, see [`docs/USER-GUIDE.md`](d
 
 ### Install published release
 
-Download latest macOS release from [GitHub Releases](https://github.com/trashdb/statefalse/releases/latest). Current package is unsigned and not notarized; verify `SHA256SUMS` before opening it.
+Download a macOS release from [GitHub Releases](https://github.com/trashdb/statefalse/releases/latest). Current packages are unsigned and not notarized; verify `SHA256SUMS` before opening them.
 
-Set `VERSION` to release tag you downloaded:
+Set `VERSION` to the release tag you want to install. The following example installs `v0.2.4`; change it for a newer release:
 
 ```bash
-VERSION=v0.2.0
+VERSION=v0.2.4
 RELEASE_DIR="$HOME/Downloads/statefalse-$VERSION"
 mkdir -p "$RELEASE_DIR"
 cd "$RELEASE_DIR"
@@ -31,31 +31,26 @@ shasum -a 256 -c SHA256SUMS
 Expected result:
 
 ```text
-Statefalse-v0.2.0.zip: OK
+Statefalse-v0.2.4.zip: OK
 ```
 
-Extract and install into the user Applications folder:
+To replace the previous installation, close the app, remove the old bundle and extract the verified release:
 
 ```bash
-ditto -x -k "Statefalse-$VERSION.zip" .
+pkill -x Statefalse 2>/dev/null || true
+sleep 1
+
+rm -rf "$HOME/Applications/Statefalse.app"
 mkdir -p "$HOME/Applications"
-if [ -d "$HOME/Applications/Statefalse.app" ]; then
-  mv "$HOME/Applications/Statefalse.app" \
-	 "$HOME/Applications/Statefalse.app.backup-$(date +%Y%m%d%H%M%S)"
-fi
+
+ditto -x -k "Statefalse-$VERSION.zip" .
+```
+
+Remove macOS download quarantine only after the checksum reports `OK`, then install and open the app:
+
+```bash
+xattr -dr com.apple.quarantine Statefalse.app
 ditto Statefalse.app "$HOME/Applications/Statefalse.app"
-```
-
-Open it:
-
-```bash
-open "$HOME/Applications/Statefalse.app"
-```
-
-If macOS reports that the app is damaged or blocks it, remove download quarantine **only after the checksum above reports `OK`**, then open it again:
-
-```bash
-xattr -dr com.apple.quarantine "$HOME/Applications/Statefalse.app"
 open "$HOME/Applications/Statefalse.app"
 ```
 
