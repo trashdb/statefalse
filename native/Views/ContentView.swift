@@ -42,7 +42,7 @@ struct ContentView: View {
                             }
                             Spacer()
                             Button("Retry now") {
-                                signalR.connect()
+                                signalR.retryConnection()
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
