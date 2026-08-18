@@ -22,7 +22,7 @@ For the Statefalse VPS, from the repository root run:
 bash deploy/deploy-landing.sh user@vps-ip
 ```
 
-The script publishes the files to `/var/www/statefalse`, changes only the `statefalse.com` nginx vhost, validates nginx before reloading it, and leaves `api.statefalse.com` proxied to the backend.
+The script publishes the files to the Statefalse document root mounted by the `underlayer-nginx` container, changes only the `statefalse.com` nginx vhost, validates nginx before reloading it, and leaves `api.statefalse.com` proxied to the backend.
 
 The download buttons point directly to the `v0.2.6` ZIP asset that will be published with the next native release:
 
