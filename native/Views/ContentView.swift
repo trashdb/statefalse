@@ -175,6 +175,11 @@ struct ContentView: View {
             Task { await scanCurrentBranches() }
             setupQuickSearchShortcut()
             setupResignFocusMonitor()
+            if ReleaseNotesStore.shouldPresentCurrentVersion {
+                DispatchQueue.main.async {
+                    SettingsPanelManager.shared.showReleaseNotes(markCurrentVersionAsSeen: true)
+                }
+            }
         }
         .onChange(of: signalR.activePRs) { _, newValue in updateMenuBarBadge(newValue) }
         .onChange(of: signalR.runningWorkflows.count) { updateMenuBarBadge(signalR.activePRs) }

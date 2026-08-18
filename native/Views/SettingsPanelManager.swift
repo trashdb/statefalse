@@ -3,6 +3,7 @@ import SwiftUI
 final class SettingsPanelManager {
     static let shared = SettingsPanelManager()
     private var panel: NSPanel?
+    private var releaseNotesPanel: NSPanel?
     var api: ApiClientProtocol?
 
     func show() {
@@ -18,5 +19,23 @@ final class SettingsPanelManager {
     func close() {
         panel?.close()
         panel = nil
+    }
+
+    func showReleaseNotes(markCurrentVersionAsSeen: Bool = false) {
+        if releaseNotesPanel == nil {
+            let hostingController = NSHostingController(rootView: ReleaseNotesView())
+            let p = PanelFactory.makePanel(size: CGSize(width: 560, height: 620), title: "What's New")
+            p.contentViewController = hostingController
+            releaseNotesPanel = p
+        }
+        releaseNotesPanel?.makeKeyAndOrderFront(nil)
+        if markCurrentVersionAsSeen {
+            ReleaseNotesStore.markCurrentVersionAsSeen()
+        }
+    }
+
+    func closeReleaseNotes() {
+        releaseNotesPanel?.close()
+        releaseNotesPanel = nil
     }
 }
