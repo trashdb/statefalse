@@ -77,9 +77,24 @@ jobs:
               n=$((n+1))
             done
           }
+          scp -i ~/.ssh/id_ed25519 -o ConnectTimeout=20 \
+            deploy/statefalse.service \
+            deploy/statefalse-backup.service \
+            deploy/statefalse-backup.timer \
+            deploy/backup-statefalse.sh \
+            ${{ vars.VPS_USER || 'root' }}@${{ vars.VPS_HOST || '49.13.88.205' }}:/tmp/
           retry ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=20 \
             ${{ vars.VPS_USER || 'root' }}@${{ vars.VPS_HOST || '49.13.88.205' }} \
-            "sudo systemctl restart statefalse"
+            "sudo install -d -m 755 /opt/statefalse/deploy /var/backups/statefalse /var/lib/statefalse /etc/statefalse &&
+             sudo install -m 755 /tmp/backup-statefalse.sh /opt/statefalse/deploy/backup-statefalse.sh &&
+             sudo install -m 644 /tmp/statefalse.service /etc/systemd/system/statefalse.service &&
+             sudo install -m 644 /tmp/statefalse-backup.service /etc/systemd/system/statefalse-backup.service &&
+             sudo install -m 644 /tmp/statefalse-backup.timer /etc/systemd/system/statefalse-backup.timer &&
+             sudo test -s /etc/statefalse/statefalse.env &&
+             sudo systemctl daemon-reload &&
+             sudo systemctl enable statefalse statefalse-backup.timer &&
+             sudo systemctl restart statefalse &&
+             sudo systemctl start statefalse-backup.timer"
 
       - name: Health check
         run: |
