@@ -19,7 +19,7 @@ Download a macOS release from [GitHub Releases](https://github.com/trashdb/state
 Set `VERSION` to the release tag you want to install. The following example installs `v0.2.4`; change it for a newer release:
 
 ```bash
-VERSION=v0.2.4
+VERSION=v0.2.5
 RELEASE_DIR="$HOME/Downloads/statefalse-$VERSION"
 mkdir -p "$RELEASE_DIR"
 cd "$RELEASE_DIR"
@@ -31,7 +31,7 @@ shasum -a 256 -c SHA256SUMS
 Expected result:
 
 ```text
-Statefalse-v0.2.4.zip: OK
+Statefalse-v0.2.5.zip: OK
 ```
 
 To replace the previous installation, close the app, remove the old bundle and extract the verified release:
@@ -51,10 +51,21 @@ Remove macOS download quarantine only after the checksum reports `OK`, then inst
 ```bash
 xattr -dr com.apple.quarantine Statefalse.app
 ditto Statefalse.app "$HOME/Applications/Statefalse.app"
+rm -rf Statefalse.app
 open "$HOME/Applications/Statefalse.app"
 ```
 
 This quarantine step is required because current packages are unsigned and not notarized. Do not run it for packages from an untrusted source.
+
+For future releases, the complete process can be run with the installer script. It verifies the checksum before removing the current app, cleans extracted releases, backups and local Xcode app products, then installs only `~/Applications/Statefalse.app`:
+
+```bash
+curl -fL https://raw.githubusercontent.com/trashdb/statefalse/main/native/install-release.sh \
+  -o /tmp/statefalse-install-release.sh
+bash /tmp/statefalse-install-release.sh v0.2.5
+```
+
+The script preserves downloaded ZIPs and checksums under `~/Downloads`. It does not remove a system-owned `/Applications/Statefalse.app`; if one remains, it prints a warning so it can be removed separately with administrator privileges.
 
 ### Build from source
 
