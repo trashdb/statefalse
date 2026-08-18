@@ -57,6 +57,16 @@ open "$HOME/Applications/Statefalse.app"
 
 This quarantine step is required because current packages are unsigned and not notarized. Do not run it for packages from an untrusted source.
 
+For future releases, the complete process can be run with the installer script. It verifies the checksum before removing the current app, cleans extracted releases, backups and local Xcode app products, then installs only `~/Applications/Statefalse.app`:
+
+```bash
+curl -fL https://raw.githubusercontent.com/trashdb/statefalse/main/native/install-release.sh \
+  -o /tmp/statefalse-install-release.sh
+bash /tmp/statefalse-install-release.sh v0.2.5
+```
+
+The script preserves downloaded ZIPs and checksums under `~/Downloads`. It does not remove a system-owned `/Applications/Statefalse.app`; if one remains, it prints a warning so it can be removed separately with administrator privileges.
+
 ### Build from source
 
 `install.sh` is for development, not for installing a published release. It requires Xcode or the Xcode command-line tools, builds the project locally, copies it to `~/Applications/Statefalse.app`, and relaunches it. If the build fails, it can fall back to a previous local build.
