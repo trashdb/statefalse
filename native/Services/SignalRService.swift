@@ -174,6 +174,11 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         }
     }
 
+    func retryConnection() {
+        disconnect()
+        connect()
+    }
+
     /// Reconnect loop: keeps the SignalR websocket alive, backing off 5s
     /// between failures. Exits when the session token disappears
     /// (logout / session expiry).
