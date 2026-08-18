@@ -17,8 +17,8 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: DS.Spacing.xl) {
                     // Header
                     HStack(spacing: DS.Spacing.md) {
-                        Image(systemName: "flame.fill")
-                            .foregroundStyle(.red)
+                        WaveMark(color: .red)
+                            .frame(width: 22, height: 22)
                         Text("Statefalse")
                             .font(DS.Font.largeTitle)
                     }
