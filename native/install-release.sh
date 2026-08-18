@@ -27,7 +27,7 @@ BASE_URL="https://github.com/trashdb/statefalse/releases/download/$VERSION"
 mkdir -p "$DOWNLOAD_DIR"
 cd "$DOWNLOAD_DIR"
 
-echo "Downloading Statefalse $VERSION…"
+echo "Downloading Statefalse ${VERSION}…"
 curl -fL -o "$ARCHIVE" "$BASE_URL/$APP_NAME-$VERSION.zip"
 curl -fL -o "$CHECKSUMS" "$BASE_URL/SHA256SUMS"
 
@@ -67,6 +67,5 @@ if [ -d "/Applications/$APP_NAME.app" ]; then
 fi
 
 echo "Installed: $APP_BUNDLE"
-echo "Opening Statefalse $VERSION…"
+echo "Opening Statefalse ${VERSION}…"
 open "$APP_BUNDLE"
-
