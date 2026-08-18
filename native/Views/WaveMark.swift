@@ -30,4 +30,3 @@ struct WaveMark: View {
         .accessibilityHidden(true)
     }
 }
-
