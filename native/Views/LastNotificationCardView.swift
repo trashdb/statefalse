@@ -6,9 +6,8 @@ struct LastNotificationCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             HStack(spacing: DS.Spacing.xs) {
-                Image(systemName: "flame.fill")
-                    .foregroundStyle(DS.Color.destructive)
-                    .font(DS.Font.caption)
+                WaveMark(color: DS.Color.destructive, lineWidth: 2)
+                    .frame(width: 16, height: 16)
                 Text("Last Notification")
                     .font(DS.Font.small.semibold())
                     .foregroundStyle(DS.Color.destructive)
