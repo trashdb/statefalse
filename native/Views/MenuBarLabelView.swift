@@ -4,7 +4,7 @@ struct MenuBarLabelView: View {
     @ObservedObject private var badge = MenuBarBadgeService.shared
 
     var body: some View {
-        WaveMark(color: badge.iconColor)
+        WaveMark(color: .primary)
             .frame(width: 18, height: 18)
             .help(tooltip)
     }

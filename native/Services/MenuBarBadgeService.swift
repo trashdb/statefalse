@@ -1,5 +1,4 @@
 import Combine
-import SwiftUI
 
 struct CachedBranch {
     let name: String
@@ -29,12 +28,4 @@ class MenuBarBadgeService: ObservableObject {
     @Published var connectionState: MenuBarConnectionState = .disconnected
 
 
-    var iconColor: SwiftUI.Color {
-        switch connectionState {
-        case .disconnected:  return Color(nsColor: .tertiaryLabelColor)
-        case .connected:     return DS.Color.statusGreen
-        case .hasFailures:   return DS.Color.statusRed
-        case .hasRunning:    return DS.Color.warning
-        }
-    }
 }
