@@ -90,6 +90,13 @@ struct ContentView: View {
                                         .font(DS.Font.caption)
                                 }
                             }
+                            .padding(.horizontal, DS.Spacing.xl + 1)
+                            .padding(.vertical, DS.Spacing.lg + 1)
+                            .background(DS.Color.cardBackground, in: RoundedRectangle(cornerRadius: DS.Radius.lg + 1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DS.Radius.lg + 1)
+                                    .stroke(DS.Color.divider, lineWidth: 1)
+                            )
                         } else {
                             EmptyNotificationView {
                                 NotificationHistoryPanelManager.shared.show(signalR: signalR)
