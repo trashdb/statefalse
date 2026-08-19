@@ -309,6 +309,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
                 try? await Task.sleep(nanoseconds: 30_000_000_000)
                 guard !Task.isCancelled, let self else { return }
                 await self.syncPRsFromApi()
+                _ = await self.syncActiveWorkflows()
             }
         }
     }

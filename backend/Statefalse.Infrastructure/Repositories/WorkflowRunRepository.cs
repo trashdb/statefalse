@@ -46,6 +46,13 @@ public class WorkflowRunRepository : IWorkflowRunRepository
     public Task<bool> AnyInProgressByRunIdAsync(long runId, CancellationToken cancellationToken = default)
         => _db.WorkflowRuns.AnyAsync(w => w.RunId == runId && w.Status == "in_progress", cancellationToken);
 
+    public Task<List<string>> GetInProgressReposForUserAsync(long gitHubId, CancellationToken cancellationToken = default)
+        => _db.WorkflowRuns
+            .Where(w => w.GitHubId == gitHubId && w.Status == "in_progress")
+            .Select(w => w.Repo)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
     public Task<List<WorkflowRun>> GetForUserAsync(long gitHubId, int limit, CancellationToken cancellationToken = default)
         => _db.WorkflowRuns
             .Where(w => w.GitHubId == gitHubId && !w.IsIgnored)

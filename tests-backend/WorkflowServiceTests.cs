@@ -279,7 +279,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
     {
         var uid = SeedUser();
         SeedPr(uid);
-        _fakeGithub.Responses["/repos/acme/repo/actions/runs?status=in_progress&per_page=10"] = JsonResponse(200, new
+        _fakeGithub.Responses["/repos/acme/repo/actions/runs?status=in_progress&per_page=100"] = JsonResponse(200, new
         {
             workflow_runs = new object[]
             {
@@ -314,11 +314,11 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         SeedPr(uid);
         SeedRun(uid, runId: 20, status: "in_progress");
 
-        _fakeGithub.Responses["/repos/acme/repo/actions/runs?status=in_progress&per_page=10"] = JsonResponse(200, new
+        _fakeGithub.Responses["/repos/acme/repo/actions/runs?status=in_progress&per_page=100"] = JsonResponse(200, new
         {
             workflow_runs = Array.Empty<object>()
         });
-        _fakeGithub.Responses["/repos/acme/repo/actions/runs?status=completed&per_page=20"] = JsonResponse(200, new
+        _fakeGithub.Responses["/repos/acme/repo/actions/runs?status=completed&per_page=100"] = JsonResponse(200, new
         {
             workflow_runs = new object[]
             {
@@ -344,6 +344,40 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         var notification = db.Notifications.Single(n => n.RecipientGitHubId == uid);
         Assert.Equal("workflow_failed", notification.Kind);
         Assert.Contains("CI failed", notification.Body);
+    }
+
+    [Fact]
+    public async Task SyncActive_ReconcilesPendingRunWithoutActivePr()
+    {
+        var uid = SeedUser();
+        SeedRun(uid, runId: 21, status: "in_progress");
+
+        _fakeGithub.Responses["/repos/acme/repo/actions/runs?status=in_progress&per_page=100"] = JsonResponse(200, new
+        {
+            workflow_runs = Array.Empty<object>()
+        });
+        _fakeGithub.Responses["/repos/acme/repo/actions/runs?status=completed&per_page=100"] = JsonResponse(200, new
+        {
+            workflow_runs = new object[]
+            {
+                new
+                {
+                    id = 21L,
+                    name = "CI",
+                    conclusion = "failure",
+                    actor = new { login = "actor1" },
+                    html_url = "https://github.com/acme/repo/actions/runs/21"
+                }
+            }
+        });
+
+        var response = await AuthClient(uid).PostAsync("/api/v1/workflows/sync-active", null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal("failure", db.WorkflowRuns.Single(r => r.RunId == 21).Status);
+        Assert.Contains(db.Notifications, n => n.RecipientGitHubId == uid && n.Kind == "workflow_failed");
     }
 
     private sealed class FakeGitHubClient : IGitHubClient
