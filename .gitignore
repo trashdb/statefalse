@@ -9,6 +9,7 @@ obj/
 # Swift / Xcode build artifacts
 native/.build/
 native/.swiftpm/
+native/.derived-data/
 native/publish/
 *.xcuserstate
 xcuserdata/
