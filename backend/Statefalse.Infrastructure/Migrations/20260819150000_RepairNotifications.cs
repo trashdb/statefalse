@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Statefalse.Infrastructure.Data;
 
 #nullable disable
 
 namespace Statefalse.Infrastructure.Migrations;
 
+[DbContext(typeof(AppDbContext))]
 [Migration("20260819150000_RepairNotifications")]
 public partial class RepairNotifications : Migration
 {
