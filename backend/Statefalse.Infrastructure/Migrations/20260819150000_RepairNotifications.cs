@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Statefalse.Infrastructure.Migrations;
 
+[Migration("20260819150000_RepairNotifications")]
 public partial class RepairNotifications : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
