@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct EmptyNotificationView: View {
+    var onShowHistory: (() -> Void)? = nil
+
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             HStack(spacing: DS.Spacing.xs) {
@@ -11,6 +13,11 @@ struct EmptyNotificationView: View {
                     .font(DS.Font.small.semibold())
                     .foregroundStyle(DS.Color.textSecondary)
                 Spacer()
+                if let onShowHistory {
+                    Button("Show history", action: onShowHistory)
+                        .buttonStyle(.borderless)
+                        .font(DS.Font.caption)
+                }
             }
 
             HStack(spacing: DS.Spacing.md) {

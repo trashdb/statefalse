@@ -9,7 +9,6 @@ struct ContentView: View {
     @State private var isLoading = false
     @State private var loginError: String?
     @State private var showQuickSearch = false
-    @State private var showNotificationHistory = false
     @FocusState private var quickSearchFocused: Bool
     @State private var resignFocusToken: Any?
 
@@ -66,20 +65,18 @@ struct ContentView: View {
                     }
 
                     if signalR.isLoggedIn {
-                        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                            HStack {
-                                Text("Last Notification")
-                                    .font(DS.Font.small.medium())
-                                Spacer()
-                                Button("Show history") {
-                                    showNotificationHistory = true
+                        if let notification = signalR.notifications.first {
+                            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                                HStack {
+                                    Text("Last Notification")
+                                        .font(DS.Font.small.medium())
+                                    Spacer()
+                                    Button("Show history") {
+                                        NotificationHistoryPanelManager.shared.show(signalR: signalR)
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .font(DS.Font.caption)
                                 }
-                                .buttonStyle(.borderless)
-                                .font(DS.Font.caption)
-                            }
-
-                            if let notification = signalR.notifications.first,
-                               signalR.lastEvent == nil || notification.createdAt >= signalR.lastEvent!.date {
                                 Text(notification.title)
                                     .font(DS.Font.body.medium())
                                 Text(notification.body)
@@ -89,20 +86,10 @@ struct ContentView: View {
                                     Link("Open in GitHub", destination: url)
                                         .font(DS.Font.caption)
                                 }
-                            } else if let event = signalR.lastEvent {
-                                Text("Workflow Failed")
-                                    .font(DS.Font.body.medium())
-                                Text("\(event.workflowName ?? "Workflow") failed for @\(event.culprit)")
-                                    .font(DS.Font.caption)
-                                    .foregroundStyle(DS.Color.textSecondary)
-                                if let url = event.workflowURL {
-                                    Link("Open in GitHub", destination: url)
-                                        .font(DS.Font.caption)
-                                }
-                            } else {
-                                Text("No recent notifications")
-                                    .font(DS.Font.caption)
-                                    .foregroundStyle(DS.Color.textSecondary)
+                            }
+                        } else {
+                            EmptyNotificationView {
+                                NotificationHistoryPanelManager.shared.show(signalR: signalR)
                             }
                         }
                     }
@@ -111,14 +98,11 @@ struct ContentView: View {
                         Divider()
                         LocalBranchesView(gitHubId: signalR.userGitHubId)
                     }
-                }
-                .foregroundStyle(DS.Color.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, DS.Spacing.xl)
-                    .padding(.horizontal, DS.Spacing.xxl)
-                        .sheet(isPresented: $showNotificationHistory) {
-                            NotificationHistoryView(notifications: signalR.notifications)
-                        }
+            }
+            .foregroundStyle(DS.Color.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, DS.Spacing.xl)
+            .padding(.horizontal, DS.Spacing.xxl)
 
             Divider()
 
