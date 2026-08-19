@@ -166,6 +166,13 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         // Update the latest in_progress row for this runId
         var dbRun = await _runs.FindLatestInProgressByRunIdAsync(runId);
 
+        if (dbRun == null && await _runs.FindLatestByRunIdAsync(runId) is { } completedRun
+            && completedRun.Status != "in_progress")
+        {
+            _logger.LogInformation("Ignoring duplicate completion webhook for already terminal run {RunId}", runId);
+            return ApiResult.Ok(new { runId, duplicate = true });
+        }
+
         if (dbRun != null)
         {
             if (dbStatus != null)
@@ -206,7 +213,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
             if (!succeeded)
             {
                 var workflowTitle = workflowName ?? "Workflow";
-                await _notifications.AddAsync(new Notification
+                var notification = new Notification
                 {
                     RecipientGitHubId = gitHubId,
                     Kind = "workflow_failed",
@@ -215,8 +222,19 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
                     Repo = repoFullName,
                     PrUrl = workflowUrl,
                     CreatedAt = DateTime.UtcNow
-                });
+                };
+                await _notifications.AddAsync(notification);
                 await _uow.SaveChangesAsync();
+                await _notifier.NotifyUserAsync(gitHubId, "NotificationCreated", new NotificationPayload(
+                    Id: notification.Id,
+                    Kind: notification.Kind,
+                    Title: notification.Title,
+                    Body: notification.Body,
+                    Repo: notification.Repo,
+                    PrNumber: notification.PrNumber,
+                    PrUrl: notification.PrUrl,
+                    CreatedAt: notification.CreatedAt,
+                    IsRead: notification.IsRead));
             }
 
             await _notifier.NotifyUserAsync(gitHubId, "WorkflowRunCompleted", new WorkflowRunCompletedPayload(
@@ -238,6 +256,15 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
                 _logger.LogInformation(succeeded
                     ? "Workflow success notified to {Login}"
                     : "Punishment sent to {Login}", culprit.Login);
+            }
+
+            var culpritId = culprit.Id ?? (await _tokens.FindByLoginAsync(culprit.Login))?.GitHubId;
+            if (culpritId.HasValue && culpritId.Value != connected?.GitHubId)
+            {
+                await NotifyCompleted(culpritId.Value, succeeded);
+                _logger.LogInformation(succeeded
+                    ? "Workflow success persisted for {Login} without active connection"
+                    : "Punishment persisted for {Login} without active connection", culprit.Login);
             }
 
             var targetIds = IdListSerializer.Deserialize(dbRun?.TargetGitHubIds);

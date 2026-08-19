@@ -190,12 +190,23 @@ final class LiveSignalRClient: SignalRClientProtocol {
     private nonisolated func parseInvocation(_ json: [String: Any]) -> HubEvent? {
         guard let target = json["target"] as? String,
               let args = json["arguments"] as? [[String: Any]],
-              let data = args.first else { return nil }
+              let data = args.first else {
+            print("Statefalse SignalR invocation has an invalid shape: \(json["target"] ?? "unknown")")
+            return nil
+        }
 
         let decoder = JSONDecoder()
         func decode<T: Decodable>(_ type: T.Type) -> T? {
-            guard let d = try? JSONSerialization.data(withJSONObject: data) else { return nil }
-            return try? decoder.decode(T.self, from: d)
+            guard let d = try? JSONSerialization.data(withJSONObject: data) else {
+                print("Statefalse SignalR event \(target) could not serialize its payload")
+                return nil
+            }
+            do {
+                return try decoder.decode(T.self, from: d)
+            } catch {
+                print("Statefalse SignalR event \(target) could not decode: \(error)")
+                return nil
+            }
         }
 
         switch target {
