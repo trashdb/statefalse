@@ -59,6 +59,7 @@ protocol SignalRServiceProtocol: AnyObject {
     var userGitHubId: Int64 { get set }
     var runStatus: RunStatus { get set }
     var lastEvent: PunishmentEvent? { get set }
+    var notifications: [ApiNotification] { get set }
     var runningWorkflows: [WorkflowRun] { get set }
     var recentWorkflows: [WorkflowRun] { get set }
     var activePRs: [PullRequest] { get set }

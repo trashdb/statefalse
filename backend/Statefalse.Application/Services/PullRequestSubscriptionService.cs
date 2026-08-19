@@ -12,17 +12,20 @@ public class PullRequestSubscriptionService
     private readonly IGitHubUserRepository _users;
     private readonly IUnitOfWork _uow;
     private readonly ISignalRNotifier _notifier;
+    private readonly INotificationRepository _notifications;
 
     public PullRequestSubscriptionService(
         IPullRequestEventRepository prs,
         IGitHubUserRepository users,
         IUnitOfWork uow,
-        ISignalRNotifier notifier)
+        ISignalRNotifier notifier,
+        INotificationRepository notifications)
     {
         _prs = prs;
         _users = users;
         _uow = uow;
         _notifier = notifier;
+        _notifications = notifications;
     }
 
     public async Task<ApiResult> SubscribeAsync(long prNumber, string repo, long gitHubId)
@@ -100,12 +103,29 @@ public class PullRequestSubscriptionService
         if (!current.Contains(targetId))
         {
             pr.SubscriberIds = IdListSerializer.Serialize(current.Append(targetId).ToArray());
+            var notification = new Statefalse.Domain.Models.Notification
+            {
+                RecipientGitHubId = targetId,
+                Kind = "pr_subscribed",
+                Title = "You have been added as a subscriber",
+                Body = $"You have been added as a subscriber to PR #{pr.PrNumber}: {pr.Title}",
+                Repo = pr.RepoFullName,
+                PrNumber = pr.PrNumber,
+                PrUrl = pr.PrUrl,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _notifications.AddAsync(notification);
             await _uow.SaveChangesAsync();
+            await _notifier.NotifyUserAsync(targetId, "NotificationCreated", ToPayload(notification));
         }
 
         await _notifier.NotifyPullRequestsUpdatedAsync();
         return ApiResult.Ok(new { added = true, subscribers = IdListSerializer.Deserialize(pr.SubscriberIds) });
     }
+
+    private static NotificationPayload ToPayload(Statefalse.Domain.Models.Notification notification)
+        => new(notification.Id, notification.Kind, notification.Title, notification.Body,
+            notification.Repo, notification.PrNumber, notification.PrUrl, notification.CreatedAt, notification.IsRead);
 
     public async Task<ApiResult> RemoveSubscriberAsync(long prNumber, string repo, long gitHubId, long subscriberId)
     {

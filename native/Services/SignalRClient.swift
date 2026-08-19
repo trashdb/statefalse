@@ -12,6 +12,8 @@ enum HubEvent {
     case prApproved(PrEvent)
     case prCommented(PrCommentedEvent)
     case mainBranchUpdated(MainBranchUpdatedEvent)
+    case notificationCreated(ApiNotification)
+    case notificationHistory([ApiNotification])
     case connectionClosed
 }
 
@@ -209,6 +211,10 @@ final class LiveSignalRClient: SignalRClientProtocol {
             return decode(PrCommentedEvent.self).map { .prCommented($0) }
         case "MainBranchUpdated":
             return decode(MainBranchUpdatedEvent.self).map { .mainBranchUpdated($0) }
+        case "NotificationCreated":
+            return decode(ApiNotification.self).map { .notificationCreated($0) }
+        case "NotificationHistory":
+            return decode([ApiNotification].self).map { .notificationHistory($0) }
         default:
             return nil
         }

@@ -23,6 +23,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     @Published var userGitHubId: Int64 = 0
     @Published var runStatus: RunStatus = .idle
     @Published var lastEvent: PunishmentEvent?
+    @Published var notifications: [ApiNotification] = []
     @Published var runningWorkflows: [WorkflowRun] = []
     @Published var recentWorkflows: [WorkflowRun] = []
     @Published var activePRs: [PullRequest] = []
@@ -103,6 +104,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
             _ = await syncPRsFromGitHub()
             await syncFromApi()
             await syncPRsFromApi()
+            await refreshNotifications()
 
             if let fresh = await api.fetchMe(), let url = fresh.avatarUrl {
                 await MainActor.run { avatarUrl = url }
@@ -112,6 +114,11 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
 
         guard task == nil else { return }
         connect()
+    }
+
+    @MainActor
+    func refreshNotifications() async {
+        notifications = await api.fetchNotifications()
     }
 
     func login(keepSignedIn: Bool) async throws {
@@ -317,6 +324,17 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         case .prApproved(let e): handlePrApproved(e)
         case .prCommented(let e): handlePrCommented(e)
         case .mainBranchUpdated(let e): handleMainBranchUpdated(e)
+        case .notificationCreated(let notification):
+            Task { @MainActor in
+                notifications.removeAll { $0.id == notification.id }
+                notifications.insert(notification, at: 0)
+                notifications = Array(notifications.filter { $0.createdAt >= Date().addingTimeInterval(-86_400) }.prefix(50))
+                showNotification(title: notification.title, body: notification.body, actionURL: notification.prUrl, style: .info)
+            }
+        case .notificationHistory(let history):
+            Task { @MainActor in
+                notifications = history
+            }
         case .connectionClosed:
             Task { @MainActor in
                 self.isConnected = false

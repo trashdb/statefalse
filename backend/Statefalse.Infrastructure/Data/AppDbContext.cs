@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<CheckSuiteEvent> CheckSuiteEvents => Set<CheckSuiteEvent>();
     public DbSet<PullRequestEvent> PullRequestEvents => Set<PullRequestEvent>();
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,6 +47,12 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.AuthorLogin);
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.PrNumber);
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasIndex(n => new { n.RecipientGitHubId, n.CreatedAt });
+            entity.HasIndex(n => new { n.RecipientGitHubId, n.IsRead, n.CreatedAt });
         });
     }
 }

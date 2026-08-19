@@ -48,6 +48,19 @@ struct ApiMe {
 }
 nonisolated extension ApiMe: Decodable {}
 
+struct ApiNotification: Identifiable, Equatable {
+    let id: Int
+    let kind: String
+    let title: String
+    let body: String
+    let repo: String?
+    let prNumber: Int64?
+    let prUrl: URL?
+    let createdAt: Date
+    let isRead: Bool
+}
+nonisolated extension ApiNotification: Decodable {}
+
 // MARK: - PR detail DTOs
 
 struct ApiPRDetails {
@@ -196,6 +209,7 @@ protocol ApiClientProtocol: AnyObject, Sendable {
     func fetchMyBranches(repo: String) async -> ApiFetch<[ApiBranch]>
     func createPR(repo: String, head: String, baseBranch: String, title: String, body: String?, subscribers: String?) async -> ApiFetch<ApiCreatePRResult>
     func fetchPAT() async -> String?
+    func fetchNotifications() async -> [ApiNotification]
 }
 
 // MARK: - Live Implementation
@@ -478,6 +492,10 @@ final class LiveApiClient: ApiClientProtocol {
 
     func fetchWebhookLogs(limit: Int) async -> [WebhookLogEntry]? {
         await fetchGET("\(apiPrefix)/webhook/logs", query: ["limit": "\(limit)"])
+    }
+
+    func fetchNotifications() async -> [ApiNotification] {
+        await fetchGET("\(apiPrefix)/notifications", query: ["limit": "50"]) ?? []
     }
 
     // MARK: - Auth helpers
