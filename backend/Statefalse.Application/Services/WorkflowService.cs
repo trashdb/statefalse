@@ -215,7 +215,10 @@ public class WorkflowService
 
         // Scope to the caller's PRs (author or subscriber) — never query the
         // whole DB across all tenants.
-        var repos = await _prs.GetSubscribedReposAsync(gitHubId);
+        var repos = (await _prs.GetSubscribedReposAsync(gitHubId))
+            .Union(await _runs.GetInProgressReposForUserAsync(gitHubId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         if (repos.Count == 0)
             return ApiResult.Ok(new { synced = 0, repos = 0, message = "No active PRs found." });
@@ -224,7 +227,7 @@ public class WorkflowService
         var reconciledCount = 0;
         foreach (var repo in repos)
         {
-            var response = await _github.GetAsync($"/repos/{repo}/actions/runs?status=in_progress&per_page=10", token);
+            var response = await _github.GetAsync($"/repos/{repo}/actions/runs?status=in_progress&per_page=100", token);
             if (response.StatusCode >= 200 && response.StatusCode < 300 && response.Body is { } doc)
             {
                 foreach (var run in doc.GetProperty("workflow_runs").EnumerateArray())
@@ -267,7 +270,7 @@ public class WorkflowService
             // A missed workflow_run.completed webhook otherwise leaves the local
             // row in_progress forever because GitHub no longer returns it from
             // the active-runs query above.
-            var completedResponse = await _github.GetAsync($"/repos/{repo}/actions/runs?status=completed&per_page=20", token);
+            var completedResponse = await _github.GetAsync($"/repos/{repo}/actions/runs?status=completed&per_page=100", token);
             if (completedResponse.StatusCode is < 200 or >= 300 || completedResponse.Body is not { } completedDoc)
                 continue;
 

@@ -75,7 +75,9 @@ public class PullRequestEventRepository : IPullRequestEventRepository
 
     public Task<List<string>> GetSubscribedReposAsync(long gitHubId, CancellationToken cancellationToken = default)
         => _db.PullRequestEvents
-            .Where(e => e.Status == "open"
+            .Where(e => (e.Status == "open"
+                    || e.Status == "in_progress"
+                    || (e.Status == "merged" && e.OccurredAt >= DateTime.UtcNow.AddDays(-7)))
                 && (e.AuthorGitHubId == gitHubId
                     || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))))
             .Select(e => e.RepoFullName)

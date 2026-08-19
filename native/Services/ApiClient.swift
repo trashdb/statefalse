@@ -288,12 +288,25 @@ final class LiveApiClient: ApiClientProtocol {
         var request = makeRequest(url)
         request.httpMethod = "POST"
         do {
-            let (data, _) = try await perform(request)
+            let (data, response) = try await perform(request)
+            guard let http = response as? HTTPURLResponse else {
+                print("Statefalse sync returned a non-HTTP response for \(path)")
+                return 0
+            }
+            guard (200..<300).contains(http.statusCode) else {
+                let body = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
+                print("Statefalse sync failed for \(path): HTTP \(http.statusCode) — \(body)")
+                return 0
+            }
             struct SyncResult: Decodable { let synced: Int }
             if let result = try? JSONDecoder().decode(SyncResult.self, from: data) {
                 return result.synced
             }
-        } catch {}
+            let body = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
+            print("Statefalse sync returned invalid JSON for \(path): \(body)")
+        } catch {
+            print("Statefalse sync request failed for \(path): \(error.localizedDescription)")
+        }
         return 0
     }
 

@@ -14,6 +14,7 @@ public interface IWorkflowRunRepository
     Task<WorkflowRun?> FindInProgressByRunIdAsync(long runId, CancellationToken cancellationToken = default);
     Task<WorkflowRun?> FindLatestInProgressByRunIdAsync(long runId, CancellationToken cancellationToken = default);
     Task<bool> AnyInProgressByRunIdAsync(long runId, CancellationToken cancellationToken = default);
+    Task<List<string>> GetInProgressReposForUserAsync(long gitHubId, CancellationToken cancellationToken = default);
     Task<List<WorkflowRun>> GetForUserAsync(long gitHubId, int limit, CancellationToken cancellationToken = default);
     Task<List<WorkflowRun>> GetTargetRunsAsync(long gitHubId, int limit, CancellationToken cancellationToken = default);
     Task<List<WorkflowRun>> GetCandidatesAsync(long gitHubId, ICollection<string> repos, int limit, CancellationToken cancellationToken = default);
