@@ -132,7 +132,7 @@ class MockApiClient: ApiClientProtocol {
         .success(ApiCreatePRResult(prNumber: 1, url: "https://github.com/owner/repo/pull/1", existing: false))
     }
     func fetchPAT() async -> String? { nil }
-    func fetchNotifications() async -> [ApiNotification] { [] }
+    func fetchNotifications() async -> [ApiNotification]? { [] }
 }
 
 // MARK: - Keychain Mock

@@ -16,6 +16,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
     private readonly IUnitOfWork _uow;
     private readonly IGitHubTokenResolver _tokens;
     private readonly ISignalRNotifier _notifier;
+    private readonly INotificationRepository _notifications;
     private readonly ILogger<WorkflowRunWebhookHandler> _logger;
 
     public WorkflowRunWebhookHandler(
@@ -24,6 +25,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         IUnitOfWork uow,
         IGitHubTokenResolver tokens,
         ISignalRNotifier notifier,
+        INotificationRepository notifications,
         ILogger<WorkflowRunWebhookHandler> logger)
     {
         _runs = runs;
@@ -31,6 +33,7 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         _uow = uow;
         _tokens = tokens;
         _notifier = notifier;
+        _notifications = notifications;
         _logger = logger;
     }
 
@@ -200,6 +203,22 @@ public class WorkflowRunWebhookHandler : IWebhookHandler
         // Notify both the culprit and the target user (if set) via SignalR
         async Task NotifyCompleted(long gitHubId, bool succeeded)
         {
+            if (!succeeded)
+            {
+                var workflowTitle = workflowName ?? "Workflow";
+                await _notifications.AddAsync(new Notification
+                {
+                    RecipientGitHubId = gitHubId,
+                    Kind = "workflow_failed",
+                    Title = "Workflow Failed",
+                    Body = $"{workflowTitle} failed for {culprit.Login} in {repoFullName}",
+                    Repo = repoFullName,
+                    PrUrl = workflowUrl,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await _uow.SaveChangesAsync();
+            }
+
             await _notifier.NotifyUserAsync(gitHubId, "WorkflowRunCompleted", new WorkflowRunCompletedPayload(
                 RunId: runId,
                 Succeeded: succeeded,

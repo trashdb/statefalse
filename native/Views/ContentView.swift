@@ -66,18 +66,20 @@ struct ContentView: View {
                     }
 
                     if signalR.isLoggedIn {
-                        if let notification = signalR.notifications.first {
-                            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                                HStack {
-                                    Text("Last Notification")
-                                        .font(DS.Font.small.medium())
-                                    Spacer()
-                                    Button("Show history") {
-                                        showNotificationHistory = true
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .font(DS.Font.caption)
+                        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                            HStack {
+                                Text("Last Notification")
+                                    .font(DS.Font.small.medium())
+                                Spacer()
+                                Button("Show history") {
+                                    showNotificationHistory = true
                                 }
+                                .buttonStyle(.borderless)
+                                .font(DS.Font.caption)
+                            }
+
+                            if let notification = signalR.notifications.first,
+                               signalR.lastEvent == nil || notification.createdAt >= signalR.lastEvent!.date {
                                 Text(notification.title)
                                     .font(DS.Font.body.medium())
                                 Text(notification.body)
@@ -87,9 +89,21 @@ struct ContentView: View {
                                     Link("Open in GitHub", destination: url)
                                         .font(DS.Font.caption)
                                 }
+                            } else if let event = signalR.lastEvent {
+                                Text("Workflow Failed")
+                                    .font(DS.Font.body.medium())
+                                Text("\(event.workflowName ?? "Workflow") failed for @\(event.culprit)")
+                                    .font(DS.Font.caption)
+                                    .foregroundStyle(DS.Color.textSecondary)
+                                if let url = event.workflowURL {
+                                    Link("Open in GitHub", destination: url)
+                                        .font(DS.Font.caption)
+                                }
+                            } else {
+                                Text("No recent notifications")
+                                    .font(DS.Font.caption)
+                                    .foregroundStyle(DS.Color.textSecondary)
                             }
-                        } else {
-                            EmptyNotificationView()
                         }
                     }
 

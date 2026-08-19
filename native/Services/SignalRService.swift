@@ -118,7 +118,22 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
 
     @MainActor
     func refreshNotifications() async {
-        notifications = await api.fetchNotifications()
+        guard let fetched = await api.fetchNotifications() else { return }
+        mergeNotifications(fetched)
+    }
+
+    @MainActor
+    private func mergeNotifications(_ incoming: [ApiNotification]) {
+        var byId = Dictionary(uniqueKeysWithValues: notifications.map { ($0.id, $0) })
+        for notification in incoming {
+            byId[notification.id] = notification
+        }
+        let cutoff = Date().addingTimeInterval(-86_400)
+        notifications = byId.values
+            .filter { $0.createdAt >= cutoff }
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(50)
+            .map { $0 }
     }
 
     func login(keepSignedIn: Bool) async throws {
@@ -326,14 +341,12 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         case .mainBranchUpdated(let e): handleMainBranchUpdated(e)
         case .notificationCreated(let notification):
             Task { @MainActor in
-                notifications.removeAll { $0.id == notification.id }
-                notifications.insert(notification, at: 0)
-                notifications = Array(notifications.filter { $0.createdAt >= Date().addingTimeInterval(-86_400) }.prefix(50))
+                mergeNotifications([notification])
                 showNotification(title: notification.title, body: notification.body, actionURL: notification.prUrl, style: .info)
             }
         case .notificationHistory(let history):
             Task { @MainActor in
-                notifications = history
+                mergeNotifications(history)
             }
         case .connectionClosed:
             Task { @MainActor in

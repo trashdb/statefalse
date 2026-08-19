@@ -209,7 +209,7 @@ protocol ApiClientProtocol: AnyObject, Sendable {
     func fetchMyBranches(repo: String) async -> ApiFetch<[ApiBranch]>
     func createPR(repo: String, head: String, baseBranch: String, title: String, body: String?, subscribers: String?) async -> ApiFetch<ApiCreatePRResult>
     func fetchPAT() async -> String?
-    func fetchNotifications() async -> [ApiNotification]
+    func fetchNotifications() async -> [ApiNotification]?
 }
 
 // MARK: - Live Implementation
@@ -494,8 +494,8 @@ final class LiveApiClient: ApiClientProtocol {
         await fetchGET("\(apiPrefix)/webhook/logs", query: ["limit": "\(limit)"])
     }
 
-    func fetchNotifications() async -> [ApiNotification] {
-        await fetchGET("\(apiPrefix)/notifications", query: ["limit": "50"]) ?? []
+    func fetchNotifications() async -> [ApiNotification]? {
+        await fetchGET("\(apiPrefix)/notifications", query: ["limit": "50"])
     }
 
     // MARK: - Auth helpers
