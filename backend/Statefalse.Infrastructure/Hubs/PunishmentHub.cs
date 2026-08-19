@@ -48,6 +48,14 @@ public class PunishmentHub : Hub
         await _db.SaveChangesAsync();
         await Groups.AddToGroupAsync(Context.ConnectionId, gitHubId.ToString());
 
+        var notifications = await _db.Notifications
+            .Where(n => n.RecipientGitHubId == gitHubId && n.CreatedAt >= DateTime.UtcNow.AddHours(-24))
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(50)
+            .Select(n => new NotificationPayload(n.Id, n.Kind, n.Title, n.Body, n.Repo, n.PrNumber, n.PrUrl, n.CreatedAt, n.IsRead))
+            .ToListAsync();
+        await Clients.Caller.SendAsync("NotificationHistory", notifications);
+
         var pendingPunishments = await _db.PunishmentEvents
             .Where(e => e.CulpritGitHubId == gitHubId
                 && !e.WasNotified

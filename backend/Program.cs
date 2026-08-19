@@ -58,6 +58,7 @@ try
     builder.Services.AddScoped<ICheckSuiteEventRepository, CheckSuiteEventRepository>();
     builder.Services.AddScoped<IPullRequestEventRepository, PullRequestEventRepository>();
     builder.Services.AddScoped<IWorkflowRunRepository, WorkflowRunRepository>();
+    builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
     builder.Services.AddScoped<IGitHubTokenResolver, GitHubTokenResolver>();
     builder.Services.AddScoped<ISignalRNotifier, SignalRNotifier>();
     builder.Services.AddScoped<PullRequestSyncService>();

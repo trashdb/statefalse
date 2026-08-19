@@ -24,6 +24,7 @@ public static class ApiEndpoints
         MapGitHub(v1);
         MapWorkflows(v1);
         MapUsers(v1);
+        MapNotifications(v1);
         MapAuthCallback(app);
         MapGitHubWebhook(app);
     }
@@ -79,6 +80,27 @@ public static class ApiEndpoints
 
         routes.MapGet("/punishments/summary", async (PunishmentService service, int days = 7)
             => await MapAsync(service.GetSummaryAsync(days))).RequireAuthorization();
+    }
+
+    private static void MapNotifications(IEndpointRouteBuilder routes)
+    {
+        routes.MapGet("/notifications", async (HttpContext ctx, INotificationRepository repository, int limit = 50) =>
+        {
+            var notifications = await repository.GetRecentForUserAsync(ctx.GitHubId(), DateTime.UtcNow.AddHours(-24), Math.Clamp(limit, 1, 100));
+            return Results.Ok(notifications);
+        }).RequireAuthorization().RequireRateLimiting("api");
+
+        routes.MapPost("/notifications/{id:int}/read", async (int id, HttpContext ctx, INotificationRepository repository, IUnitOfWork uow) =>
+        {
+            if (!await repository.MarkAsReadAsync(ctx.GitHubId(), id))
+                return Results.NotFound(new { error = "Notification not found" });
+            await uow.SaveChangesAsync();
+            return Results.Ok(new { read = true });
+        }).RequireAuthorization().RequireRateLimiting("api");
+
+        routes.MapPost("/notifications/read-all", async (HttpContext ctx, INotificationRepository repository) =>
+            Results.Ok(new { marked = await repository.MarkAllAsReadAsync(ctx.GitHubId()) }))
+            .RequireAuthorization().RequireRateLimiting("api");
     }
 
     private static void MapPullRequests(IEndpointRouteBuilder routes)

@@ -72,6 +72,7 @@ class MockSignalRService: SignalRServiceProtocol {
     var userGitHubId: Int64 = 0
     var runStatus: RunStatus = .idle
     var lastEvent: PunishmentEvent? = nil
+    var notifications: [ApiNotification] = []
     var runningWorkflows: [WorkflowRun] = []
     var recentWorkflows: [WorkflowRun] = []
     var activePRs: [PullRequest] = []
@@ -131,6 +132,7 @@ class MockApiClient: ApiClientProtocol {
         .success(ApiCreatePRResult(prNumber: 1, url: "https://github.com/owner/repo/pull/1", existing: false))
     }
     func fetchPAT() async -> String? { nil }
+    func fetchNotifications() async -> [ApiNotification] { [] }
 }
 
 // MARK: - Keychain Mock

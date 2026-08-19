@@ -58,3 +58,14 @@ public sealed record MainBranchUpdatedPayload(
     int PrNumber,
     string MergedBy,
     string? HeadSha);
+
+public sealed record NotificationPayload(
+    int Id,
+    string Kind,
+    string Title,
+    string Body,
+    string? Repo,
+    long? PrNumber,
+    string? PrUrl,
+    DateTime CreatedAt,
+    bool IsRead);
