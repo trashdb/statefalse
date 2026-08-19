@@ -67,9 +67,12 @@ struct ContentView: View {
                     if signalR.isLoggedIn {
                         if let notification = signalR.notifications.first {
                             VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                                HStack {
+                                HStack(spacing: DS.Spacing.xs) {
+                                    WaveMark(color: DS.Color.destructive, lineWidth: 2)
+                                        .frame(width: 16, height: 16)
                                     Text("Last Notification")
-                                        .font(DS.Font.small.medium())
+                                        .font(DS.Font.small.semibold())
+                                        .foregroundStyle(DS.Color.destructive)
                                     Spacer()
                                     Button("Show history") {
                                         NotificationHistoryPanelManager.shared.show(signalR: signalR)
