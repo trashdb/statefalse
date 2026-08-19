@@ -333,6 +333,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
                     )
                     await self.syncFromApi()
                     await self.syncPRsFromApi()
+                    await self.refreshNotifications()
                 }
             }
         case .workflowStarted(let e): handleWorkflowStarted(e)
@@ -419,6 +420,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
                     actionURL: n.url
                 )
             }
+            Task { await refreshNotifications() }
         }
     }
 

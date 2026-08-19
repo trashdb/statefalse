@@ -309,7 +309,7 @@ public class WorkflowService
                 {
                     if (dbStatus == "failure")
                     {
-                        await _notifications.AddAsync(new Notification
+                        var notification = new Notification
                         {
                             RecipientGitHubId = gitHubId,
                             Kind = "workflow_failed",
@@ -318,8 +318,19 @@ public class WorkflowService
                             Repo = repo,
                             PrUrl = htmlUrl,
                             CreatedAt = DateTime.UtcNow
-                        });
+                        };
+                        await _notifications.AddAsync(notification);
                         await _uow.SaveChangesAsync();
+                        await _notifier.NotifyUserAsync(gitHubId, "NotificationCreated", new NotificationPayload(
+                            Id: notification.Id,
+                            Kind: notification.Kind,
+                            Title: notification.Title,
+                            Body: notification.Body,
+                            Repo: notification.Repo,
+                            PrNumber: notification.PrNumber,
+                            PrUrl: notification.PrUrl,
+                            CreatedAt: notification.CreatedAt,
+                            IsRead: notification.IsRead));
                     }
 
                     await _notifier.NotifyUserAsync(gitHubId, "WorkflowRunCompleted", new WorkflowRunCompletedPayload(

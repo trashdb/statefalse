@@ -188,6 +188,10 @@ public class WebhookHandlersTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(987654321L, punishment.CulpritGitHubId);
         Assert.Equal("acme/repo", punishment.RepoFullName);
         Assert.Equal("CI", punishment.WorkflowName);
+
+        var notification = Assert.Single(Query(db => db.Notifications.ToList()));
+        Assert.Equal(987654321L, notification.RecipientGitHubId);
+        Assert.Equal("workflow_failed", notification.Kind);
     }
 
     [Fact]
@@ -201,6 +205,20 @@ public class WebhookHandlersTests : IClassFixture<WebApplicationFactory<Program>
 
         var punishment = Assert.Single(Query(db => db.PunishmentEvents.ToList()));
         Assert.Equal(999L, punishment.RunId);
+
+        Assert.Single(Query(db => db.Notifications.ToList()));
+    }
+
+    [Fact]
+    public async Task Completed_Failure_DuplicateWebhook_DoesNotDuplicateNotification()
+    {
+        var payload = WorkflowRunPayload(1000, "completed", conclusion: "failure");
+        Assert.Equal(HttpStatusCode.OK, (await PostWebhookAsync("workflow_run", payload)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await PostWebhookAsync("workflow_run", payload)).StatusCode);
+
+        Assert.Single(Query(db => db.WorkflowRuns.ToList()));
+        Assert.Single(Query(db => db.Notifications.ToList()));
+        Assert.Single(Query(db => db.PunishmentEvents.ToList()));
     }
 
     [Fact]
