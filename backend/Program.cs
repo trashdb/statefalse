@@ -268,7 +268,7 @@ void ApplyMigrations(AppDbContext db)
         .SqlQueryRaw<int>("SELECT COUNT(*) AS \"Value\" FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
         .Single() > 0;
 
-    if (hasTables && appliedMigrations.Count < migrations.Count)
+    if (hasTables && !hasHistoryTable)
     {
         db.Database.ExecuteSqlRaw("""
             CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
