@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NotificationHistoryView: View {
-    let notifications: [ApiNotification]
+    @ObservedObject var signalR: SignalRService
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
@@ -14,34 +14,47 @@ struct NotificationHistoryView: View {
                     .foregroundStyle(DS.Color.textSecondary)
             }
 
-            if notifications.isEmpty {
-                EmptyNotificationView()
-            } else {
-                ForEach(notifications) { notification in
-                    VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                        HStack {
-                            Text(notification.title)
-                                .font(DS.Font.small.medium())
-                            Spacer()
-                            Text(notification.createdAt, style: .relative)
-                                .font(DS.Font.caption)
-                                .foregroundStyle(DS.Color.textSecondary)
-                        }
-                        Text(notification.body)
-                            .font(DS.Font.caption)
-                            .foregroundStyle(DS.Color.textSecondary)
-                        if let url = notification.prUrl {
-                            Link("Open in GitHub", destination: url)
-                                .font(DS.Font.caption)
+            ScrollView {
+                if signalR.notifications.isEmpty {
+                    EmptyNotificationView()
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(signalR.notifications) { notification in
+                            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(notification.title)
+                                        .font(DS.Font.small.medium())
+                                        .lineLimit(2)
+                                    Spacer(minLength: DS.Spacing.md)
+                                    Text(notification.createdAt, style: .relative)
+                                        .font(DS.Font.caption)
+                                        .foregroundStyle(DS.Color.textSecondary)
+                                        .lineLimit(1)
+                                }
+                                Text(notification.body)
+                                    .font(DS.Font.caption)
+                                    .foregroundStyle(DS.Color.textSecondary)
+                                    .lineLimit(4)
+                                if let url = notification.prUrl {
+                                    Link("Open in GitHub", destination: url)
+                                        .font(DS.Font.caption)
+                                }
+                            }
+                            .padding(.vertical, DS.Spacing.md)
+                            if notification.id != signalR.notifications.last?.id {
+                                Divider()
+                            }
                         }
                     }
-                    .padding(.vertical, DS.Spacing.sm)
-                    Divider()
                 }
             }
         }
-        .padding(DS.Spacing.xl)
-        .frame(width: 390)
+        .padding(.horizontal, DS.Spacing.xxl)
+        .padding(.vertical, DS.Spacing.xl)
+        .frame(width: 430, height: 520)
+        .background(VisualEffectBackground(material: .sidebar))
+        .closeOnEscape { NotificationHistoryPanelManager.shared.close() }
+        .closeOnCmdW { NotificationHistoryPanelManager.shared.close() }
     }
 }
 

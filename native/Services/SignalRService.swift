@@ -189,6 +189,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
             guard let self else { return }
 
             _ = await syncPRsFromGitHub()
+            _ = await syncActiveWorkflows()
             await syncFromApi()
             await syncPRsFromApi()
             startPolling()
@@ -278,6 +279,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         if synced > 0 {
             await syncFromApi()
             await syncPRsFromApi()
+            await refreshNotifications()
         }
         return synced
     }

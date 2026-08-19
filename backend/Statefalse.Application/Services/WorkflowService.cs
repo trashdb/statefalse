@@ -16,6 +16,7 @@ public class WorkflowService
     private readonly IGitHubClient _github;
     private readonly IGitHubTokenResolver _tokens;
     private readonly ISignalRNotifier _notifier;
+    private readonly INotificationRepository _notifications;
     private readonly ILogger<WorkflowService> _logger;
 
     public WorkflowService(
@@ -25,6 +26,7 @@ public class WorkflowService
         IGitHubClient github,
         IGitHubTokenResolver tokens,
         ISignalRNotifier notifier,
+        INotificationRepository notifications,
         ILogger<WorkflowService> logger)
     {
         _prs = prs;
@@ -33,6 +35,7 @@ public class WorkflowService
         _github = github;
         _tokens = tokens;
         _notifier = notifier;
+        _notifications = notifications;
         _logger = logger;
     }
 
@@ -218,51 +221,128 @@ public class WorkflowService
             return ApiResult.Ok(new { synced = 0, repos = 0, message = "No active PRs found." });
 
         var newCount = 0;
+        var reconciledCount = 0;
         foreach (var repo in repos)
         {
             var response = await _github.GetAsync($"/repos/{repo}/actions/runs?status=in_progress&per_page=10", token);
-            if (response.StatusCode is < 200 or >= 300 || response.Body is not { } doc) continue;
+            if (response.StatusCode >= 200 && response.StatusCode < 300 && response.Body is { } doc)
+            {
+                foreach (var run in doc.GetProperty("workflow_runs").EnumerateArray())
+                {
+                    var runId = run.GetProperty("id").GetInt64();
+                    var name = run.TryGetProperty("name", out var wn) ? wn.GetString() : "Workflow";
+                    var isIgnored = IgnoredWorkflows.IsIgnored(name);
 
-            foreach (var run in doc.GetProperty("workflow_runs").EnumerateArray())
+                    var exists = await _runs.AnyInProgressByRunIdAsync(runId);
+                    if (exists) continue;
+
+                    var actor = run.TryGetProperty("actor", out var act)
+                        ? act.GetProperty("login").GetString() ?? "unknown"
+                        : "unknown";
+                    var branch = run.TryGetProperty("head_branch", out var hb) ? hb.GetString() : null;
+                    var htmlUrl = run.TryGetProperty("html_url", out var hu) ? hu.GetString() : null;
+                    var startedAt = run.TryGetProperty("run_started_at", out var rsa)
+                        ? rsa.GetDateTime()
+                        : DateTime.UtcNow;
+                    var trigger = run.TryGetProperty("event", out var ev) ? ev.GetString() : null;
+
+                    await _runs.AddAsync(new WorkflowRun
+                    {
+                        RunId = runId,
+                        GitHubId = gitHubId,
+                        WorkflowName = name,
+                        Repo = repo,
+                        Actor = actor,
+                        HeadBranch = branch,
+                        Trigger = trigger,
+                        HtmlUrl = htmlUrl,
+                        Status = "in_progress",
+                        StartedAt = startedAt,
+                        IsIgnored = isIgnored
+                    });
+                    newCount++;
+                }
+            }
+
+            // A missed workflow_run.completed webhook otherwise leaves the local
+            // row in_progress forever because GitHub no longer returns it from
+            // the active-runs query above.
+            var completedResponse = await _github.GetAsync($"/repos/{repo}/actions/runs?status=completed&per_page=20", token);
+            if (completedResponse.StatusCode is < 200 or >= 300 || completedResponse.Body is not { } completedDoc)
+                continue;
+
+            foreach (var run in completedDoc.GetProperty("workflow_runs").EnumerateArray())
             {
                 var runId = run.GetProperty("id").GetInt64();
-                var name = run.TryGetProperty("name", out var wn) ? wn.GetString() : "Workflow";
-                var isIgnored = IgnoredWorkflows.IsIgnored(name);
+                var dbRun = await _runs.FindLatestInProgressByRunIdAsync(runId);
+                if (dbRun == null) continue;
 
-                var exists = await _runs.AnyInProgressByRunIdAsync(runId);
-                if (exists) continue;
+                var conclusion = run.TryGetProperty("conclusion", out var conclusionElement)
+                    ? conclusionElement.GetString()
+                    : null;
+                var dbStatus = WorkflowConclusionMapper.ToDbStatus(conclusion);
+                if (dbStatus == null) continue;
 
-                var actor = run.TryGetProperty("actor", out var act)
-                    ? act.GetProperty("login").GetString() ?? "unknown"
-                    : "unknown";
-                var branch = run.TryGetProperty("head_branch", out var hb) ? hb.GetString() : null;
-                var htmlUrl = run.TryGetProperty("html_url", out var hu) ? hu.GetString() : null;
-                var startedAt = run.TryGetProperty("run_started_at", out var rsa)
-                    ? rsa.GetDateTime()
-                    : DateTime.UtcNow;
-                var trigger = run.TryGetProperty("event", out var ev) ? ev.GetString() : null;
+                var name = run.TryGetProperty("name", out var workflowNameElement)
+                    ? workflowNameElement.GetString() ?? dbRun.WorkflowName ?? "Workflow"
+                    : dbRun.WorkflowName ?? "Workflow";
+                var actor = run.TryGetProperty("actor", out var actorElement)
+                    && actorElement.TryGetProperty("login", out var loginElement)
+                    ? loginElement.GetString() ?? dbRun.Actor
+                    : dbRun.Actor;
+                var htmlUrl = run.TryGetProperty("html_url", out var urlElement)
+                    ? urlElement.GetString() ?? dbRun.HtmlUrl
+                    : dbRun.HtmlUrl;
 
-                await _runs.AddAsync(new WorkflowRun
+                dbRun.Status = dbStatus;
+                dbRun.IsIgnored = IgnoredWorkflows.IsIgnored(name);
+                dbRun.WorkflowName ??= name;
+                dbRun.Actor = actor;
+                dbRun.HtmlUrl ??= htmlUrl;
+
+                await _uow.SaveChangesAsync();
+
+                if (!dbRun.IsIgnored)
                 {
-                    RunId = runId,
-                    GitHubId = gitHubId,
-                    WorkflowName = name,
-                    Repo = repo,
-                    Actor = actor,
-                    HeadBranch = branch,
-                    Trigger = trigger,
-                    HtmlUrl = htmlUrl,
-                    Status = "in_progress",
-                    StartedAt = startedAt,
-                    IsIgnored = isIgnored
-                });
-                newCount++;
+                    if (dbStatus == "failure")
+                    {
+                        await _notifications.AddAsync(new Notification
+                        {
+                            RecipientGitHubId = gitHubId,
+                            Kind = "workflow_failed",
+                            Title = "Workflow Failed",
+                            Body = $"{name} failed for {actor} in {repo}",
+                            Repo = repo,
+                            PrUrl = htmlUrl,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                        await _uow.SaveChangesAsync();
+                    }
+
+                    await _notifier.NotifyUserAsync(gitHubId, "WorkflowRunCompleted", new WorkflowRunCompletedPayload(
+                        RunId: runId,
+                        Succeeded: dbStatus == "success",
+                        Conclusion: conclusion,
+                        WorkflowName: name,
+                        Repo: repo,
+                        Actor: actor,
+                        HtmlUrl: htmlUrl,
+                        Trigger: dbRun.Trigger));
+                }
+
+                reconciledCount++;
             }
         }
 
         if (newCount > 0)
             await _uow.SaveChangesAsync();
 
-        return ApiResult.Ok(new { synced = newCount, repos = repos.Count });
+        return ApiResult.Ok(new
+        {
+            synced = newCount + reconciledCount,
+            discovered = newCount,
+            reconciled = reconciledCount,
+            repos = repos.Count
+        });
     }
 }
