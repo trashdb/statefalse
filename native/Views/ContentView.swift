@@ -66,7 +66,7 @@ struct ContentView: View {
 
                     if signalR.isLoggedIn {
                         if let notification = signalR.notifications.first {
-                            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                            VStack(alignment: .leading, spacing: DS.Spacing.md) {
                                 HStack(spacing: DS.Spacing.xs) {
                                     WaveMark(color: DS.Color.destructive, lineWidth: 2)
                                         .frame(width: 16, height: 16)
@@ -81,15 +81,37 @@ struct ContentView: View {
                                     .font(DS.Font.caption)
                                 }
                                 Text(notification.title)
-                                    .font(DS.Font.body.medium())
+                                    .font(DS.Font.body.semibold())
+                                    .foregroundStyle(DS.Color.textPrimary)
                                 Text(notification.body)
-                                    .font(DS.Font.caption)
+                                    .font(DS.Font.small)
                                     .foregroundStyle(DS.Color.textSecondary)
+                                if let repo = notification.repo {
+                                    Text(repo)
+                                        .font(DS.Font.small)
+                                        .foregroundStyle(DS.Color.textTertiary)
+                                        .lineLimit(1)
+                                }
                                 if let url = notification.prUrl {
-                                    Link("Open in GitHub", destination: url)
-                                        .font(DS.Font.caption)
+                                    Link(destination: url) {
+                                        HStack(spacing: DS.Spacing.xs) {
+                                            Image(systemName: "arrow.up.right")
+                                                .font(DS.Font.caption)
+                                            Text("Open in GitHub")
+                                                .font(DS.Font.small.medium())
+                                        }
+                                    }
+                                        .foregroundStyle(DS.Color.accent)
+                                        .cursor(.pointingHand)
                                 }
                             }
+                            .padding(.horizontal, DS.Spacing.xl + 1)
+                            .padding(.vertical, DS.Spacing.lg + 1)
+                            .background(DS.Color.cardBackground, in: RoundedRectangle(cornerRadius: DS.Radius.lg + 1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DS.Radius.lg + 1)
+                                    .stroke(DS.Color.divider, lineWidth: 1)
+                            )
                         } else {
                             EmptyNotificationView {
                                 NotificationHistoryPanelManager.shared.show(signalR: signalR)
