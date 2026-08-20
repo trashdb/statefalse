@@ -77,6 +77,19 @@ cd statefalse/native
 bash install.sh
 ```
 
+For day-to-day local development, use the Debug runner instead. It builds into
+`native/.derived-data`, launches that app directly, and does not copy anything
+to `~/Applications` or create a release:
+
+```bash
+cd statefalse/native
+bash run-local.sh
+```
+
+You can also open `native/statefalse.xcodeproj` in Xcode and use **Product → Run**
+with the `Statefalse` scheme. This is a macOS menu-bar app, so it runs locally
+on macOS rather than in the iOS Simulator.
+
 A 🔥 icon appears in your menu bar.
 
 The install script builds the project, copies it to `~/Applications/Statefalse.app`, and relaunches. If the build fails it falls back to the previous build.
