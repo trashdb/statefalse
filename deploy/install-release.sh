@@ -40,5 +40,6 @@ if [ -n "$previous" ]; then
   sudo systemctl restart statefalse
 else
   sudo rm -f "$ROOT/current"
+  sudo systemctl stop statefalse
 fi
 exit 1
