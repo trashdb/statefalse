@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/statefalse
-ExecStart=/opt/statefalse/Statefalse.Api
+WorkingDirectory=/opt/statefalse/current
+ExecStart=/opt/statefalse/current/Statefalse.Api
 Restart=always
 RestartSec=5
 Environment=ASPNETCORE_ENVIRONMENT=Production

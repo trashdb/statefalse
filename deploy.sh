@@ -5,6 +5,15 @@ set -euo pipefail
 VPS="${1:?Usage: ./deploy.sh user@vps-ip}"
 REMOTE="/opt/statefalse"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VERSION="${STATEFALSE_VERSION:-$(git -C "$SCRIPT_DIR" describe --tags --exact-match HEAD 2>/dev/null || git -C "$SCRIPT_DIR" rev-parse --short HEAD)}"
+REMOTE_UPLOAD="/tmp/statefalse-publish-${VERSION}-$$"
+
+case "$VERSION" in
+  ''|.|..|*[!A-Za-z0-9._-]*)
+    echo "ERROR: invalid release version: $VERSION" >&2
+    exit 1
+    ;;
+esac
 
 cd "$SCRIPT_DIR/backend"
 
@@ -33,15 +42,20 @@ echo "=== Building self-contained binary ==="
 dotnet restore
 dotnet publish -c Release --self-contained true -r linux-x64 -o "$PUBLISH_DIR"
 
+if [ -f appsettings.Production.json ]; then
+  cp appsettings.Production.json "$PUBLISH_DIR/"
+fi
+
 echo "=== Uploading to VPS ==="
 # shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
-ssh "$VPS" "sudo mkdir -p $REMOTE"
-rsync -az --delete --exclude='*.db' "$PUBLISH_DIR/" "$VPS:$REMOTE/"
+ssh "$VPS" "sudo mkdir -p $REMOTE/releases $REMOTE/deploy"
 rsync -az --exclude='statefalse.env' "$SCRIPT_DIR/deploy/" "$VPS:$REMOTE/deploy/"
+rsync -az "$PUBLISH_DIR/" "$VPS:$REMOTE_UPLOAD/"
+trap 'ssh "$VPS" "rm -rf $REMOTE_UPLOAD" >/dev/null 2>&1 || true; rm -rf "$PUBLISH_DIR"' EXIT
 
 echo "=== Installing backup timer ==="
 # shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
-ssh "$VPS" "sudo mkdir -p /var/backups/statefalse && sudo chmod 700 /var/backups/statefalse && sudo chmod +x $REMOTE/deploy/backup-statefalse.sh && sudo cp $REMOTE/deploy/statefalse-backup.service /etc/systemd/system/ && sudo cp $REMOTE/deploy/statefalse-backup.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now statefalse-backup.timer"
+ssh "$VPS" "sudo mkdir -p /var/backups/statefalse && sudo chmod 700 /var/backups/statefalse && sudo chmod +x $REMOTE/deploy/backup-statefalse.sh $REMOTE/deploy/healthcheck.sh $REMOTE/deploy/install-release.sh $REMOTE/deploy/rollback-release.sh && sudo cp $REMOTE/deploy/statefalse-backup.service /etc/systemd/system/ && sudo cp $REMOTE/deploy/statefalse-backup.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now statefalse-backup.timer"
 
 echo "=== Backing up database ==="
 # shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
@@ -57,19 +71,21 @@ echo "Installed /etc/statefalse/statefalse.env (mode 600)"
 
 echo "=== Copying production config ==="
 if [ -f appsettings.Production.json ]; then
-  scp appsettings.Production.json "$VPS:$REMOTE/"
+  echo "Production config included in release $VERSION"
 else
   echo "WARNING: appsettings.Production.json not found"
 fi
 
-echo "=== Setting permissions ==="
-# shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
-ssh "$VPS" "sudo chmod +x $REMOTE/Statefalse.Api"
+echo "=== Installing release $VERSION ==="
+# shellcheck disable=SC2029 # REMOTE and VERSION intentionally expand in the local shell.
+ssh "$VPS" "sudo $REMOTE/deploy/install-release.sh $REMOTE_UPLOAD $VERSION && rm -rf $REMOTE_UPLOAD"
 
-echo "=== Restarting service ==="
-ssh "$VPS" "sudo systemctl daemon-reload && sudo systemctl restart statefalse"
+echo "=== Verifying service ==="
+# shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
+ssh "$VPS" "sudo systemctl is-active --quiet statefalse && sudo $REMOTE/deploy/healthcheck.sh"
 
 echo ""
 echo "=== Done! ==="
+echo "Release: $VERSION"
 echo "Logs: ssh $VPS 'sudo journalctl -u statefalse -f'"
 echo "Status: ssh $VPS 'sudo systemctl status statefalse'"
