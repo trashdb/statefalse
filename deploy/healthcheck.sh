@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-URL="${1:-http://127.0.0.1:5000/health}"
+URL="${1:-http://localhost:5000/health}"
 RETRIES="${HEALTHCHECK_RETRIES:-30}"
 DELAY="${HEALTHCHECK_DELAY:-2}"
 
