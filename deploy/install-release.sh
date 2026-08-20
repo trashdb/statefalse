@@ -21,12 +21,7 @@ esac
 sudo install -d -m 755 "$ROOT/releases"
 temporary_release="$(sudo mktemp -d "$ROOT/releases/.${VERSION}.XXXXXX")"
 previous="$(sudo readlink "$ROOT/current" 2>/dev/null || true)"
-cleanup() {
-  if [ -n "$temporary_release" ]; then
-    sudo rm -rf "$temporary_release"
-  fi
-}
-trap cleanup EXIT
+trap 'if [ -n "$temporary_release" ]; then sudo rm -rf "$temporary_release"; fi' EXIT
 
 sudo cp -a "$SOURCE/." "$temporary_release/"
 sudo chmod +x "$temporary_release/Statefalse.Api"
