@@ -34,7 +34,8 @@ asset. When publishing a new native release, update the version in
 `https://github.com/trashdb/statefalse/releases/download/vX.Y.Z/Statefalse-vX.Y.Z.zip`
 
 Update the three CTA links when a new release becomes the public download. The
-release-notes link remains dynamic.
+release-notes link remains dynamic. Keep the **Install guide** and **Webhooks**
+links in the page pointing to `docs/USER-GUIDE.md` and `docs/WEBHOOKS.md`.
 
 ## Content boundaries
 
@@ -42,5 +43,5 @@ The page describes capabilities currently documented in the repository: macOS,
 GitHub Actions, pull requests, local branches and actionable notifications. It
 does not claim that Statefalse is notarized, distributed through the App Store,
 multi-tenant or backed by Stripe/licensing. The project is free, open source
-under GPLv3 and independent; it is not affiliated with Thoughtworks, easyJet,
-GitHub or any other organization.
+under GPLv3 and independent; it is not affiliated with any employer, client,
+vendor or other organization.

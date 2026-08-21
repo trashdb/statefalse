@@ -1,236 +1,123 @@
-# statefalse
+<div align="center">
+  <img src="native/Assets.xcassets/AppIcon.appiconset/icon_1024.png" alt="Statefalse icon" width="128">
+  <h1>Statefalse</h1>
+  <p><strong>Your GitHub pull requests, workflows and local branches — under control.</strong></p>
+  <p>
+    <a href="https://github.com/trashdb/statefalse">⭐ Star us on GitHub</a>
+    ·
+    <a href="docs/USER-GUIDE.md">Install and configure</a>
+    ·
+    <a href="https://github.com/trashdb/statefalse/releases/latest">Download the latest release</a>
+  </p>
+</div>
 
-macOS menu bar app that tracks GitHub Actions workflows, notifies you on failures, lets you rerun workflows, assign targets, track open PRs with real‑time status, and manage local/remote git branches with checkout, delete, Jira integration, and direct PR creation from the app.
+Statefalse is an independent, open-source macOS menu-bar app for GitHub pull requests, Actions workflows, notifications and local Git branches.
 
-For the user-facing installation and feature guide, see [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md).
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![C#](https://img.shields.io/badge/C%23-68217A?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
+[![ASP.NET Core](https://img.shields.io/badge/ASP.NET_Core-512BD4?logo=dotnet&logoColor=white)](https://learn.microsoft.com/aspnet/core/)
+[![Entity Framework Core](https://img.shields.io/badge/EF_Core-512BD4?logo=dotnet&logoColor=white)](https://learn.microsoft.com/ef/core/)
+[![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)](https://sqlite.org/)
+[![SignalR](https://img.shields.io/badge/SignalR-512BD4?logo=dotnet&logoColor=white)](https://learn.microsoft.com/aspnet/core/signalr/introduction)
+[![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](https://www.swift.org/)
+[![SwiftUI](https://img.shields.io/badge/SwiftUI-007AFF?logo=swift&logoColor=white)](https://developer.apple.com/xcode/swiftui/)
+[![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)](https://developer.mozilla.org/docs/Web/HTML)
+[![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)](https://developer.mozilla.org/docs/Web/CSS)
 
-## Project status and ownership
+## Contents
 
-Statefalse is an independent, free and open-source project created in
-personal time. It was not commissioned by a client and is not an official
-product of Thoughtworks, easyJet, GitHub or any other organization.
+- [Product preview](#product-preview)
+- [Start here](#start-here)
+- [Install](#install)
+  - [Requirements](#requirements)
+  - [Published release](#published-release-recommended)
+  - [Build from source](#build-from-source)
+- [Configure](#configure)
+- [Webhooks](#webhooks)
+- [What Statefalse does](#what-statefalse-does)
 
-Statefalse is available for individuals, teams and organizations to use,
-including internal and commercial use, under the terms of the GPLv3 license.
-It is not restricted to a particular employer or organization.
+## Product preview
 
-The public hosted instance is operated as a project demonstration. Teams
-should review their own security, privacy and compliance requirements before
-connecting company or client repositories.
+<div align="center">
+  <img src="ReferenceImages/pr_row_title.png" alt="Statefalse pull request row" width="440">
+  <img src="ReferenceImages/segmented_picker.png" alt="Statefalse status filter" width="440">
+</div>
 
-See [`LICENSE`](LICENSE), [`PRIVACY.md`](PRIVACY.md),
-[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md).
+<p align="center"><em>A focused menu-bar view for pull requests, statuses and the next action.</em></p>
 
-## Requirements
+## Start here
 
-- macOS Sequoia or newer
-- Xcode (or CLI tools: `xcode-select --install`)
-- A GitHub account with access to the repos you work on
+- [Install and configure Statefalse](docs/USER-GUIDE.md) — complete user guide.
+- [Install from a release](docs/USER-GUIDE.md#install-statefalse) — checksum verification and macOS first launch.
+- [Configure OAuth, PAT and Jira](docs/USER-GUIDE.md#first-time-setup-from-download-to-notifications).
+- [Configure GitHub webhooks](docs/WEBHOOKS.md) — required events, HMAC secret and delivery checks.
+- [Configure a self-hosted backend](docs/ADMIN-GUIDE.md).
+- [Security policy](SECURITY.md) · [Privacy](PRIVACY.md) · [Contributing](CONTRIBUTING.md) · [License](LICENSE).
 
 ## Install
 
-### Install published release
+### Requirements
 
-Download a macOS release from [GitHub Releases](https://github.com/trashdb/statefalse/releases/latest). Current packages are unsigned and not notarized; verify `SHA256SUMS` before opening them.
+- macOS Sequoia or newer.
+- A GitHub account with access to the repositories you want to use.
+- Xcode or the Xcode command-line tools only when building from source.
 
-Set `VERSION` to the release tag you want to install:
+### Published release (recommended)
+
+Download the [latest macOS release](https://github.com/trashdb/statefalse/releases/latest), including its `SHA256SUMS` file. Verify the checksum before opening the app, then extract `Statefalse.app` into `~/Applications` or `/Applications`.
+
+For a terminal-based install, replace `vX.Y.Z` with the release tag:
 
 ```bash
 VERSION=vX.Y.Z
 RELEASE_DIR="$HOME/Downloads/statefalse-$VERSION"
-mkdir -p "$RELEASE_DIR"
-cd "$RELEASE_DIR"
+mkdir -p "$RELEASE_DIR" && cd "$RELEASE_DIR"
 curl -fLO "https://github.com/trashdb/statefalse/releases/download/$VERSION/Statefalse-$VERSION.zip"
 curl -fLO "https://github.com/trashdb/statefalse/releases/download/$VERSION/SHA256SUMS"
 shasum -a 256 -c SHA256SUMS
-```
-
-Expected result:
-
-```text
-Statefalse-vX.Y.Z.zip: OK
-```
-
-To replace the previous installation, close the app, remove the old bundle and extract the verified release:
-
-```bash
-pkill -x Statefalse 2>/dev/null || true
-sleep 1
-
-rm -rf "$HOME/Applications/Statefalse.app"
-mkdir -p "$HOME/Applications"
-
 ditto -x -k "Statefalse-$VERSION.zip" .
-```
-
-Remove macOS download quarantine only after the checksum reports `OK`, then install and open the app:
-
-```bash
-xattr -dr com.apple.quarantine Statefalse.app
+mkdir -p "$HOME/Applications"
 ditto Statefalse.app "$HOME/Applications/Statefalse.app"
-rm -rf Statefalse.app
 open "$HOME/Applications/Statefalse.app"
 ```
 
-This quarantine step is required because current packages are unsigned and not notarized. Do not run it for packages from an untrusted source.
+The releases are currently unsigned and not notarized. If macOS blocks a verified release, use Finder's **Open** action first. Only as a last resort, and only after a successful checksum verification, remove quarantine with `xattr -dr com.apple.quarantine Statefalse.app`.
 
-For future releases, the complete process can be run with the installer script. It verifies the checksum before removing the current app, cleans extracted releases, backups and local Xcode app products, then installs only `~/Applications/Statefalse.app`:
-
-```bash
-curl -fL https://raw.githubusercontent.com/trashdb/statefalse/main/native/install-release.sh \
-  -o /tmp/statefalse-install-release.sh
-bash /tmp/statefalse-install-release.sh vX.Y.Z
-```
-
-The script preserves downloaded ZIPs and checksums under `~/Downloads`. It does not remove a system-owned `/Applications/Statefalse.app`; if one remains, it prints a warning so it can be removed separately with administrator privileges.
+The [release installer](native/install-release.sh) automates checksum verification and installation. Do not use quarantine-removal commands for downloads from an untrusted source.
 
 ### Build from source
 
-`install.sh` is for development, not for installing a published release. It requires Xcode or the Xcode command-line tools, builds the project locally, copies it to `~/Applications/Statefalse.app`, and relaunches it. If the build fails, it can fall back to a previous local build.
-
 ```bash
-git clone git@github.com:trashdb/statefalse.git
+git clone https://github.com/trashdb/statefalse.git
 cd statefalse/native
 bash install.sh
 ```
 
-For day-to-day local development, use the Debug runner instead. It builds into
-`native/.derived-data`, launches that app directly, and does not copy anything
-to `~/Applications` or create a release:
+For development without copying the app to `~/Applications`, run `bash run-local.sh` or open `native/statefalse.xcodeproj` in Xcode.
 
-```bash
-cd statefalse/native
-bash run-local.sh
-```
+## Configure
 
-You can also open `native/statefalse.xcodeproj` in Xcode and use **Product → Run**
-with the `Statefalse` scheme. This is a macOS menu-bar app, so it runs locally
-on macOS rather than in the iOS Simulator.
+After installation:
 
-A 🔥 icon appears in your menu bar.
+1. Open the Statefalse wave mark in the macOS menu bar and choose **Sign in with GitHub**.
+2. Open **Settings → Personal Access Token** only if you need actions such as creating/merging pull requests, rerunning workflows, updating branches or changing draft status. Use the minimum permissions required.
+3. Set **Workspace Path** to the directory containing local repositories.
+4. Optionally set **Jira Board URL**, for example `https://your-domain.atlassian.net/browse/`.
+5. Set **Favorite Repo** for quick links to pull requests.
+6. Ask a repository administrator to configure the webhook described in [Webhook setup](docs/WEBHOOKS.md).
 
-The install script builds the project, copies it to `~/Applications/Statefalse.app`, and relaunches. If the build fails it falls back to the previous build.
+OAuth signs you in; a PAT is a separate credential for actions that require additional GitHub permissions. Never paste either credential into issues, screenshots or support messages.
 
-## First‑time setup
+## Webhooks
 
-### 1. Sign in with GitHub
+For the hosted service, use `https://api.statefalse.com/api/webhook/github`. For self-hosting, use the URL of your own API. Configure `application/json`, the events listed in the [webhook guide](docs/WEBHOOKS.md), the matching `WebhookSecret`, and leave the webhook active. Polling can provide a slower fallback, but it does not replace webhook configuration for real-time updates.
 
-Click the 🔥 icon → **Sign in with GitHub**. Your browser opens to authorize the app (OAuth, scopes: `read:user,repo`). Once connected, you'll see your avatar and **Connected** in green.
+## What Statefalse does
 
-### 2. Configure your Personal Access Token (PAT)
+- Shows pull requests, reviews, checks and workflow status.
+- Sends actionable notifications for failures, approvals, comments and possible local conflicts.
+- Lets you inspect local and remote branches and perform permitted GitHub actions.
+- Keeps local branch inspection on your Mac; GitHub remains the source of truth.
 
-Some features (create PR, rerun workflows, update branch, draft/ready toggle) require a PAT:
-
-1. Go to [github.com/settings/tokens](https://github.com/settings/tokens) → **Generate new token (classic)**
-2. Choose the minimum scopes required by the repositories and actions you use.
-3. If your organization enforces SAML SSO, authorize the token according to its policy.
-4. Copy the token (starts with `github_pat_...`)
-5. Open the app → ⚙️ **Settings** → **Personal Access Token** → paste and **Save**
-
-### 3. Set your workspace path
-
-The app scans a directory recursively to discover git repos for branch management.
-
-Default: `~/Desktop/dev`. Change it in **Settings** → **Workspace Path** if your repositories live elsewhere.
-
-### 4. Configure Jira (optional)
-
-**Settings** → **Jira Board URL** — used when clicking a Jira ticket link in the branch detail popover.
-
-Example: `https://your-domain.atlassian.net/browse/`
-
-### 5. Select your favorite repo
-
-**Settings** → **Favorite Repo** — pick the repository you work on most often. The **See All PRs** button opens the configured GitHub organization and repository.
-
-## Interface
-
-### Popover layout (top to bottom)
-
-| Section | Height | Description |
-|---------|--------|-------------|
-| **Active PRs** | 170pt | PR cards with CI status + approval state |
-| **Branches** | 180pt | Local/Remote git branches |
-| **Running workflows** | auto | Current in‑progress runs with rerun/target buttons |
-| **Toolbar** | auto | Settings, Workflow History, Webhook Log, See All PRs, avatar |
-
-### PR status badges
-
-| Badge | Meaning |
-|-------|---------|
-| **DRAFT** | PR is a draft — not ready for review |
-| **WAITING** | Open, waiting for checks/review |
-| **REVIEW** | Pending human approval (CI may be green) |
-| **READY** | CI passed + approved — good to merge |
-| **FAIL** | Checks are failing |
-| **MERGED** | PR was merged (briefly shown before disappearing) |
-
-Click a PR card to see a detail popover with mergeable state, CI badge per workflow, behind/ahead counts, latest comment preview, links to GitHub Compare/Checks, Convert to Draft / Mark as Ready, Update Branch, and Merge PR.
-
-### Notifications
-
-- **Failures:** red accent, loud sound, dock bounce
-- **Approvals & comments:** blue accent, gentle sound
-- **Conflict alerts:** blue accent, gentle sound — when someone merges files you're also touching
-- Only for important workflows (CI, account‑api, lambdas, terraform) — CodeQL, Dependency Review, etc. are silently ignored.
-
-### Workflow History
-
-Recent workflow runs with success/failure/in-progress icons, rerun button, target assignment for completion notifications. Completed runs show duration; in‑progress runs show relative time.
-
-### Branch management
-
-#### Local Branches
-
-Shows branches where you have commits. Click a branch for:
-- Jira ticket link (auto‑detected from branch name)
-- **Checkout** → runs `git checkout` + `git pull --rebase` (if upstream exists), then opens **JetBrains Rider**
-- **Delete** → `git branch -D` (protected: `main`/`master` cannot be deleted)
-- **Create PR** → editable preview with template + Copilot-generated summary from commit messages
-
-#### Remote Branches
-
-Lists branches from GitHub API. Merged branches can be deleted; unmerged are read‑only.
-
-### Predictive Conflict Detection
-
-The app watches your workspace repos in real time. When someone merges a PR to `main`, you get a notification if:
-- You have **uncommitted changes** in the same files that were just merged
-- Your **current branch** touches the same files (potential merge conflict)
-
-Notifications arrive via SignalR (instant) with a 60‑second polling fallback. Deduplicated per file for 5 minutes.
-
-### Create PR flow
-
-1. Ticket number auto‑extracted from branch name → optionally prepended to the PR title
-2. PR template loaded from `.github/pull_request_template.md`
-3. Backend calls Copilot API to generate a summary from commit messages
-4. Edit title and body before confirming
-5. PR is created via GitHub API
-
-## For repo admins: webhook setup
-
-The public API base URL is `https://api.statefalse.com`. Self-hosted instances
-must use their own API URL and webhook configuration.
-
-Each repo needs a webhook pointing at the backend:
-
-1. **Repo Settings → Webhooks → Add webhook**
-2. **Payload URL:** `https://api.statefalse.com/api/webhook/github`
-3. **Content type:** `application/json`
-4. **Events:** ☑ Workflow runs, ☑ Pull requests, ☑ Pull request reviews, ☑ Issue comments, ☑ Pull request review comments, ☑ Check suites
-5. **Secret:** enter the secret configured for the Statefalse API. For a self-hosted instance, use its `WebhookSecret`; for the public service, request the matching value from the service operator.
-6. **Active:** ✅
-
-## Settings
-
-| Setting | Description |
-|---------|-------------|
-| **Workspace Path** | Directory to scan for git repos (default `~/Desktop/dev`) |
-| **Jira Board URL** | Base URL for Jira ticket links |
-| **Favorite Repo** | Used by "See All PRs" button |
-| **Personal Access Token** | Per‑user PAT for API access |
-
-## Architecture
-
-The public guide covers the product behavior and setup. Deeper architecture and security notes are maintained separately as local-only documentation for the project owner.
+Statefalse is not affiliated with any employer, client, vendor or other organization. It is provided under GPLv3; review the project policies before connecting repositories.

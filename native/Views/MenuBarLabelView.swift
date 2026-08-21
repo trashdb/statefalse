@@ -3,6 +3,7 @@ import SwiftUI
 
 private enum MenuBarIcon {
     static let image: NSImage = {
+        // Coordinates use the same top-to-bottom 24-by-24 space as WaveMark.swift and the landing SVG.
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
             let scale = rect.width / 24
             let height = rect.height
@@ -22,7 +23,7 @@ private enum MenuBarIcon {
             )
 
             NSColor.black.setStroke()
-            path.lineWidth = 2.2
+            path.lineWidth = 2.6
             path.lineCapStyle = .round
             path.stroke()
             return true
