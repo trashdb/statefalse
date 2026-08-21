@@ -182,6 +182,15 @@ actor GitService: GitServiceProtocol {
         return url.isEmpty ? nil : url
     }
 
+    nonisolated static func pullRequestsURL(for ownerRepo: String) -> URL? {
+        let parts = ownerRepo.split(separator: "/", omittingEmptySubsequences: true)
+        guard parts.count == 2,
+              parts.allSatisfy({ !$0.isEmpty && !$0.contains(where: { $0.isWhitespace }) }) else {
+            return nil
+        }
+        return URL(string: "https://github.com/\(parts[0])/\(parts[1])/pulls")
+    }
+
     func listMyRemoteBranchesViaAPI(repoPath: String, api: ApiClientProtocol) async -> [(name: String, isMerged: Bool)] {
         guard let fullName = await repoFullName(repoPath: repoPath) else {
             let email = await currentUserEmail() ?? ""

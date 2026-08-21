@@ -170,14 +170,19 @@ struct ContentView: View {
                     }
 
                     toolbarButton(icon: "tray.full", help: "See All PRs") {
-                        let repo = UserDefaults.standard.string(forKey: "favoriteRepo") ?? TeamDefaults.favoriteRepo
-                        var components = URLComponents(string: "https://github.com/search")
-                        components?.queryItems = [
-                            URLQueryItem(name: "q", value: "\(repo) is:pr"),
-                            URLQueryItem(name: "type", value: "pullrequests")
-                        ]
-                        if let u = components?.url {
-                            NSWorkspace.shared.open(u)
+                        let favoriteRepo = UserDefaults.standard.string(forKey: "favoriteRepo") ?? TeamDefaults.favoriteRepo
+                        let branches = MenuBarBadgeService.shared.currentBranches
+                        let favoritePath = branches.first(where: { $0.repoName == favoriteRepo })?.repoPath
+                        Task {
+                            let fullName: String?
+                            if let favoritePath {
+                                fullName = await deps.gitService.repoFullName(repoPath: favoritePath)
+                            } else {
+                                fullName = signalR.activePRs.first?.repo
+                            }
+                            let url = fullName.flatMap(GitService.pullRequestsURL(for:))
+                                ?? URL(string: "https://github.com/pulls")!
+                            NSWorkspace.shared.open(url)
                         }
                     }
 
