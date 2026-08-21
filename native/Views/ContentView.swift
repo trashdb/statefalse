@@ -1,4 +1,5 @@
 import Combine
+import Foundation
 import SwiftUI
 
 struct ContentView: View {
@@ -170,7 +171,12 @@ struct ContentView: View {
 
                     toolbarButton(icon: "tray.full", help: "See All PRs") {
                         let repo = UserDefaults.standard.string(forKey: "favoriteRepo") ?? TeamDefaults.favoriteRepo
-                        if let u = URL(string: "https://github.com/easyjet-dev/\(repo)/pulls") {
+                        var components = URLComponents(string: "https://github.com/search")
+                        components?.queryItems = [
+                            URLQueryItem(name: "q", value: "\(repo) is:pr"),
+                            URLQueryItem(name: "type", value: "pullrequests")
+                        ]
+                        if let u = components?.url {
                             NSWorkspace.shared.open(u)
                         }
                     }

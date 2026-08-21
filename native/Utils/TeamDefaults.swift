@@ -2,8 +2,8 @@ import Foundation
 
 enum TeamDefaults {
     static let workspacePath = "\(NSHomeDirectory())/Desktop/dev"
-    static let jiraBoardUrl = "https://easyjet.atlassian.net/browse/"
-    static let jiraBoardViewUrl = "https://easyjet.atlassian.net/jira/software/c/projects/LOY/boards/4392"
-    static let favoriteRepo = "dcp-loyalty-monorepo"
+    static let jiraBoardUrl = "https://your-domain.atlassian.net/browse/"
+    static let jiraBoardViewUrl = "https://your-domain.atlassian.net/jira/software/projects/PROJECT/boards/BOARD"
+    static let favoriteRepo = "example-repo"
     static let backendUrl = "https://api.statefalse.com"
 }

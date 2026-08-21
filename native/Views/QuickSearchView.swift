@@ -51,7 +51,7 @@ struct QuickSearchView: View {
            let range = Range(match.range(at: 1), in: url) {
             return String(url[range])
         }
-        return "LOY"
+        return "ABC"
     }
 
     private var smartResults: [QuickSearchAction] {

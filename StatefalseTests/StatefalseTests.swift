@@ -713,6 +713,6 @@ func punishmentEvent() {
 @MainActor
 @Test("TeamDefaults have expected values")
 func teamDefaults() {
-    #expect(TeamDefaults.jiraBoardUrl == "https://easyjet.atlassian.net/browse/")
-    #expect(TeamDefaults.favoriteRepo == "dcp-loyalty-monorepo")
+    #expect(TeamDefaults.jiraBoardUrl == "https://your-domain.atlassian.net/browse/")
+    #expect(TeamDefaults.favoriteRepo == "example-repo")
 }

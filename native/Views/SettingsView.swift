@@ -160,8 +160,8 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var jiraSection: some View {
-        Text("Used to build links to tickets extracted from branch names (e.g. LOY-1234 → https://.../browse/LOY-1234). Paste the full URL including /browse/.")
-        Text("Used to build links to tickets extracted from branch names (e.g. LOY-1234 → https://.../browse/LOY-1234). Paste the full URL including /browse/.")
+        Text("Used to build links to tickets extracted from branch names (e.g. ABC-1234 → https://.../browse/ABC-1234). Paste the full URL including /browse/.")
+        Text("Used to build links to tickets extracted from branch names (e.g. ABC-1234 → https://.../browse/ABC-1234). Paste the full URL including /browse/.")
             .font(DS.Font.small)
             .foregroundStyle(DS.Color.textSecondary)
 
@@ -172,7 +172,7 @@ struct SettingsView: View {
                     "https://your-domain.atlassian.net/browse/",
                     text: $jiraDraft,
                     required: false,
-                    help: "Base URL for opening individual Jira tickets from branch names (e.g. LOY-123 → https://domain.atlassian.net/browse/LOY-123).",
+                    help: "Base URL for opening individual Jira tickets from branch names (e.g. ABC-123 → https://domain.atlassian.net/browse/ABC-123).",
                     error: $jiraError
                 )
                 .onAppear { jiraDraft = jiraBoardUrl }
