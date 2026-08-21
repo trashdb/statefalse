@@ -716,3 +716,14 @@ func teamDefaults() {
     #expect(TeamDefaults.jiraBoardUrl == "https://your-domain.atlassian.net/browse/")
     #expect(TeamDefaults.favoriteRepo == "example-repo")
 }
+
+@Test("GitHub pull requests URL uses owner and repository")
+func githubPullRequestsURL() {
+    #expect(GitService.pullRequestsURL(for: "easyjet-dev/dcp-loyalty-monorepo")?.absoluteString ==
+            "https://github.com/easyjet-dev/dcp-loyalty-monorepo/pulls")
+}
+
+@Test("GitHub pull requests URL rejects repository name without owner")
+func githubPullRequestsURLRejectsIncompleteName() {
+    #expect(GitService.pullRequestsURL(for: "dcp-loyalty-monorepo") == nil)
+}
