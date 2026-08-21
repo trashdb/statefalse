@@ -2,26 +2,27 @@
 
 Statefalse is a native macOS menu-bar app for keeping pull requests, GitHub Actions and local branches close to your work.
 
-Statefalse is a free and open-source project licensed under GPLv3. It is
-created independently in personal time and is not an official product of
-Thoughtworks, easyJet, GitHub or any other organization. Individuals, teams
-and organizations may use it subject to the terms of the license.
+Statefalse is an independent, free and open-source project licensed under
+GPLv3. Individuals, teams and organizations may use it subject to the terms of
+the license. It is not affiliated with any employer, client, vendor or other
+organization.
 
 See the project [`LICENSE`](https://github.com/trashdb/statefalse/blob/main/LICENSE),
 [`PRIVACY.md`](https://github.com/trashdb/statefalse/blob/main/PRIVACY.md) and
 [`CONTRIBUTING.md`](https://github.com/trashdb/statefalse/blob/main/CONTRIBUTING.md)
-for more information.
+for more information. Administrators should also read the
+[`ADMIN-GUIDE.md`](ADMIN-GUIDE.md) and [`WEBHOOKS.md`](WEBHOOKS.md).
 
 ## Availability
 
 - **macOS:** available now.
-- **Windows:** coming soon.
+- **Windows:** no release is currently available.
 
 Statefalse currently requires **macOS Sequoia or newer**.
 
 ## Install Statefalse
 
-1. Download the latest release from [GitHub Releases](https://github.com/trashdb/statefalse/releases/latest).
+1. Download the latest [macOS release](https://github.com/trashdb/statefalse/releases/latest).
 2. Download the ZIP and its `SHA256SUMS` file.
 3. Verify the checksum before opening the app.
 4. Extract `Statefalse.app` into `~/Applications` or `/Applications`.
@@ -45,7 +46,7 @@ Complete these steps in order after installing Statefalse:
 2. **Configure a PAT when needed.** Open **Settings → Personal Access Token**, paste a token with the minimum permissions required by your repositories, and save it. A PAT is needed for actions such as creating or merging pull requests, rerunning workflows, updating branches and changing draft/ready status.
 3. **Choose the workspace.** In **Settings → Workspace Path**, select the directory containing the local Git repositories that Statefalse should scan.
 4. **Configure Jira if you use it.** In **Settings → Jira Board URL**, enter the base URL used to build links from ticket references in branch names, for example `https://your-domain.atlassian.net/browse/`.
-5. **Configure a webhook in every repository you want to monitor.** A repository administrator must add the GitHub webhook described in [Webhook setup](#webhook-setup). Without this webhook, Statefalse will not receive that repository's workflow, pull request or check-suite events, so real-time updates and related notifications will not arrive.
+5. **Configure a webhook in every repository you want to monitor.** A repository administrator must add the GitHub webhook described in [Webhook setup](#webhook-setup). Without this webhook, Statefalse will not receive that repository's push events, so real-time updates and related notifications will not arrive.
 6. **Keep Statefalse running.** The app stays in the macOS menu bar. Webhook events are delivered through the hosted API and then to the app's live connection; polling provides a slower fallback when a live connection or event is unavailable.
 
 After setup, run or update a workflow, or open a pull request, to confirm that the repository appears in the app and that its status changes are reflected in **Workflow History**, the pull-request cards and macOS notifications.
@@ -137,7 +138,7 @@ The app can watch local repositories for changes that may overlap with files rec
 
 This setup is required for each repository whose GitHub events should reach Statefalse. You need repository administrator permission to add it.
 
-For the public hosted service:
+For the public hosted service, use the detailed [webhook guide](WEBHOOKS.md). The short version is:
 
 1. Open the repository on GitHub and go to **Settings → Webhooks → Add webhook**.
 2. Set **Payload URL** to `https://api.statefalse.com/api/webhook/github`.
@@ -158,7 +159,7 @@ Self-hosted instances must use their own API URL and webhook configuration. Do n
 - Local branch inspection is performed on your Mac.
 - Statefalse does not claim to replace GitHub as the source of truth.
 
-For the project security policy and responsible disclosure information, see [`SECURITY.md`](https://github.com/trashdb/statefalse/blob/main/SECURITY.md). Statefalse is an independent project and does not replace your organization's security or compliance review.
+For the project security policy and responsible disclosure information, see [`SECURITY.md`](https://github.com/trashdb/statefalse/blob/main/SECURITY.md). Statefalse is an independent project and does not replace your security or compliance review.
 
 ## Troubleshooting
 

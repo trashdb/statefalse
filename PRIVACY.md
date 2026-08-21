@@ -9,8 +9,9 @@ It is informational and is not legal advice.
 ## Who operates the service
 
 The public demonstration service is operated by the Statefalse project and is
-hosted on infrastructure selected by the project owner. Statefalse is not an
-official service of Thoughtworks, easyJet, GitHub or any other organization.
+hosted on infrastructure selected by the project owner. Statefalse is an
+independent project and is not affiliated with any employer, client, vendor or
+other organization.
 
 ## Data processed
 
@@ -81,5 +82,4 @@ secrets, restrict access and document their own privacy practices.
 
 This document may be updated when the service or its data handling changes.
 The date above identifies the latest revision.
-
 

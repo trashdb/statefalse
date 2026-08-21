@@ -719,11 +719,11 @@ func teamDefaults() {
 
 @Test("GitHub pull requests URL uses owner and repository")
 func githubPullRequestsURL() {
-    #expect(GitService.pullRequestsURL(for: "easyjet-dev/dcp-loyalty-monorepo")?.absoluteString ==
-            "https://github.com/easyjet-dev/dcp-loyalty-monorepo/pulls")
+    #expect(GitService.pullRequestsURL(for: "example-org/example-repo")?.absoluteString ==
+            "https://github.com/example-org/example-repo/pulls")
 }
 
 @Test("GitHub pull requests URL rejects repository name without owner")
 func githubPullRequestsURLRejectsIncompleteName() {
-    #expect(GitService.pullRequestsURL(for: "dcp-loyalty-monorepo") == nil)
+    #expect(GitService.pullRequestsURL(for: "example-repo") == nil)
 }
