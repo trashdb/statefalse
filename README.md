@@ -4,6 +4,23 @@ macOS menu bar app that tracks GitHub Actions workflows, notifies you on failure
 
 For the user-facing installation and feature guide, see [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md).
 
+## Project status and ownership
+
+Statefalse is an independent, free and open-source project created in
+personal time. It was not commissioned by a client and is not an official
+product of Thoughtworks, easyJet, GitHub or any other organization.
+
+Statefalse is available for individuals, teams and organizations to use,
+including internal and commercial use, under the terms of the GPLv3 license.
+It is not restricted to a particular employer or organization.
+
+The public hosted instance is operated as a project demonstration. Teams
+should review their own security, privacy and compliance requirements before
+connecting company or client repositories.
+
+See [`LICENSE`](LICENSE), [`PRIVACY.md`](PRIVACY.md),
+[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md).
+
 ## Requirements
 
 - macOS Sequoia or newer
@@ -16,10 +33,10 @@ For the user-facing installation and feature guide, see [`docs/USER-GUIDE.md`](d
 
 Download a macOS release from [GitHub Releases](https://github.com/trashdb/statefalse/releases/latest). Current packages are unsigned and not notarized; verify `SHA256SUMS` before opening them.
 
-Set `VERSION` to the release tag you want to install. The following example installs `v0.2.4`; change it for a newer release:
+Set `VERSION` to the release tag you want to install:
 
 ```bash
-VERSION=v0.2.5
+VERSION=vX.Y.Z
 RELEASE_DIR="$HOME/Downloads/statefalse-$VERSION"
 mkdir -p "$RELEASE_DIR"
 cd "$RELEASE_DIR"
@@ -31,7 +48,7 @@ shasum -a 256 -c SHA256SUMS
 Expected result:
 
 ```text
-Statefalse-v0.2.5.zip: OK
+Statefalse-vX.Y.Z.zip: OK
 ```
 
 To replace the previous installation, close the app, remove the old bundle and extract the verified release:
@@ -62,7 +79,7 @@ For future releases, the complete process can be run with the installer script. 
 ```bash
 curl -fL https://raw.githubusercontent.com/trashdb/statefalse/main/native/install-release.sh \
   -o /tmp/statefalse-install-release.sh
-bash /tmp/statefalse-install-release.sh v0.2.5
+bash /tmp/statefalse-install-release.sh vX.Y.Z
 ```
 
 The script preserves downloaded ZIPs and checksums under `~/Downloads`. It does not remove a system-owned `/Applications/Statefalse.app`; if one remains, it prints a warning so it can be removed separately with administrator privileges.
@@ -105,8 +122,8 @@ Click the 🔥 icon → **Sign in with GitHub**. Your browser opens to authorize
 Some features (create PR, rerun workflows, update branch, draft/ready toggle) require a PAT:
 
 1. Go to [github.com/settings/tokens](https://github.com/settings/tokens) → **Generate new token (classic)**
-2. Scopes: **`repo`** (full control of private repos)
-3. If your org enforces SAML SSO (e.g. `easyjet-dev`), click **Configure SSO** and authorize the token
+2. Choose the minimum scopes required by the repositories and actions you use.
+3. If your organization enforces SAML SSO, authorize the token according to its policy.
 4. Copy the token (starts with `github_pat_...`)
 5. Open the app → ⚙️ **Settings** → **Personal Access Token** → paste and **Save**
 
@@ -114,17 +131,17 @@ Some features (create PR, rerun workflows, update branch, draft/ready toggle) re
 
 The app scans a directory recursively to discover git repos for branch management.
 
-Default: `~/Desktop/dev`. Change it in **Settings** → **Workspace Path** if your repos live elsewhere (e.g. `~/Desktop/ej`).
+Default: `~/Desktop/dev`. Change it in **Settings** → **Workspace Path** if your repositories live elsewhere.
 
 ### 4. Configure Jira (optional)
 
 **Settings** → **Jira Board URL** — used when clicking a Jira ticket link in the branch detail popover.
 
-Default: `https://easyjet.atlassian.net/browse/`
+Example: `https://your-domain.atlassian.net/browse/`
 
 ### 5. Select your favorite repo
 
-**Settings** → **Favorite Repo** — pick the repo you work on most often. The **See All PRs** button opens `https://github.com/easyjet-dev/{repo}/pulls`.
+**Settings** → **Favorite Repo** — pick the repository you work on most often. The **See All PRs** button opens the configured GitHub organization and repository.
 
 ## Interface
 
@@ -185,7 +202,7 @@ Notifications arrive via SignalR (instant) with a 60‑second polling fallback. 
 
 ### Create PR flow
 
-1. Ticket number auto‑extracted from branch name → prepended as `[LOY-XXX]`
+1. Ticket number auto‑extracted from branch name → optionally prepended to the PR title
 2. PR template loaded from `.github/pull_request_template.md`
 3. Backend calls Copilot API to generate a summary from commit messages
 4. Edit title and body before confirming
@@ -193,15 +210,17 @@ Notifications arrive via SignalR (instant) with a 60‑second polling fallback. 
 
 ## For repo admins: webhook setup
 
-Production API base URL: `https://api.statefalse.com`.
+The public API base URL is `https://api.statefalse.com`. Self-hosted instances
+must use their own API URL and webhook configuration.
 
 Each repo needs a webhook pointing at the backend:
 
 1. **Repo Settings → Webhooks → Add webhook**
 2. **Payload URL:** `https://api.statefalse.com/api/webhook/github`
 3. **Content type:** `application/json`
-4. **Events:** ☑ Workflow runs, ☑ Pull requests, ☑ Check suites
-5. **Active:** ✅
+4. **Events:** ☑ Workflow runs, ☑ Pull requests, ☑ Pull request reviews, ☑ Issue comments, ☑ Pull request review comments, ☑ Check suites
+5. **Secret:** enter the secret configured for the Statefalse API. For a self-hosted instance, use its `WebhookSecret`; for the public service, request the matching value from the service operator.
+6. **Active:** ✅
 
 ## Settings
 
