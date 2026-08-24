@@ -73,6 +73,7 @@ class MockSignalRService: SignalRServiceProtocol {
     var runStatus: RunStatus = .idle
     var lastEvent: PunishmentEvent? = nil
     var notifications: [ApiNotification] = []
+    var unreadNotificationCount: Int { notifications.filter { !$0.isRead }.count }
     var runningWorkflows: [WorkflowRun] = []
     var recentWorkflows: [WorkflowRun] = []
     var activePRs: [PullRequest] = []

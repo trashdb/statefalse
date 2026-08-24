@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct NotificationHistoryView: View {
@@ -14,19 +15,10 @@ struct NotificationHistoryView: View {
                     .foregroundStyle(DS.Color.textSecondary)
             }
 
-            let unreadCount = signalR.notifications.filter { !$0.isRead }.count
-            if unreadCount > 0 {
-                HStack {
-                    Text("\(unreadCount) unread")
-                        .font(DS.Font.caption)
-                        .foregroundStyle(DS.Color.textSecondary)
-                    Spacer()
-                    Button("Mark all as read") {
-                        Task { _ = await signalR.markAllNotificationsRead() }
-                    }
+            if signalR.unreadNotificationCount > 0 {
+                Text("\(signalR.unreadNotificationCount) unread")
                     .font(DS.Font.caption)
-                    .buttonStyle(.link)
-                }
+                    .foregroundStyle(DS.Color.textSecondary)
             }
 
             ScrollView {
@@ -54,18 +46,19 @@ struct NotificationHistoryView: View {
                                     .foregroundStyle(DS.Color.textSecondary)
                                     .lineLimit(4)
                                 if let url = notification.prUrl {
-                                    Link("Open in GitHub", destination: url)
-                                        .font(DS.Font.caption)
-                                }
-                                if !notification.isRead {
-                                    Button("Mark as read") {
-                                        Task { _ = await signalR.markNotificationRead(id: notification.id) }
+                                    Button("Open in GitHub") {
+                                        open(notification, at: url)
                                     }
-                                    .font(DS.Font.caption)
-                                    .buttonStyle(.link)
+                                        .font(DS.Font.caption)
+                                        .buttonStyle(.link)
                                 }
                             }
                             .padding(.vertical, DS.Spacing.md)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                guard notification.prUrl == nil else { return }
+                                Task { _ = await signalR.markNotificationRead(id: notification.id) }
+                            }
                             if notification.id != signalR.notifications.last?.id {
                                 Divider()
                             }
@@ -80,6 +73,13 @@ struct NotificationHistoryView: View {
         .background(VisualEffectBackground(material: .sidebar))
         .closeOnEscape { NotificationHistoryPanelManager.shared.close() }
         .closeOnCmdW { NotificationHistoryPanelManager.shared.close() }
+    }
+
+    private func open(_ notification: ApiNotification, at url: URL) {
+        Task {
+            _ = await signalR.markNotificationRead(id: notification.id)
+            NSWorkspace.shared.open(url)
+        }
     }
 }
 

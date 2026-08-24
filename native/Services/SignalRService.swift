@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import AppKit
 
 enum RunStatus: Equatable {
     case idle, running, success, failure
@@ -24,6 +25,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     @Published var runStatus: RunStatus = .idle
     @Published var lastEvent: PunishmentEvent?
     @Published var notifications: [ApiNotification] = []
+    var unreadNotificationCount: Int { notifications.filter { !$0.isRead }.count }
     @Published var runningWorkflows: [WorkflowRun] = []
     @Published var recentWorkflows: [WorkflowRun] = []
     @Published var activePRs: [PullRequest] = []
@@ -367,7 +369,14 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         case .notificationCreated(let notification):
             Task { @MainActor in
                 mergeNotifications([notification])
-                showNotification(title: notification.title, body: notification.body, actionURL: notification.prUrl, style: .info)
+                showNotification(title: notification.title, body: notification.body, actionURL: notification.prUrl, style: .info) {
+                    Task {
+                        _ = await self.markNotificationRead(id: notification.id)
+                        if let url = notification.prUrl {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                }
             }
         case .notificationHistory(let history):
             Task { @MainActor in

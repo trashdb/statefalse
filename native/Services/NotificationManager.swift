@@ -27,11 +27,11 @@ private func playInfoSound() {
     }
 }
 
-func showNotification(title: String, body: String, subtitle: String? = nil, actionURL: URL? = nil, style: NotificationStyle = .punishment) {
+func showNotification(title: String, body: String, subtitle: String? = nil, actionURL: URL? = nil, style: NotificationStyle = .punishment, onOpen: (() -> Void)? = nil) {
     if style == .punishment {
         playPunishmentSound()
     } else {
         playInfoSound()
     }
-    NotificationBanner.shared.show(title: title, body: body, subtitle: subtitle, actionURL: actionURL, style: style)
+    NotificationBanner.shared.show(title: title, body: body, subtitle: subtitle, actionURL: actionURL, style: style, onOpen: onOpen)
 }
