@@ -24,6 +24,7 @@ class MenuBarBadgeService: ObservableObject {
     @Published var reviewCount = 0
     @Published var readyCount = 0
     @Published var mergedCount = 0
+    @Published var unreadNotificationCount = 0
     @Published var currentBranches: [CachedBranch] = []
     @Published var connectionState: MenuBarConnectionState = .disconnected
 

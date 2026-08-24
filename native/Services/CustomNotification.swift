@@ -80,7 +80,7 @@ struct NotificationBannerView: View {
         )
         .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
         .contentShape(Rectangle())
-        .onTapGesture { if hasURL { onOpen() } }
+        .onTapGesture { onOpen() }
         .cursor(.pointingHand)
     }
 }
@@ -92,11 +92,11 @@ final class NotificationBanner: NSObject {
     private var panel: NSPanel?
     private var timer: Timer?
 
-    func show(title: String, body: String, subtitle: String?, actionURL: URL?, style: NotificationStyle = .punishment) {
-        present(title: title, body: body, subtitle: subtitle, actionURL: actionURL, style: style)
+    func show(title: String, body: String, subtitle: String?, actionURL: URL?, style: NotificationStyle = .punishment, onOpen: (() -> Void)? = nil) {
+        present(title: title, body: body, subtitle: subtitle, actionURL: actionURL, style: style, onOpen: onOpen)
     }
 
-    private func present(title: String, body: String, subtitle: String?, actionURL: URL?, style: NotificationStyle = .punishment) {
+    private func present(title: String, body: String, subtitle: String?, actionURL: URL?, style: NotificationStyle = .punishment, onOpen: (() -> Void)? = nil) {
         dismiss()
 
         guard let screen = NSScreen.main else { return }
@@ -131,7 +131,11 @@ final class NotificationBanner: NSObject {
             style: style,
             onDismiss: { [weak self] in self?.dismiss() },
             onOpen: { [weak self] in
-                if let url = actionURL { NSWorkspace.shared.open(url) }
+                if let onOpen {
+                    onOpen()
+                } else if let url = actionURL {
+                    NSWorkspace.shared.open(url)
+                }
                 self?.dismiss()
             }
         )

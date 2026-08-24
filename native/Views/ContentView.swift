@@ -75,8 +75,15 @@ struct ContentView: View {
                                         .font(DS.Font.small.semibold())
                                         .foregroundStyle(DS.Color.destructive)
                                     Spacer()
-                                    Button("Show history") {
+                                    Button {
                                         NotificationHistoryPanelManager.shared.show(signalR: signalR)
+                                    } label: {
+                                        HStack(spacing: DS.Spacing.xs) {
+                                            Text("Show history")
+                                            if signalR.unreadNotificationCount > 0 {
+                                                UnreadNotificationBadge(count: signalR.unreadNotificationCount)
+                                            }
+                                        }
                                     }
                                     .buttonStyle(.borderless)
                                     .font(DS.Font.caption)
@@ -94,7 +101,9 @@ struct ContentView: View {
                                         .lineLimit(1)
                                 }
                                 if let url = notification.prUrl {
-                                    Link(destination: url) {
+                                    Button {
+                                        open(notification, at: url)
+                                    } label: {
                                         HStack(spacing: DS.Spacing.xs) {
                                             Image(systemName: "arrow.up.right")
                                                 .font(DS.Font.caption)
@@ -104,6 +113,7 @@ struct ContentView: View {
                                     }
                                         .foregroundStyle(DS.Color.accent)
                                         .cursor(.pointingHand)
+                                        .buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal, DS.Spacing.xl + 1)
@@ -242,6 +252,7 @@ struct ContentView: View {
         .onChange(of: signalR.activePRs) { _, newValue in updateMenuBarBadge(newValue) }
         .onChange(of: signalR.runningWorkflows.count) { updateMenuBarBadge(signalR.activePRs) }
         .onChange(of: signalR.isConnected) { updateMenuBarBadge(signalR.activePRs) }
+        .onChange(of: signalR.unreadNotificationCount) { updateMenuBarBadge(signalR.activePRs) }
         .overlay(QuickSearchView(
             isPresented: $showQuickSearch,
             actions: signalR.isLoggedIn ? quickSearchActions : [],
@@ -381,6 +392,7 @@ struct ContentView: View {
         badge.readyCount = prs.filter { $0.ciStatus == "ready" || $0.ciStatus == "" }.count
         badge.mergedCount = prs.filter { $0.isMerged }.count
         badge.runningWorkflowCount = signalR.runningWorkflows.count
+        badge.unreadNotificationCount = signalR.unreadNotificationCount
 
         if !signalR.isConnected {
             badge.connectionState = .disconnected
@@ -415,9 +427,31 @@ struct ContentView: View {
         }
     }
 
+    private func open(_ notification: ApiNotification, at url: URL) {
+        Task {
+            _ = await signalR.markNotificationRead(id: notification.id)
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     private func logout() {
         signalR.logout()
         loginError = nil
+    }
+}
+
+private struct UnreadNotificationBadge: View {
+    let count: Int
+
+    var body: some View {
+        Text(count > 99 ? "99+" : "\(count)")
+            .font(DS.Font.caption.weight(.bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(DS.Color.warning, in: Capsule())
+            .overlay(Capsule().stroke(.white.opacity(0.35), lineWidth: 0.5))
+            .accessibilityLabel("\(count) unread notification\(count == 1 ? "" : "s")")
     }
 }
 

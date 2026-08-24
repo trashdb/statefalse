@@ -60,6 +60,7 @@ protocol SignalRServiceProtocol: AnyObject {
     var runStatus: RunStatus { get set }
     var lastEvent: PunishmentEvent? { get set }
     var notifications: [ApiNotification] { get set }
+    var unreadNotificationCount: Int { get }
     var runningWorkflows: [WorkflowRun] { get set }
     var recentWorkflows: [WorkflowRun] { get set }
     var activePRs: [PullRequest] { get set }

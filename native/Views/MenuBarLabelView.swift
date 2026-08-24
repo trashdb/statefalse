@@ -37,14 +37,28 @@ struct MenuBarLabelView: View {
     @ObservedObject private var badge = MenuBarBadgeService.shared
 
     var body: some View {
-        Image(nsImage: MenuBarIcon.image)
-            .renderingMode(.template)
-            .frame(width: 18, height: 18)
+        ZStack(alignment: .topTrailing) {
+            Image(nsImage: MenuBarIcon.image)
+                .renderingMode(.template)
+                .frame(width: 18, height: 18)
+            if badge.unreadNotificationCount > 0 {
+                Circle()
+                    .fill(Color.orange)
+                    .overlay(Circle().stroke(Color(nsColor: .controlBackgroundColor), lineWidth: 1))
+                    .frame(width: 7, height: 7)
+                    .offset(x: 1, y: -1)
+                    .accessibilityHidden(true)
+            }
+        }
             .help(tooltip)
             .accessibilityLabel(tooltip)
     }
 
     private var tooltip: String {
+        if badge.unreadNotificationCount > 0 {
+            let count = badge.unreadNotificationCount
+            return "statefalse — \(count) unread notification\(count == 1 ? "" : "s")"
+        }
         switch badge.connectionState {
         case .disconnected: return "statefalse — Disconnected"
         case .connected:    return "statefalse — \(badge.activePRCount) active PRs"
