@@ -14,6 +14,21 @@ struct NotificationHistoryView: View {
                     .foregroundStyle(DS.Color.textSecondary)
             }
 
+            let unreadCount = signalR.notifications.filter { !$0.isRead }.count
+            if unreadCount > 0 {
+                HStack {
+                    Text("\(unreadCount) unread")
+                        .font(DS.Font.caption)
+                        .foregroundStyle(DS.Color.textSecondary)
+                    Spacer()
+                    Button("Mark all as read") {
+                        Task { _ = await signalR.markAllNotificationsRead() }
+                    }
+                    .font(DS.Font.caption)
+                    .buttonStyle(.link)
+                }
+            }
+
             ScrollView {
                 if signalR.notifications.isEmpty {
                     EmptyNotificationView()
@@ -22,6 +37,9 @@ struct NotificationHistoryView: View {
                         ForEach(signalR.notifications) { notification in
                             VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                                 HStack(alignment: .firstTextBaseline) {
+                                    Circle()
+                                        .fill(notification.isRead ? DS.Color.textSecondary.opacity(0.35) : DS.Color.accent)
+                                        .frame(width: 6, height: 6)
                                     Text(notification.title)
                                         .font(DS.Font.small.medium())
                                         .lineLimit(2)
@@ -38,6 +56,13 @@ struct NotificationHistoryView: View {
                                 if let url = notification.prUrl {
                                     Link("Open in GitHub", destination: url)
                                         .font(DS.Font.caption)
+                                }
+                                if !notification.isRead {
+                                    Button("Mark as read") {
+                                        Task { _ = await signalR.markNotificationRead(id: notification.id) }
+                                    }
+                                    .font(DS.Font.caption)
+                                    .buttonStyle(.link)
                                 }
                             }
                             .padding(.vertical, DS.Spacing.md)

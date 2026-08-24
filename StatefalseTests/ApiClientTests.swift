@@ -299,6 +299,37 @@ final class ApiClientTests: XCTestCase {
         XCTAssertNotNil(logs?.first?.occurredAt)
     }
 
+    // MARK: - notification mutations
+
+    func testMarkNotificationReadUsesExpectedEndpoint() async {
+        MockURLProtocol.handler = { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/notifications/42/read")
+            return self.jsonResponse(200, #"{"read":true}"#)
+        }
+
+        let marked = await makeClient().markNotificationRead(id: 42)
+        XCTAssertTrue(marked)
+    }
+
+    func testMarkAllNotificationsReadUsesDedicatedEndpoint() async {
+        MockURLProtocol.handler = { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/notifications/read-all")
+            return self.jsonResponse(200, #"{"marked":3}"#)
+        }
+
+        let marked = await makeClient().markAllNotificationsRead()
+        XCTAssertTrue(marked)
+    }
+
+    func testNotificationMutationReturnsFalseOnFailure() async {
+        MockURLProtocol.handler = { _ in self.jsonResponse(404, #"{"error":"Notification not found"}"#) }
+
+        let marked = await makeClient().markNotificationRead(id: 404)
+        XCTAssertFalse(marked)
+    }
+
     // MARK: - auth helpers
 
     func testSavePATUsesCustomBackendUrl() async {
