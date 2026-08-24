@@ -89,6 +89,19 @@ class MockSignalRService: SignalRServiceProtocol {
     func stopPolling() {}
     func subscribeToPR(prNumber: Int64, repo: String) async -> Bool { false }
     func unsubscribeFromPR(prNumber: Int64, repo: String) async -> Bool { false }
+    func markNotificationRead(id: Int) async -> Bool {
+        guard let index = notifications.firstIndex(where: { $0.id == id }) else { return false }
+        notifications[index].isRead = true
+        return true
+    }
+    func markAllNotificationsRead() async -> Bool {
+        notifications = notifications.map { notification in
+            var updated = notification
+            updated.isRead = true
+            return updated
+        }
+        return true
+    }
 }
 
 // MARK: - ApiClient Mock
@@ -133,6 +146,8 @@ class MockApiClient: ApiClientProtocol {
     }
     func fetchPAT() async -> String? { nil }
     func fetchNotifications() async -> [ApiNotification]? { [] }
+    func markNotificationRead(id: Int) async -> Bool { true }
+    func markAllNotificationsRead() async -> Bool { true }
 }
 
 // MARK: - Keychain Mock

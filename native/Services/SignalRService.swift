@@ -122,6 +122,27 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         mergeNotifications(fetched)
     }
 
+    func markNotificationRead(id: Int) async -> Bool {
+        guard await api.markNotificationRead(id: id) else { return false }
+        await MainActor.run {
+            guard let index = notifications.firstIndex(where: { $0.id == id }) else { return }
+            notifications[index].isRead = true
+        }
+        return true
+    }
+
+    func markAllNotificationsRead() async -> Bool {
+        guard await api.markAllNotificationsRead() else { return false }
+        await MainActor.run {
+            notifications = notifications.map { notification in
+                var updated = notification
+                updated.isRead = true
+                return updated
+            }
+        }
+        return true
+    }
+
     @MainActor
     private func mergeNotifications(_ incoming: [ApiNotification]) {
         var byId = Dictionary(uniqueKeysWithValues: notifications.map { ($0.id, $0) })

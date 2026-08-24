@@ -76,6 +76,8 @@ protocol SignalRServiceProtocol: AnyObject {
     func stopPolling()
     func subscribeToPR(prNumber: Int64, repo: String) async -> Bool
     func unsubscribeFromPR(prNumber: Int64, repo: String) async -> Bool
+    func markNotificationRead(id: Int) async -> Bool
+    func markAllNotificationsRead() async -> Bool
 }
 
 // MARK: - KeychainServiceProtocol

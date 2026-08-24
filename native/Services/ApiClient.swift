@@ -57,7 +57,7 @@ struct ApiNotification: Identifiable, Equatable {
     let prNumber: Int64?
     let prUrl: URL?
     let createdAt: Date
-    let isRead: Bool
+    var isRead: Bool
 }
 nonisolated extension ApiNotification: Decodable {}
 
@@ -210,6 +210,8 @@ protocol ApiClientProtocol: AnyObject, Sendable {
     func createPR(repo: String, head: String, baseBranch: String, title: String, body: String?, subscribers: String?) async -> ApiFetch<ApiCreatePRResult>
     func fetchPAT() async -> String?
     func fetchNotifications() async -> [ApiNotification]?
+    func markNotificationRead(id: Int) async -> Bool
+    func markAllNotificationsRead() async -> Bool
 }
 
 // MARK: - Live Implementation
@@ -509,6 +511,14 @@ final class LiveApiClient: ApiClientProtocol {
 
     func fetchNotifications() async -> [ApiNotification]? {
         await fetchGET("\(apiPrefix)/notifications", query: ["limit": "50"])
+    }
+
+    func markNotificationRead(id: Int) async -> Bool {
+        await post("\(apiPrefix)/notifications/\(id)/read")
+    }
+
+    func markAllNotificationsRead() async -> Bool {
+        await post("\(apiPrefix)/notifications/read-all")
     }
 
     // MARK: - Auth helpers
