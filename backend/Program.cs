@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
+using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
 using Serilog;
@@ -147,23 +149,39 @@ try
     // OpenAPI / Swagger
     builder.Services.AddOpenApi();
 
+    // Trust forwarded scheme information only from the local reverse proxy.
+    // This lets production issue security headers correctly behind nginx.
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownProxies.Add(IPAddress.Loopback);
+    });
+
     // Rate limiting
+    var rateLimitOptions = builder.Configuration.GetSection("RateLimiting").Get<RateLimitOptions>()
+        ?? new RateLimitOptions();
+    rateLimitOptions.Validate();
+
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
-        options.AddFixedWindowLimiter("api", limiterOptions =>
+        options.OnRejected = (context, _) =>
         {
-            limiterOptions.PermitLimit = 100;
-            limiterOptions.Window = TimeSpan.FromMinutes(1);
-            limiterOptions.QueueLimit = 10;
-        });
+            context.HttpContext.Response.Headers.RetryAfter = rateLimitOptions.RetryAfterSeconds.ToString();
+            return ValueTask.CompletedTask;
+        };
 
-        options.AddFixedWindowLimiter("webhook", limiterOptions =>
-        {
-            limiterOptions.PermitLimit = 50;
-            limiterOptions.Window = TimeSpan.FromMinutes(1);
-        });
+        options.AddPolicy("api", context => RateLimitPartition.GetFixedWindowLimiter(
+            GetClientKey(context), _ => ToLimiterOptions(rateLimitOptions.Api)));
+
+        options.AddPolicy("oauth", context => RateLimitPartition.GetFixedWindowLimiter(
+            GetClientKey(context), _ => ToLimiterOptions(rateLimitOptions.Oauth)));
+
+        options.AddPolicy("action", context => RateLimitPartition.GetFixedWindowLimiter(
+            GetClientKey(context), _ => ToLimiterOptions(rateLimitOptions.Action)));
+
+        options.AddPolicy("webhook", context => RateLimitPartition.GetFixedWindowLimiter(
+            GetClientKey(context), _ => ToLimiterOptions(rateLimitOptions.Webhook)));
     });
 
     // CORS: closed by default. The native macOS app and GitHub webhook POSTs
@@ -184,6 +202,30 @@ try
     }
 
     var app = builder.Build();
+
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseForwardedHeaders();
+        app.UseHsts();
+    }
+
+    // Keep these headers on API, health and SignalR responses without
+    // constraining the Scalar/OpenAPI HTML application.
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api")
+            || context.Request.Path.StartsWithSegments("/hub")
+            || context.Request.Path.StartsWithSegments("/health"))
+        {
+            context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            context.Response.Headers["X-Frame-Options"] = "DENY";
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+            context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
+        }
+
+        await next();
+    });
 
     // Auto-migrate database
     using (var scope = app.Services.CreateScope())
@@ -232,7 +274,7 @@ try
     app.MapOpenApi();
     app.MapScalarApiReference();
 
-    app.MapHub<PunishmentHub>("/hub/punishment").RequireAuthorization();
+    app.MapHub<PunishmentHub>("/hub/punishment").RequireAuthorization().RequireRateLimiting("api");
     app.MapApiEndpoints();
 
     await app.RunAsync();
@@ -288,3 +330,14 @@ void ApplyMigrations(AppDbContext db)
 
     db.Database.Migrate();
 }
+
+static string GetClientKey(HttpContext context) =>
+    context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+static FixedWindowRateLimiterOptions ToLimiterOptions(RateLimitPolicyOptions policy) => new()
+{
+    PermitLimit = policy.PermitLimit,
+    Window = TimeSpan.FromSeconds(policy.WindowSeconds),
+    QueueLimit = policy.QueueLimit,
+    AutoReplenishment = true
+};
