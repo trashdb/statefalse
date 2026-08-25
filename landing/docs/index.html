@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0c10">
+  <meta name="description" content="Statefalse documentation: installation, GitHub setup, local Git and administration.">
+  <title>Statefalse Docs</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0a0c10; --panel: #121720; --line: #283241; --text: #e9edf3; --muted: #9da8b8; --accent: #b8f36b; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    a { color: var(--accent); }
+    .shell { width: min(1080px, calc(100% - 40px)); margin: 0 auto; }
+    header { border-bottom: 1px solid var(--line); padding: 22px 0; }
+    header .shell { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand { color: var(--text); font-weight: 700; letter-spacing: .04em; text-decoration: none; }
+    nav { display: flex; flex-wrap: wrap; gap: 18px; font-size: .92rem; }
+    nav a { color: var(--muted); text-decoration: none; }
+    nav a:hover { color: var(--text); }
+    main { padding: 78px 0 100px; }
+    .eyebrow { color: var(--accent); font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { font-size: clamp(2.8rem, 8vw, 5.8rem); letter-spacing: -.06em; line-height: .98; margin: 14px 0 24px; max-width: 720px; }
+    .lede { color: var(--muted); font-size: 1.2rem; max-width: 640px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-top: 58px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px; min-height: 170px; }
+    .card h2 { font-size: 1.1rem; margin: 0 0 10px; }
+    .card p { color: var(--muted); font-size: .94rem; margin: 0 0 16px; }
+    .card a { font-weight: 600; text-decoration: none; }
+    .note { border-left: 2px solid var(--accent); color: var(--muted); margin-top: 58px; padding: 4px 0 4px 18px; }
+    footer { border-top: 1px solid var(--line); color: var(--muted); padding: 26px 0 44px; font-size: .9rem; }
+    @media (max-width: 620px) { header .shell { align-items: flex-start; flex-direction: column; } main { padding-top: 52px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="shell">
+      <a class="brand" href="/">statefalse</a>
+      <nav aria-label="Documentation navigation">
+        <a href="/">Home</a>
+        <a href="https://github.com/trashdb/statefalse/releases/latest">Releases</a>
+        <a href="https://github.com/trashdb/statefalse">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <main class="shell">
+    <p class="eyebrow">Documentation</p>
+    <h1>Everything you need to stay in flow.</h1>
+    <p class="lede">Install Statefalse, connect GitHub, configure local repository access and understand how the backend, webhooks and notifications work together.</p>
+    <section class="grid" aria-label="Documentation sections">
+      <article class="card"><h2>Get started</h2><p>Install the macOS app and complete first-time setup.</p><a href="https://github.com/trashdb/statefalse/blob/main/docs/USER-GUIDE.md#install-statefalse">Read the user guide →</a></article>
+      <article class="card"><h2>Local Git</h2><p>Configure SSH or macOS Keychain credentials for pull, fetch and push.</p><a href="https://github.com/trashdb/statefalse/blob/main/docs/GIT-LOCAL.md">Configure local Git →</a></article>
+      <article class="card"><h2>GitHub &amp; webhooks</h2><p>Understand OAuth, permissions, webhook events and delivery troubleshooting.</p><a href="https://github.com/trashdb/statefalse/blob/main/docs/WEBHOOKS.md">Configure webhooks →</a></article>
+      <article class="card"><h2>Administration</h2><p>Configure the backend, secrets, refresh tokens and production operations.</p><a href="https://github.com/trashdb/statefalse/blob/main/docs/ADMIN-GUIDE.md">Open admin guide →</a></article>
+      <article class="card"><h2>Security &amp; privacy</h2><p>Learn how credentials are separated and how Statefalse handles your data.</p><a href="https://github.com/trashdb/statefalse/blob/main/SECURITY.md">Read security notes →</a></article>
+      <article class="card"><h2>Releases</h2><p>Download the latest app and verify its SHA-256 checksum.</p><a href="https://github.com/trashdb/statefalse/releases">Browse all releases →</a></article>
+    </section>
+    <p class="note">Statefalse is open source. If something is unclear or incorrect, <a href="https://github.com/trashdb/statefalse/issues">open an issue</a> and help improve the docs.</p>
+  </main>
+  <footer><div class="shell">Statefalse · macOS GitHub workflow companion · <a href="/">Back to statefalse.com</a></div></footer>
+</body>
+</html>
+
