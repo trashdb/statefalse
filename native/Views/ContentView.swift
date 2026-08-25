@@ -339,7 +339,7 @@ struct ContentView: View {
                 Task {
                     let git = deps.gitService
                     try? await git.checkoutBranch(repoPath: fav.repoPath, name: "main")
-                    _ = await git.pullCurrentBranch(repoPath: fav.repoPath, token: nil)
+                    _ = await git.pullCurrentBranch(repoPath: fav.repoPath)
                     await self.scanCurrentBranches()
                 }
             })

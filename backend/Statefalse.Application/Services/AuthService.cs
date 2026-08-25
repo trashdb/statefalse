@@ -7,7 +7,7 @@ namespace Statefalse.Application;
 public sealed record AuthCallbackResponse(ApiResult? Error, string? RedirectUrl, object? OkBody);
 
 /// <summary>
-/// GitHub OAuth login flow + session endpoints (me, PAT, token resolution).
+/// GitHub OAuth login flow + session endpoints (me, PAT and refresh tokens).
 /// </summary>
 public class AuthService
 {
@@ -145,16 +145,6 @@ public class AuthService
         return ApiResult.Ok(new { saved = true });
     }
 
-    public async Task<ApiResult> GetTokenAsync(long gitHubId)
-    {
-        var user = await _users.FindByIdAsync(gitHubId);
-        // Never expose the server-wide PAT to a client. Backend services may still
-        // use their configured fallback through IGitHubTokenResolver internally.
-        var token = user?.UserPatToken ?? user?.AccessToken;
-        if (string.IsNullOrEmpty(token))
-            return ApiResult.Unauthorized(new { error = "No access token found" });
-        return ApiResult.Ok(new TokenDto(token));
-    }
 
     private static bool IsAllowedLocalRedirect(string redirectUri)
     {

@@ -2,8 +2,6 @@ namespace Statefalse.Domain.Contracts;
 
 public sealed record UserProfileDto(long Id, string Username, string? AvatarUrl, bool HasPat);
 
-public sealed record TokenDto(string Token);
-
 public sealed record OAuthExchangeRequest(string? Code);
 
 public sealed record RefreshTokenRequest(string? RefreshToken);

@@ -39,13 +39,15 @@ Keep the client secret and JWT secret out of source control. Rotate them if they
 ## 🔐 Authentication lifecycle
 
 ```text
-GitHub OAuth → access JWT (default 12 h)
+GitHub OAuth → access JWT (default 1 h)
 			 └→ opaque refresh token (default 30 d)
 					└→ SHA-256 hash in SQLite only
 ```
 
 - `POST /api/v1/auth/refresh` rotates the refresh token on every successful
-  request. The presented token must never be stored in logs or database rows.
+  request using an atomic conditional update. Concurrent requests with the
+  same token produce at most one successful rotation. The presented token must
+  never be stored in logs or database rows.
 - `POST /api/v1/auth/logout` revokes the presented refresh token. It is an
   anonymous endpoint by design because the client may be unable to use an
   expired access JWT.
@@ -53,23 +55,23 @@ GitHub OAuth → access JWT (default 12 h)
   original request once. It does not perform a proactive background refresh.
 - Access JWTs are stateless. **Logout revokes the refresh token but does not
   revoke already-issued access JWTs**; with the default configuration, one may
-  remain valid for up to 12 hours. This is a known security boundary, not a
+  remain valid for up to 1 hour. This is a known security boundary, not a
   guarantee of immediate logout invalidation.
 
 ### 🚨 Credential handling boundary
 
 The backend currently persists the GitHub OAuth access token and optional user
-PAT in the `GitHubUsers` record, and `/api/v1/auth/token` returns the selected
-credential to an authenticated client. Protect the SQLite database, backups,
-logs and host access accordingly. Do not claim that database compromise or a
-valid Statefalse JWT cannot expose a reusable GitHub credential. A production
-hardening project should remove this token-return endpoint and encrypt or move
-GitHub credentials to an external secret store before treating this area as
-closed.
+PAT in the `GitHubUsers` record for backend-only GitHub API calls. The former
+`/api/v1/auth/token` endpoint has been removed. Local Git pulls and pushes use
+the repository's configured SSH agent or credential helper; Statefalse never
+returns a GitHub credential to the native client. Protect the SQLite database,
+backups, logs and host access accordingly, and plan field encryption or an
+external secret store as the remaining credential-storage hardening.
 
 SignalR authentication can place the JWT in the WebSocket `access_token` query
-parameter. Configure the reverse proxy and application logging to redact query
-strings and avoid recording full WebSocket URLs.
+parameter. nginx API access logging is disabled and the native client avoids
+printing response bodies. Application logging must still be reviewed to ensure
+full request URLs and query strings are not recorded.
 
 ## Webhooks
 
@@ -84,12 +86,13 @@ Configure repository webhooks using the [webhook guide](WEBHOOKS.md). Use one se
 - [ ] Each monitored repository has an active webhook with the supported events.
 - [ ] Logs and backups do not contain access tokens or webhook payload secrets.
 - [ ] Backups and restore procedures have been tested.
-- [ ] WebSocket URLs are redacted in reverse-proxy and application logs.
-- [ ] The operator has documented the 12-hour access-token logout limitation.
+- [x] WebSocket URLs are not persisted by nginx access logs; application-log
+      review is still required before production.
+- [x] The operator has documented the 1-hour access-token logout limitation.
 - [ ] Existing GitHub OAuth/PAT credentials have an incident-response and
 	  rotation procedure.
-- [ ] Refresh rotation has been tested with concurrent requests, not only a
-	  sequential happy path.
+- [x] Refresh rotation has been tested with concurrent requests, not only a
+      sequential happy path.
 
 For operational scripts, see `deploy/`. Review `SECURITY.md` before exposing a backend to the internet.
 

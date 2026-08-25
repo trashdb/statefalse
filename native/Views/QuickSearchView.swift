@@ -99,7 +99,7 @@ struct QuickSearchView: View {
                         Task {
                             let git = deps.gitService
                             try? await git.checkoutBranch(repoPath: b.repoPath, name: b.name)
-                            _ = await git.pullCurrentBranch(repoPath: b.repoPath, token: nil)
+                            _ = await git.pullCurrentBranch(repoPath: b.repoPath)
                         }
                     })
                 }

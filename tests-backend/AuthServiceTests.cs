@@ -236,6 +236,24 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
     }
 
     [Fact]
+    public async Task Refresh_ConcurrentRequests_OnlyOneRotationSucceeds()
+    {
+        var state = await BeginOAuthAsync();
+        var client = _factory.CreateClient();
+        var callback = await client.GetAsync($"/api/auth/callback?code=abc123&state={Uri.EscapeDataString(state)}");
+        var initial = await callback.Content.ReadFromJsonAsync<JsonElement>();
+        var refreshToken = initial.GetProperty("refreshToken").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(refreshToken));
+
+        var responses = await Task.WhenAll(
+            client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken }),
+            client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken }));
+
+        Assert.Equal(1, responses.Count(response => response.StatusCode == HttpStatusCode.OK));
+        Assert.Equal(1, responses.Count(response => response.StatusCode == HttpStatusCode.Unauthorized));
+    }
+
+    [Fact]
     public async Task Callback_StateCanOnlyBeConsumedOnce()
     {
         var state = await BeginOAuthAsync();

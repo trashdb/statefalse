@@ -8,7 +8,7 @@ struct CreatePRResult {
 }
 
 enum PullResult {
-    case success, noUpstream, noToken, conflict, failed
+    case success, noUpstream, conflict, failed
 }
 
 enum GitError: LocalizedError {
@@ -29,7 +29,7 @@ protocol GitServiceProtocol: AnyObject, Sendable {
     func checkoutBranch(repoPath: String, name: String) async throws
     func hasUpstream(repoPath: String) async -> Bool
     func hasUpstream(repoPath: String, branch: String) async -> Bool
-    func pullCurrentBranch(repoPath: String, token: String?) async -> PullResult
+    func pullCurrentBranch(repoPath: String) async -> PullResult
     func deleteLocalBranch(repoPath: String, name: String) async throws
     func deleteRemoteBranch(repoPath: String, name: String) async throws
     func currentBranchName(repoPath: String) async -> String?
@@ -37,7 +37,7 @@ protocol GitServiceProtocol: AnyObject, Sendable {
     func repoFullName(repoPath: String) async -> String?
     func baseRefName(repoPath: String) async -> String?
     func createPR(repoPath: String, branchName: String, api: ApiClientProtocol, overrideTitle: String?, overrideBody: String?, subscribers: String?) async throws -> CreatePRResult
-    func pullBranch(repoPath: String, name: String, token: String?) async throws
+    func pullBranch(repoPath: String, name: String) async throws
     func createBranch(repoPath: String, from sourceBranch: String, newName: String) async throws
     func listMyBranches(repoPath: String) async throws -> [(name: String, isCurrent: Bool)]
     func listMyRemoteBranchesViaAPI(repoPath: String, api: ApiClientProtocol) async -> [(name: String, isMerged: Bool)]

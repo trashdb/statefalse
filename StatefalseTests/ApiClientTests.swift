@@ -307,7 +307,7 @@ final class ApiClientTests: XCTestCase {
     func testRerunWorkflowReturnsErrorOnFailure() async {
         MockURLProtocol.handler = { _ in self.jsonResponse(500, #"{"error":"boom"}"#) }
         let error = await makeClient().rerunWorkflow(runId: 42)
-        XCTAssertEqual(error, "HTTP 500: {\"error\":\"boom\"}")
+        XCTAssertEqual(error, "HTTP 500: boom")
     }
 
     func testSetTargetGitHubIdsTrueOn200() async {

@@ -300,8 +300,7 @@ struct LocalBranchesView: View {
         await MainActor.run { checkingOutBranch = (repo, name) }
         do {
             try await git.checkoutBranch(repoPath: repo.path, name: name)
-            let pat = await deps.apiClient.fetchPAT()
-            if case .conflict = await git.pullCurrentBranch(repoPath: repo.path, token: pat) {
+            if case .conflict = await git.pullCurrentBranch(repoPath: repo.path) {
                 openRider(repo.path)
             }
             let branches = try await git.listMyBranches(repoPath: repo.path)
@@ -348,8 +347,7 @@ struct LocalBranchesView: View {
         let key = (repo.id, name)
         await MainActor.run { pullingBranch = key }
         do {
-            let pat = await deps.apiClient.fetchPAT()
-            try await git.pullBranch(repoPath: repo.path, name: name, token: pat)
+            try await git.pullBranch(repoPath: repo.path, name: name)
             let branches = try await git.listMyBranches(repoPath: repo.path)
             await MainActor.run {
                 if let ri = repos.firstIndex(where: { $0.id == repo.id }) {

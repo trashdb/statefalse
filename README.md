@@ -51,6 +51,7 @@ Statefalse is an independent, open-source macOS menu-bar app for GitHub pull req
 - [Install and configure Statefalse](docs/USER-GUIDE.md) — complete user guide.
 - [Install from a release](docs/USER-GUIDE.md#install-statefalse) — checksum verification and macOS first launch.
 - [Configure OAuth, PAT and Jira](docs/USER-GUIDE.md#first-time-setup-from-download-to-notifications).
+- [Configure local Git authentication](docs/GIT-LOCAL.md) — SSH or HTTPS with the macOS Keychain.
 - [Configure GitHub webhooks](docs/WEBHOOKS.md) — required events, HMAC secret and delivery checks.
 - [Configure a self-hosted backend](docs/ADMIN-GUIDE.md).
 - [Security policy](SECURITY.md) · [Privacy](PRIVACY.md) · [Contributing](CONTRIBUTING.md) · [License](LICENSE).
@@ -107,7 +108,7 @@ After installation:
 5. Set **Favorite Repo** for quick links to pull requests.
 6. Ask a repository administrator to configure the webhook described in [Webhook setup](docs/WEBHOOKS.md).
 
-OAuth signs you in; a PAT is a separate credential for actions that require additional GitHub permissions. Never paste either credential into issues, screenshots or support messages.
+OAuth signs you in; a PAT is a separate backend credential for actions that require additional GitHub permissions. Local `pull`, `fetch` and `push` use your Mac's SSH configuration or Git credential helper. Never paste either credential into issues, screenshots or support messages.
 
 ## Webhooks
 

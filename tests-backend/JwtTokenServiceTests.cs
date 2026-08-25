@@ -16,7 +16,7 @@ public class JwtTokenServiceTests
             Secret = Secret,
             Issuer = "statefalse",
             Audience = "statefalse-native",
-            ExpiryHours = 12
+            ExpiryHours = 1
         }));
 
     private static ClaimsPrincipal Decode(string token)
@@ -58,8 +58,8 @@ public class JwtTokenServiceTests
         var handler = new JwtSecurityTokenHandler();
         var jwt = handler.ReadJwtToken(CreateService().GenerateToken(1, "carol", null));
 
-        Assert.True(jwt.ValidTo > DateTime.UtcNow.AddHours(11));
-        Assert.True(jwt.ValidTo <= DateTime.UtcNow.AddHours(13));
+        Assert.True(jwt.ValidTo > DateTime.UtcNow.AddMinutes(59));
+        Assert.True(jwt.ValidTo <= DateTime.UtcNow.AddHours(2));
     }
 
     [Fact]
