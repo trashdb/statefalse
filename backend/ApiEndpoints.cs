@@ -15,7 +15,9 @@ public static class ApiEndpoints
 {
     public static void MapApiEndpoints(this WebApplication app)
     {
-        var v1 = app.MapGroup("/api/v1");
+        var v1 = app.MapGroup("/api/v1")
+            .RequireAuthorization()
+            .RequireRateLimiting("api");
 
         MapAuth(v1);
         MapPunishments(v1);
@@ -45,16 +47,16 @@ public static class ApiEndpoints
             return authorizationUrl is null
                 ? Results.BadRequest(new { error = "Invalid local redirect URI." })
                 : Results.Redirect(authorizationUrl);
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting("oauth");
 
         routes.MapGet("/auth/me", async (HttpContext ctx, AuthService auth)
             => await MapAsync(auth.GetMeAsync(ctx.GitHubId()))).RequireAuthorization();
 
         routes.MapPost("/auth/exchange", async (OAuthExchangeRequest request, AuthService auth)
-            => Map(auth.ExchangeCode(request.Code))).AllowAnonymous();
+            => Map(auth.ExchangeCode(request.Code))).AllowAnonymous().RequireRateLimiting("oauth");
 
         routes.MapPost("/auth/pat", async (HttpContext ctx, PatRequest body, AuthService auth)
-            => await MapAsync(auth.SavePatAsync(ctx.GitHubId(), body.PatToken))).RequireAuthorization();
+            => await MapAsync(auth.SavePatAsync(ctx.GitHubId(), body.PatToken))).RequireAuthorization().RequireRateLimiting("oauth");
 
         routes.MapGet("/auth/token", async (HttpContext ctx, AuthService auth)
             => await MapAsync(auth.GetTokenAsync(ctx.GitHubId()))).RequireAuthorization();
@@ -70,7 +72,7 @@ public static class ApiEndpoints
             if (result.RedirectUrl != null)
                 return Results.Redirect(result.RedirectUrl);
             return Results.Ok(result.OkBody);
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting("oauth");
     }
 
     private static void MapPunishments(IEndpointRouteBuilder routes)
@@ -115,13 +117,13 @@ public static class ApiEndpoints
             => await MapAsync(service.GetDetailAsync(prNumber, repo, ctx.GitHubId()))).RequireAuthorization().RequireRateLimiting("api");
 
         routes.MapPost("/pullrequests/{prNumber}/merge", async (PullRequestActionService service, long prNumber, string repo, HttpContext ctx, string method = "squash")
-            => await MapAsync(service.MergeAsync(prNumber, repo, ctx.GitHubId(), method))).RequireAuthorization();
+            => await MapAsync(service.MergeAsync(prNumber, repo, ctx.GitHubId(), method))).RequireAuthorization().RequireRateLimiting("action");
 
         routes.MapPost("/pullrequests/{prNumber}/draft", async (long prNumber, string repo, HttpContext ctx, bool draft, PullRequestActionService service)
-            => await MapAsync(service.SetDraftAsync(prNumber, repo, ctx.GitHubId(), draft))).RequireAuthorization();
+            => await MapAsync(service.SetDraftAsync(prNumber, repo, ctx.GitHubId(), draft))).RequireAuthorization().RequireRateLimiting("action");
 
         routes.MapPost("/pullrequests/{prNumber}/update-branch", async (long prNumber, string repo, HttpContext ctx, PullRequestActionService service)
-            => await MapAsync(service.UpdateBranchAsync(prNumber, repo, ctx.GitHubId()))).RequireAuthorization();
+            => await MapAsync(service.UpdateBranchAsync(prNumber, repo, ctx.GitHubId()))).RequireAuthorization().RequireRateLimiting("action");
 
         routes.MapGet("/pullrequests/{prNumber}/commits", async (long prNumber, string repo, HttpContext ctx, PullRequestQueryService service)
             => await MapAsync(service.GetCommitsAsync(prNumber, repo, ctx.GitHubId()))).RequireAuthorization();
@@ -200,14 +202,14 @@ public static class ApiEndpoints
 
         routes.MapPost("/github/create-pr", async (HttpContext ctx, string repo, string head, string baseBranch,
             string title, string? body, string? subscribers, GitHubApiService service)
-            => await MapAsync(service.CreatePrAsync(ctx.GitHubId(), repo, head, baseBranch, title, body, subscribers))).RequireAuthorization();
+            => await MapAsync(service.CreatePrAsync(ctx.GitHubId(), repo, head, baseBranch, title, body, subscribers))).RequireAuthorization().RequireRateLimiting("action");
 
         routes.MapPost("/github/pr-preview", async (GitHubApiService service, HttpContext ctx, string repo, string head, string baseBranch,
             string title, bool useAI = true)
-            => await MapAsync(service.PrPreviewAsync(ctx.GitHubId(), repo, head, baseBranch, title, useAI))).RequireAuthorization();
+            => await MapAsync(service.PrPreviewAsync(ctx.GitHubId(), repo, head, baseBranch, title, useAI))).RequireAuthorization().RequireRateLimiting("action");
 
         routes.MapPost("/github/interpret", async (InterpretRequest request, GitHubApiService service)
-            => await MapAsync(service.InterpretAsync(request))).RequireAuthorization();
+            => await MapAsync(service.InterpretAsync(request))).RequireAuthorization().RequireRateLimiting("action");
     }
 
     private static void MapWorkflows(IEndpointRouteBuilder routes)
@@ -219,10 +221,10 @@ public static class ApiEndpoints
             => await MapAsync(service.SetTargetAsync(id, ctx.GitHubId(), request))).RequireAuthorization();
 
         routes.MapPost("/workflows/runs/{runId}/rerun", async (long runId, HttpContext ctx, WorkflowService service)
-            => await MapAsync(service.RerunAsync(runId, ctx.GitHubId()))).RequireAuthorization();
+            => await MapAsync(service.RerunAsync(runId, ctx.GitHubId()))).RequireAuthorization().RequireRateLimiting("action");
 
         routes.MapPost("/workflows/sync-active", async (HttpContext ctx, WorkflowService service)
-            => await MapAsync(service.SyncActiveAsync(ctx.GitHubId()))).RequireAuthorization();
+            => await MapAsync(service.SyncActiveAsync(ctx.GitHubId()))).RequireAuthorization().RequireRateLimiting("action");
     }
 
     private static void MapUsers(IEndpointRouteBuilder routes)
