@@ -209,8 +209,7 @@ struct BranchDetailView: View {
         checkoutError = nil
         do {
             try await git.checkoutBranch(repoPath: info.repoPath, name: info.name)
-            let pat = await deps.apiClient.fetchPAT()
-            _ = await git.pullCurrentBranch(repoPath: info.repoPath, token: pat)
+            _ = await git.pullCurrentBranch(repoPath: info.repoPath)
             openRider()
             checkoutSuccess = true
             await MainActor.run { onCheckout?() }

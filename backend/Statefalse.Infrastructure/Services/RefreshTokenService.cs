@@ -8,6 +8,7 @@ namespace Statefalse.Infrastructure.Services;
 
 public sealed class RefreshTokenService : IRefreshTokenService
 {
+    private static readonly SemaphoreSlim RotationGate = new(1, 1);
     private readonly AppDbContext _db;
     private readonly JwtTokenService _jwt;
     private readonly JwtOptions _options;
@@ -39,27 +40,47 @@ public sealed class RefreshTokenService : IRefreshTokenService
             return null;
 
         var hash = RefreshTokenHash.Compute(refreshToken);
-        var stored = await _db.RefreshTokens.SingleOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
-        if (stored == null || stored.RevokedAt != null || stored.ExpiresAt <= DateTime.UtcNow)
-            return null;
-
-        var user = await _db.GitHubUsers.SingleOrDefaultAsync(u => u.GitHubId == stored.GitHubId, cancellationToken);
-        if (user == null)
-            return null;
-
         var replacement = RefreshTokenHash.Create();
         var replacementHash = RefreshTokenHash.Compute(replacement);
-        stored.RevokedAt = DateTime.UtcNow;
-        stored.ReplacedByTokenHash = replacementHash;
-        _db.RefreshTokens.Add(new RefreshToken
+        var now = DateTime.UtcNow;
+
+        await RotationGate.WaitAsync(cancellationToken);
+        try
         {
-            GitHubId = user.GitHubId,
-            TokenHash = replacementHash,
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddDays(_options.RefreshTokenExpiryDays)
-        });
-        await _db.SaveChangesAsync(cancellationToken);
-        return CreateResult(user.GitHubId, user.GitHubUsername, user.AvatarUrl, replacement);
+            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+            var revoked = await _db.RefreshTokens
+                .Where(t => t.TokenHash == hash && t.RevokedAt == null && t.ExpiresAt > now)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(t => t.RevokedAt, now)
+                    .SetProperty(t => t.ReplacedByTokenHash, replacementHash), cancellationToken);
+
+            if (revoked != 1)
+                return null;
+
+            var stored = await _db.RefreshTokens
+                .AsNoTracking()
+                .SingleAsync(t => t.TokenHash == hash, cancellationToken);
+            var user = await _db.GitHubUsers
+                .AsNoTracking()
+                .SingleOrDefaultAsync(u => u.GitHubId == stored.GitHubId, cancellationToken);
+            if (user == null)
+                return null;
+
+            _db.RefreshTokens.Add(new RefreshToken
+            {
+                GitHubId = user.GitHubId,
+                TokenHash = replacementHash,
+                CreatedAt = now,
+                ExpiresAt = now.AddDays(_options.RefreshTokenExpiryDays)
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return CreateResult(user.GitHubId, user.GitHubUsername, user.AvatarUrl, replacement);
+        }
+        finally
+        {
+            RotationGate.Release();
+        }
     }
 
     public async Task<bool> RevokeAsync(string? refreshToken, CancellationToken cancellationToken = default)

@@ -80,6 +80,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         resolvedApi.onSessionRefreshed = { [weak self] session in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                guard self.isLoggedIn, self.api.refreshToken == session.refreshToken else { return }
                 self.authToken = session.token
                 self.api.authToken = session.token
                 self.api.refreshToken = session.refreshToken

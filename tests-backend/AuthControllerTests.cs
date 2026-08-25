@@ -61,57 +61,13 @@ public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
-    public async Task GetToken_NoAuth_ReturnsUnauthorized()
-    {
-        var response = await _client.GetAsync("/api/v1/auth/token");
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetToken_WithoutUser_ReturnsUnauthorized()
+    public async Task GetToken_ReturnsNotFoundBecauseCredentialsAreBackendOnly()
     {
         Authenticate(99999);
-        var response = await _client.GetAsync("/api/v1/auth/token");
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetToken_WithUserPatToken_ReturnsToken()
-    {
-        var id = SeedUser(u => u.UserPatToken = "ghp_test_pat_token");
-        Authenticate(id);
-
-        var response = await _client.GetAsync("/api/v1/auth/token");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
-        Assert.NotNull(body);
-        Assert.Equal("ghp_test_pat_token", body["token"]);
-    }
-
-    [Fact]
-    public async Task GetToken_FallsBackToAccessToken()
-    {
-        var id = SeedUser(u => u.AccessToken = "gho_access_token");
-        Authenticate(id);
-
-        var response = await _client.GetAsync("/api/v1/auth/token");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
-        Assert.NotNull(body);
-        Assert.Equal("gho_access_token", body["token"]);
-    }
-
-    [Fact]
-    public async Task GetToken_WithoutUserCredential_DoesNotExposeGlobalPat()
-    {
-        var id = SeedUser(_ => { });
-        Authenticate(id);
 
         var response = await _client.GetAsync("/api/v1/auth/token");
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]

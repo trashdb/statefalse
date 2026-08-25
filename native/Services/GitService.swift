@@ -81,22 +81,15 @@ actor GitService: GitServiceProtocol {
         (try? await runGit(repoPath: repoPath, args: ["rev-parse", "--verify", "origin/\(branch)"])) != nil
     }
 
-    func pullCurrentBranch(repoPath: String, token: String? = nil) async -> PullResult {
+    func pullCurrentBranch(repoPath: String) async -> PullResult {
         guard await hasUpstream(repoPath: repoPath) else { return .noUpstream }
-        // Always pull over HTTPS using the token — never fall back to SSH `git pull`,
-        // which fails in a GUI app with "permission denied (publickey)".
-        guard let t = token,
-              let fullName = await repoFullName(repoPath: repoPath) else {
-            return .noToken
-        }
         let branch = await currentBranchName(repoPath: repoPath) ?? ""
         guard !branch.isEmpty else {
-            return .noToken
+            return .failed
         }
         do {
-            let url = "https://x-access-token:\(t)@github.com/\(fullName).git"
-            try await runGit(repoPath: repoPath, args: ["fetch", url, branch])
-            try await runGit(repoPath: repoPath, args: ["rebase", "FETCH_HEAD"])
+            try await runGit(repoPath: repoPath, args: ["fetch", "origin", branch, "--no-tags", "--quiet"])
+            try await runGit(repoPath: repoPath, args: ["rebase", "origin/\(branch)"])
             return .success
         } catch let error as GitError {
             let msg = error.localizedDescription.lowercased()
@@ -447,32 +440,21 @@ actor GitService: GitServiceProtocol {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    func updateBranch(repoPath: String, branch: String, baseBranch: String, ownerRepo: String, token: String) async throws -> String {
+    func updateBranch(repoPath: String, branch: String, baseBranch: String) async throws -> String {
         try await runGit(repoPath: repoPath, args: ["fetch", "origin", "--prune", "--no-tags", "--quiet"])
         try await runGit(repoPath: repoPath, args: ["checkout", branch])
         try await runGit(repoPath: repoPath, args: ["pull", "--rebase", "origin", baseBranch])
-        // Push via HTTPS using token to avoid SSH key issues
-        try await runGit(repoPath: repoPath, args: ["push", "https://x-access-token:\(token)@github.com/\(ownerRepo).git", branch])
+        try await runGit(repoPath: repoPath, args: ["push", "origin", branch])
         return "Branch updated: rebased \(branch) onto \(baseBranch)"
     }
 
-    func pullBranch(repoPath: String, name: String, token: String? = nil) async throws {
+    func pullBranch(repoPath: String, name: String) async throws {
         let current = await currentBranchName(repoPath: repoPath) ?? ""
         if current != name {
             try await runGit(repoPath: repoPath, args: ["checkout", name])
         }
-        // Always pull over HTTPS using the token. We never fall back to `git pull`
-        // (which would use the SSH `origin` remote) because a sandboxed GUI app has
-        // no SSH agent and that fails with "permission denied (publickey)".
-        guard let t = token else {
-            throw GitError.commandFailed("No GitHub token available for pull. Open Settings → save your Personal Access Token, then try again.")
-        }
-        guard let fullName = await repoFullName(repoPath: repoPath) else {
-            throw GitError.commandFailed("Could not determine the GitHub owner/repo from this repository's remote.")
-        }
-        let url = "https://x-access-token:\(t)@github.com/\(fullName).git"
-        try await runGit(repoPath: repoPath, args: ["fetch", url, name])
-        try await runGit(repoPath: repoPath, args: ["rebase", "FETCH_HEAD"])
+        try await runGit(repoPath: repoPath, args: ["fetch", "origin", name, "--no-tags", "--quiet"])
+        try await runGit(repoPath: repoPath, args: ["rebase", "origin/\(name)"])
         if !current.isEmpty, current != name {
             try await runGit(repoPath: repoPath, args: ["checkout", current])
         }

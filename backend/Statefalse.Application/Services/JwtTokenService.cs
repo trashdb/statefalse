@@ -14,7 +14,7 @@ public sealed class JwtOptions
     public string Secret { get; set; } = "";
     public string Issuer { get; set; } = "statefalse";
     public string Audience { get; set; } = "statefalse-native";
-    public int ExpiryHours { get; set; } = 12;
+    public int ExpiryHours { get; set; } = 1;
     public int RefreshTokenExpiryDays { get; set; } = 30;
 
     public void Validate()

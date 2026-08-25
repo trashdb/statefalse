@@ -22,23 +22,27 @@ Statefalse uses two different credential layers:
 
 ```text
 GitHub credential  ──► backend integration / requested GitHub actions
-Statefalse JWT     ──► API authorization (default lifetime: 12 h)
+Statefalse JWT     ──► API authorization (default lifetime: 1 h)
 Refresh token      ──► one-time session renewal (default lifetime: 30 d)
 ```
 
 - Refresh tokens are random opaque values and only their SHA-256 hashes are
-  persisted. A successful refresh rotates the token.
+  persisted. A successful refresh rotates the token through an atomic,
+  conditional database update; concurrent reuse cannot produce two valid
+  replacements.
 - The native client refreshes after `401` and retries the request once. This is
   not a proactive timer and does not make an access JWT revocable immediately.
 - Logout revokes the submitted refresh token, but an already-issued access JWT
   remains valid until its expiry. This is a known limitation and must be
   considered when assessing a stolen JWT.
-- The backend currently stores GitHub OAuth/PAT credentials and exposes the
-  selected credential through the authenticated `/api/v1/auth/token` endpoint.
-  This is an open hardening boundary, not a claim of zero token exposure.
+- The backend currently stores GitHub OAuth/PAT credentials for internal GitHub
+  API calls. The former `/api/v1/auth/token` endpoint has been removed, so
+  those credentials are no longer returned to the native client.
 - SignalR may carry the access JWT in a WebSocket query parameter. Logs,
   reverse-proxy access logs and diagnostics must redact query strings and
-  authorization headers.
+  authorization headers. nginx API access logging is disabled and the native
+  client no longer prints response bodies; application error/request logging
+  still requires an operational review before production.
 
 ### If a token may have leaked 🚨
 

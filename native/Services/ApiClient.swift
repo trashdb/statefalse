@@ -212,7 +212,6 @@ protocol ApiClientProtocol: AnyObject, Sendable {
 
     func fetchMyBranches(repo: String) async -> ApiFetch<[ApiBranch]>
     func createPR(repo: String, head: String, baseBranch: String, title: String, body: String?, subscribers: String?) async -> ApiFetch<ApiCreatePRResult>
-    func fetchPAT() async -> String?
     func fetchNotifications() async -> [ApiNotification]?
     func markNotificationRead(id: Int) async -> Bool
     func markAllNotificationsRead() async -> Bool
@@ -221,25 +220,17 @@ protocol ApiClientProtocol: AnyObject, Sendable {
 // MARK: - Live Implementation
 
 private actor RefreshCoordinator {
-    private var activeTask: Task<OAuthSession?, Never>?
-    private var activeToken: String?
-    private var completedResult: OAuthSession?
+    private var activeTasks: [String: Task<OAuthSession?, Never>] = [:]
 
     func refresh(for token: String, _ operation: @escaping @Sendable () async -> OAuthSession?) async -> OAuthSession? {
-        if activeToken == token, let completedResult {
-            return completedResult
-        }
-        if let activeTask {
+        if let activeTask = activeTasks[token] {
             return await activeTask.value
         }
 
-        activeToken = token
-        completedResult = nil
         let task = Task { await operation() }
-        activeTask = task
+        activeTasks[token] = task
         let result = await task.value
-        activeTask = nil
-        completedResult = result
+        activeTasks[token] = nil
         return result
     }
 }
@@ -291,6 +282,9 @@ final class LiveApiClient: ApiClientProtocol {
            let refreshed = await refreshCoordinator.refresh(for: failedRefreshToken, { [weak self] in
                await self?.refreshSession(using: failedRefreshToken)
            }) {
+            guard refreshToken == failedRefreshToken else {
+                return (data, response)
+            }
             authToken = refreshed.token
             refreshToken = refreshed.refreshToken
             onSessionRefreshed?(refreshed)
@@ -371,16 +365,14 @@ final class LiveApiClient: ApiClientProtocol {
                 return 0
             }
             guard (200..<300).contains(http.statusCode) else {
-                let body = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
-                print("Statefalse sync failed for \(path): HTTP \(http.statusCode) — \(body)")
+                print("Statefalse sync failed for \(path): HTTP \(http.statusCode)")
                 return 0
             }
             struct SyncResult: Decodable { let synced: Int }
             if let result = try? JSONDecoder().decode(SyncResult.self, from: data) {
                 return result.synced
             }
-            let body = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
-            print("Statefalse sync returned invalid JSON for \(path): \(body)")
+            print("Statefalse sync returned invalid JSON for \(path)")
         } catch {
             print("Statefalse sync request failed for \(path): \(error.localizedDescription)")
         }
@@ -458,8 +450,7 @@ final class LiveApiClient: ApiClientProtocol {
             if status >= 200 && status < 300 {
                 return .sent
             }
-            let raw = String(data: data, encoding: .utf8) ?? "non-utf8"
-            return .failed("\(raw.prefix(200))")
+            return .failed("Unexpected server response (HTTP \(status))")
         } catch {
             return .failed(error.localizedDescription)
         }
@@ -496,8 +487,7 @@ final class LiveApiClient: ApiClientProtocol {
 
     private func errorLocalized(from data: Data) -> String {
         (try? JSONDecoder().decode(ApiError.self, from: data))?.error
-            ?? String(data: data, encoding: .utf8).map { "\($0.prefix(200))" }
-            ?? "non-utf8"
+            ?? "Unexpected server response"
     }
 
     func fetchSubscribers(prNumber: Int64, repo: String) async -> ApiFetch<[ApiSubscriberInfo]> {
@@ -558,8 +548,7 @@ final class LiveApiClient: ApiClientProtocol {
             let (data, response) = try await perform(request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard status == 200 else {
-                let body = String(data: data, encoding: .utf8) ?? "Unknown error"
-                return "HTTP \(status): \(body)"
+                return "HTTP \(status): \(errorLocalized(from: data))"
             }
             return nil
         } catch {
@@ -671,13 +660,6 @@ final class LiveApiClient: ApiClientProtocol {
         }
     }
 
-    func fetchPAT() async -> String? {
-        guard let url = URL(string: "\(baseUrl)\(apiPrefix)/auth/token") else { return nil }
-        guard let (data, _) = try? await perform(makeRequest(url)) else { return nil }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: String],
-              let token = json["token"], !token.isEmpty else { return nil }
-        return token
-    }
 }
 
 // MARK: - Shared JSON decoding

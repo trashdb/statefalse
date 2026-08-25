@@ -326,7 +326,7 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var patSection: some View {
-        Text("Optional. Used to access org repos when OAuth is blocked. Create at github.com/settings/tokens with repo scope.")
+        Text("Optional. Used by the backend for GitHub API access when OAuth is blocked. Local Git pulls require the repository's SSH key or credential helper. Create at github.com/settings/tokens with repo scope.")
             .font(DS.Font.small)
             .foregroundStyle(DS.Color.textSecondary)
             .padding(.top, -8)

@@ -17,7 +17,7 @@ actor MockGitService: GitServiceProtocol {
     func hasUpstream(repoPath: String) async -> Bool { true }
     func hasUpstream(repoPath: String, branch: String) async -> Bool { true }
 
-    func pullCurrentBranch(repoPath: String, token: String?) async -> PullResult { pullResult }
+    func pullCurrentBranch(repoPath: String) async -> PullResult { pullResult }
 
     func deleteLocalBranch(repoPath: String, name: String) async throws {
         if shouldThrow { throw GitError.commandFailed("mock error") }
@@ -40,7 +40,7 @@ actor MockGitService: GitServiceProtocol {
         return CreatePRResult(url: URL(string: "https://github.com/owner/repo/pull/1")!, isExisting: false)
     }
 
-    func pullBranch(repoPath: String, name: String, token: String?) async throws {
+    func pullBranch(repoPath: String, name: String) async throws {
         if shouldThrow { throw GitError.commandFailed("mock error") }
     }
 
@@ -149,7 +149,6 @@ class MockApiClient: ApiClientProtocol {
     func createPR(repo: String, head: String, baseBranch: String, title: String, body: String?, subscribers: String?) async -> ApiFetch<ApiCreatePRResult> {
         .success(ApiCreatePRResult(prNumber: 1, url: "https://github.com/owner/repo/pull/1", existing: false))
     }
-    func fetchPAT() async -> String? { nil }
     func fetchNotifications() async -> [ApiNotification]? { [] }
     func markNotificationRead(id: Int) async -> Bool { true }
     func markAllNotificationsRead() async -> Bool { true }

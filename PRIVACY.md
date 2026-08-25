@@ -63,15 +63,15 @@ use with an independently operated service.
   and requests server-side revocation.
 - An access JWT already issued is stateless and remains valid until expiry;
   logout does not currently revoke it immediately. The default access-token
-  lifetime is 12 hours and the default refresh-token lifetime is 30 days.
+  lifetime is 1 hour and the default refresh-token lifetime is 30 days.
 - The native client refreshes reactively after a `401` response and retries the
   request once. It is not a background refresh service.
 
-The authenticated `/api/v1/auth/token` endpoint currently returns the selected
-GitHub credential to the client for features that need local GitHub access.
-That is a material exposure boundary: a compromised client process, database,
-backup or valid session can expose a reusable GitHub credential. Use minimum
-permissions and rotate the credential immediately if exposure is suspected.
+The former authenticated `/api/v1/auth/token` endpoint has been removed. GitHub
+OAuth/PAT credentials remain backend-only for GitHub API operations; local Git
+pulls use the repository's configured SSH agent or credential helper and do not
+receive a GitHub credential from Statefalse. Protect the backend database and
+rotate credentials immediately if exposure is suspected.
 
 Never include access tokens, passwords, private repository contents or other
 secrets in issues, pull requests, screenshots or support messages.

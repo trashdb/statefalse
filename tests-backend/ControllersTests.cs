@@ -330,11 +330,9 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
         var response = await client.PostAsync("/api/v1/auth/pat", content);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        // Verify token was saved
+        // The PAT remains backend-only and cannot be read through HTTP.
         var tokenResponse = await client.GetAsync("/api/v1/auth/token");
-        var tokenBody = await tokenResponse.Content.ReadFromJsonAsync<Dictionary<string, string>>();
-        Assert.NotNull(tokenBody);
-        Assert.Equal("ghp_new_pat", tokenBody!["token"]);
+        Assert.Equal(HttpStatusCode.NotFound, tokenResponse.StatusCode);
     }
 
     // ───────────── Workflows ─────────────

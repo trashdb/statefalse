@@ -74,7 +74,7 @@ Statefalse uses GitHub OAuth for sign-in. The session used by the app is separat
 									  🗝️ Keychain is updated
 ```
 
-- The access JWT is configurable and defaults to **12 hours**.
+- The access JWT is configurable and defaults to **1 hour**.
 - The refresh token is configurable and defaults to **30 days**.
 - Refresh tokens are opaque, random values. The backend stores only their
   SHA-256 hash, and every successful refresh revokes the old token and issues a
