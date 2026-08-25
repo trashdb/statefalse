@@ -103,8 +103,8 @@ Statefalse uses GitHub OAuth for sign-in. The session used by the app is separat
 
 🚨 **Never paste an access JWT, refresh token, GitHub OAuth token or PAT into an
 issue, screenshot, terminal transcript or support request.** Statefalse does
-not currently promise that a GitHub credential returned by its token endpoint
-is safe to expose beyond the trusted client process.
+not return GitHub credentials to the native client. Local Git authentication is
+provided by your Mac's SSH configuration or credential helper.
 
 ## Personal Access Token
 
@@ -117,6 +117,11 @@ Some GitHub actions may require a personal access token, including:
 - Merging a pull request.
 
 Add it from **Settings → Personal Access Token**. Use the minimum permissions required for the repositories you work with, follow your organization's SSO requirements and never share the token in screenshots, issues or chat.
+
+This PAT is used by the backend for GitHub API operations. It is not used for
+local `pull`, `fetch` or `push` operations. Configure those operations with
+[SSH or an HTTPS credential helper](GIT-LOCAL.md) before using local branch
+actions.
 
 ## What you can do
 
@@ -166,6 +171,11 @@ Statefalse can discover local repositories and show local and remote branches. D
 - Create a pull request from the current branch.
 
 Local Git actions run on your Mac. Statefalse does not upload your entire local repository to provide branch management.
+
+Repositories must already be cloned locally and have an `origin` remote. The
+Mac must be able to authenticate that remote independently of Statefalse. See
+[Local Git authentication](GIT-LOCAL.md) for setup instructions and common
+errors.
 
 ### Conflict awareness
 
