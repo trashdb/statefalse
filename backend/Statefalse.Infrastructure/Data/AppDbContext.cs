@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<PullRequestEvent> PullRequestEvents => Set<PullRequestEvent>();
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,6 +54,12 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(n => new { n.RecipientGitHubId, n.CreatedAt });
             entity.HasIndex(n => new { n.RecipientGitHubId, n.IsRead, n.CreatedAt });
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasIndex(t => t.TokenHash).IsUnique();
+            entity.HasIndex(t => new { t.GitHubId, t.RevokedAt, t.ExpiresAt });
         });
     }
 }

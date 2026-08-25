@@ -3,7 +3,7 @@ import Foundation
 import Network
 
 class OAuthService: OAuthServiceProtocol {
-    func startLogin(backendUrl: String) async throws -> (id: Int64, username: String, avatarUrl: String?, token: String) {
+    func startLogin(backendUrl: String) async throws -> OAuthSession {
         try await withCheckedThrowingContinuation { continuation in
             let port = UInt16.random(in: 49152...65535)
             let redirectUri = "http://localhost:\(port)/callback"
@@ -175,9 +175,11 @@ class OAuthService: OAuthServiceProtocol {
         let username: String
         let avatarUrl: String?
         let token: String
+        let refreshToken: String?
+        let expiresIn: Int?
     }
 
-    private func exchange(code: String, backendUrl: String) async throws -> (id: Int64, username: String, avatarUrl: String?, token: String) {
+    private func exchange(code: String, backendUrl: String) async throws -> OAuthSession {
         guard let url = URL(string: "\(backendUrl)/api/v1/auth/exchange") else {
             throw OAuthError.failed
         }
@@ -194,7 +196,7 @@ class OAuthService: OAuthServiceProtocol {
             throw OAuthError.failed
         }
 
-        return (result.id, result.username, result.avatarUrl, result.token)
+        return OAuthSession(id: result.id, username: result.username, avatarUrl: result.avatarUrl, token: result.token, refreshToken: result.refreshToken, expiresIn: result.expiresIn)
     }
 
     enum OAuthError: Error {

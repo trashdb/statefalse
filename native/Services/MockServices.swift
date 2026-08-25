@@ -110,9 +110,13 @@ class MockSignalRService: SignalRServiceProtocol {
 class MockApiClient: ApiClientProtocol {
     let baseUrl: String = "https://mock.example.com"
     var authToken: String? = nil
+    var refreshToken: String? = nil
     var onUnauthorized: (() -> Void)? = nil
+    var onSessionRefreshed: ((OAuthSession) -> Void)? = nil
 
     func fetchMe() async -> ApiMe? { nil }
+    func refreshSession() async -> OAuthSession? { nil }
+    func revokeSession(refreshToken: String?) async {}
     func fetchWorkflowRuns(limit: Int) async -> [ApiWorkflowRun]? { [] }
     func fetchActivePRs() async -> [ApiPullRequest]? { [] }
     func syncPRsFromGitHub() async -> Int { 0 }
@@ -158,8 +162,8 @@ class MockKeychainService: KeychainServiceProtocol {
     var shouldReturnSession = true
     private(set) var loadCount = 0
 
-    func save(gitHubId: Int64, username: String, avatarUrl: String?, token: String?) {
-        savedSession = KeychainService.Session(gitHubId: gitHubId, username: username, avatarUrl: avatarUrl, token: token)
+    func save(gitHubId: Int64, username: String, avatarUrl: String?, token: String?, refreshToken: String?, tokenExpiresAt: Date?) {
+        savedSession = KeychainService.Session(gitHubId: gitHubId, username: username, avatarUrl: avatarUrl, token: token, refreshToken: refreshToken, tokenExpiresAt: tokenExpiresAt)
     }
 
     func load() -> KeychainService.Session? {
@@ -188,9 +192,9 @@ class MockPersistenceService: PersistenceServiceProtocol {
 
 class MockOAuthService: OAuthServiceProtocol {
     var shouldThrow = false
-    var loginResult = (id: Int64(12345), username: "testuser", avatarUrl: "https://example.com/avatar.png", token: "mock-token")
+    var loginResult = OAuthSession(id: 12345, username: "testuser", avatarUrl: "https://example.com/avatar.png", token: "mock-token", refreshToken: "mock-refresh", expiresIn: 43200)
 
-    func startLogin(backendUrl: String) async throws -> (id: Int64, username: String, avatarUrl: String?, token: String) {
+    func startLogin(backendUrl: String) async throws -> OAuthSession {
         if shouldThrow { throw GitError.commandFailed("mock oauth error") }
         return loginResult
     }

@@ -15,6 +15,7 @@ using Statefalse.Infrastructure;
 using Statefalse.Infrastructure.Data;
 using Statefalse.Infrastructure.Hubs;
 using Statefalse.Infrastructure.Repositories;
+using Statefalse.Infrastructure.Services;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -46,8 +47,12 @@ try
         options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
     });
 
-    // HttpClient for GitHub OAuth
-    builder.Services.AddHttpClient<GitHubOAuthService>();
+    // HttpClient for GitHub OAuth. OAuth exchanges must fail fast rather than
+    // holding an anonymous request open indefinitely.
+    builder.Services.AddHttpClient<GitHubOAuthService>(client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(15);
+    });
     builder.Services.AddHttpClient<IGitHubClient, GitHubClient>(client =>
     {
         client.BaseAddress = new Uri("https://api.github.com");
@@ -74,6 +79,7 @@ try
     builder.Services.AddScoped<GitHubApiService>();
     builder.Services.AddScoped<WorkflowService>();
     builder.Services.AddScoped<AuthService>();
+    builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
     builder.Services.AddSingleton<OAuthStateStore>();
     builder.Services.AddSingleton<OAuthCodeStore>();
     builder.Services.AddScoped<PunishmentService>();
@@ -103,10 +109,10 @@ try
     }
 
     // Session JWT config + token issuance
-    var jwtSecret = builder.Configuration["Jwt:Secret"];
-    if (string.IsNullOrWhiteSpace(jwtSecret) || Encoding.UTF8.GetByteCount(jwtSecret) < 32)
-        throw new InvalidOperationException("Jwt:Secret must be set and at least 32 bytes long.");
-    builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+    var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
+    jwtOptions.Validate();
+    var jwtSecret = jwtOptions.Secret;
+    builder.Services.Configure<JwtOptions>(options => builder.Configuration.GetSection("Jwt").Bind(options));
     builder.Services.AddSingleton<JwtTokenService>();
 
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -117,9 +123,9 @@ try
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
                 ValidateIssuer = true,
-                ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "statefalse",
+                ValidIssuer = jwtOptions.Issuer,
                 ValidateAudience = true,
-                ValidAudience = builder.Configuration["Jwt:Audience"] ?? "statefalse-native",
+                ValidAudience = jwtOptions.Audience,
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.FromSeconds(30)
             };

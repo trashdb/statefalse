@@ -16,7 +16,7 @@ public class JwtTokenServiceTests
             Secret = Secret,
             Issuer = "statefalse",
             Audience = "statefalse-native",
-            ExpiryHours = 720
+            ExpiryHours = 12
         }));
 
     private static ClaimsPrincipal Decode(string token)
@@ -41,6 +41,7 @@ public class JwtTokenServiceTests
 
         Assert.Contains(claims, c => c.Type == ClaimTypes.NameIdentifier && c.Value == "4242");
         Assert.Contains(claims, c => c.Type == ClaimTypes.Name && c.Value == "alice");
+        Assert.Contains(claims, c => c.Type == JwtRegisteredClaimNames.Jti && c.Value.Length == 32);
     }
 
     [Fact]
@@ -57,7 +58,21 @@ public class JwtTokenServiceTests
         var handler = new JwtSecurityTokenHandler();
         var jwt = handler.ReadJwtToken(CreateService().GenerateToken(1, "carol", null));
 
-        Assert.True(jwt.ValidTo > DateTime.UtcNow.AddDays(20));
-        Assert.True(jwt.ValidTo <= DateTime.UtcNow.AddDays(31));
+        Assert.True(jwt.ValidTo > DateTime.UtcNow.AddHours(11));
+        Assert.True(jwt.ValidTo <= DateTime.UtcNow.AddHours(13));
+    }
+
+    [Fact]
+    public void JwtOptions_RejectsLongExpiry()
+    {
+        var options = new JwtOptions
+        {
+            Secret = Secret,
+            ExpiryHours = 25
+        };
+
+        var exception = Assert.Throws<InvalidOperationException>(() => options.Validate());
+
+        Assert.Contains("between 1 and 24", exception.Message);
     }
 }

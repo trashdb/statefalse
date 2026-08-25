@@ -175,12 +175,16 @@ protocol ApiClientProtocol: AnyObject, Sendable {
 
     /// Session JWT used as `Authorization: Bearer` on every request.
     var authToken: String? { get set }
+    var refreshToken: String? { get set }
 
     /// Fired (at most once per token) when the backend rejects the JWT with 401.
     /// The owner reacts by forcing a fresh login.
     var onUnauthorized: (() -> Void)? { get set }
+    var onSessionRefreshed: ((OAuthSession) -> Void)? { get set }
 
     func fetchMe() async -> ApiMe?
+    func refreshSession() async -> OAuthSession?
+    func revokeSession(refreshToken: String?) async
     func fetchWorkflowRuns(limit: Int) async -> [ApiWorkflowRun]?
     func fetchActivePRs() async -> [ApiPullRequest]?
     func syncPRsFromGitHub() async -> Int
@@ -216,6 +220,30 @@ protocol ApiClientProtocol: AnyObject, Sendable {
 
 // MARK: - Live Implementation
 
+private actor RefreshCoordinator {
+    private var activeTask: Task<OAuthSession?, Never>?
+    private var activeToken: String?
+    private var completedResult: OAuthSession?
+
+    func refresh(for token: String, _ operation: @escaping @Sendable () async -> OAuthSession?) async -> OAuthSession? {
+        if activeToken == token, let completedResult {
+            return completedResult
+        }
+        if let activeTask {
+            return await activeTask.value
+        }
+
+        activeToken = token
+        completedResult = nil
+        let task = Task { await operation() }
+        activeTask = task
+        let result = await task.value
+        activeTask = nil
+        completedResult = result
+        return result
+    }
+}
+
 final class LiveApiClient: ApiClientProtocol {
     let baseUrl: String
     private let apiPrefix = "/api/v1"
@@ -223,8 +251,11 @@ final class LiveApiClient: ApiClientProtocol {
     var authToken: String? {
         didSet { didFireUnauthorized = false }
     }
+    var refreshToken: String?
+    var onSessionRefreshed: ((OAuthSession) -> Void)?
     private let session: URLSession
     private var didFireUnauthorized = false
+    private let refreshCoordinator = RefreshCoordinator()
 
     init(baseUrl: String, session: URLSession = .shared) {
         self.baseUrl = baseUrl
@@ -235,7 +266,9 @@ final class LiveApiClient: ApiClientProtocol {
     /// that run outside the SwiftUI hierarchy (App Intents, Widgets).
     static func fromCurrentSession() -> LiveApiClient {
         let client = LiveApiClient(baseUrl: backendUrl)
-        client.authToken = KeychainService.load()?.token
+        let session = KeychainService.load()
+        client.authToken = session?.token
+        client.refreshToken = session?.refreshToken
         return client
     }
 
@@ -251,12 +284,54 @@ final class LiveApiClient: ApiClientProtocol {
     /// The callback fires only once per token to avoid a storm of logouts.
     private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
         let urlSession = session
-        let (data, response) = try await urlSession.data(for: request)
+        var (data, response) = try await urlSession.data(for: request)
+        if let http = response as? HTTPURLResponse, http.statusCode == 401,
+           let failedRefreshToken = refreshToken,
+           !request.url!.path.hasSuffix("/auth/refresh"),
+           let refreshed = await refreshCoordinator.refresh(for: failedRefreshToken, { [weak self] in
+               await self?.refreshSession(using: failedRefreshToken)
+           }) {
+            authToken = refreshed.token
+            refreshToken = refreshed.refreshToken
+            onSessionRefreshed?(refreshed)
+            var retry = request
+            retry.setValue("Bearer \(refreshed.token)", forHTTPHeaderField: "Authorization")
+            (data, response) = try await urlSession.data(for: retry)
+        }
         if let http = response as? HTTPURLResponse, http.statusCode == 401, !didFireUnauthorized {
             didFireUnauthorized = true
             onUnauthorized?()
         }
         return (data, response)
+    }
+
+    func refreshSession() async -> OAuthSession? {
+        guard let refreshToken else { return nil }
+        return await refreshSession(using: refreshToken)
+    }
+
+    private func refreshSession(using refreshToken: String) async -> OAuthSession? {
+        guard let url = url("\(apiPrefix)/auth/refresh") else { return nil }
+        struct Body: Encodable { let refreshToken: String }
+        struct Response: Decodable { let id: Int64; let username: String; let avatarUrl: String?; let token: String; let refreshToken: String; let expiresIn: Int }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONEncoder().encode(Body(refreshToken: refreshToken))
+        guard let (data, response) = try? await session.data(for: request),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              let result = try? ApiJSON.decoder.decode(Response.self, from: data) else { return nil }
+        return OAuthSession(id: result.id, username: result.username, avatarUrl: result.avatarUrl, token: result.token, refreshToken: result.refreshToken, expiresIn: result.expiresIn)
+    }
+
+    func revokeSession(refreshToken: String?) async {
+        guard let refreshToken, let url = url("\(apiPrefix)/auth/logout") else { return }
+        struct Body: Encodable { let refreshToken: String }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONEncoder().encode(Body(refreshToken: refreshToken))
+        _ = try? await session.data(for: request)
     }
 
     func fetchMe() async -> ApiMe? {

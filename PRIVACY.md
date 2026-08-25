@@ -1,6 +1,6 @@
 # Statefalse privacy information
 
-_Last updated: 2026-08-21_
+_Last updated: 2026-08-25_
 
 Statefalse is an independent, free and open-source project. This document
 explains the data handled by the public Statefalse service and the macOS app.
@@ -49,6 +49,30 @@ the GitHub integration described in this document. Do not connect accounts or
 repositories that your organization's security policy does not allow you to
 use with an independently operated service.
 
+### 🔐 Storage and session boundaries
+
+- The backend currently stores the GitHub OAuth access credential and an
+  optional user PAT as part of the user's account record. Operators must
+  protect the database, backups and host access; this document does not claim
+  that those credentials are encrypted at rest.
+- The authenticated macOS client stores the Statefalse access JWT, opaque
+  refresh token and expiry metadata in the macOS Keychain when persistent sign-in
+  is enabled.
+- Refresh tokens are stored server-side only as SHA-256 hashes and are rotated
+  after each successful refresh. The client deletes its local copy on logout
+  and requests server-side revocation.
+- An access JWT already issued is stateless and remains valid until expiry;
+  logout does not currently revoke it immediately. The default access-token
+  lifetime is 12 hours and the default refresh-token lifetime is 30 days.
+- The native client refreshes reactively after a `401` response and retries the
+  request once. It is not a background refresh service.
+
+The authenticated `/api/v1/auth/token` endpoint currently returns the selected
+GitHub credential to the client for features that need local GitHub access.
+That is a material exposure boundary: a compromised client process, database,
+backup or valid session can expose a reusable GitHub credential. Use minimum
+permissions and rotate the credential immediately if exposure is suspected.
+
 Never include access tokens, passwords, private repository contents or other
 secrets in issues, pull requests, screenshots or support messages.
 
@@ -59,6 +83,13 @@ retained while they are needed to provide the service. Operational database
 backups are retained for a limited period according to the deployment backup
 policy. Removing a local app installation does not automatically delete data
 already stored by the hosted backend.
+
+Signing out removes the local Keychain session and normally revokes the current
+refresh token. A failed or interrupted network request can prevent immediate
+remote revocation; the access JWT and any unrevoked refresh token then remain
+subject to their configured expiry. Account deletion and GitHub credential
+revocation must be requested from the service operator and may require a
+separate GitHub-side revocation.
 
 To request deletion or ask a question about data handled by the public service,
 open a private contact request through the repository owner's GitHub profile.

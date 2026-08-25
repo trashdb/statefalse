@@ -11,10 +11,21 @@ enum KeychainService {
         let username: String
         let avatarUrl: String?
         let token: String?
+        let refreshToken: String?
+        let tokenExpiresAt: Date?
+
+        init(gitHubId: Int64, username: String, avatarUrl: String? = nil, token: String? = nil, refreshToken: String? = nil, tokenExpiresAt: Date? = nil) {
+            self.gitHubId = gitHubId
+            self.username = username
+            self.avatarUrl = avatarUrl
+            self.token = token
+            self.refreshToken = refreshToken
+            self.tokenExpiresAt = tokenExpiresAt
+        }
     }
 
-    static func save(gitHubId: Int64, username: String, avatarUrl: String? = nil, token: String? = nil) {
-        guard let data = try? JSONEncoder().encode(Session(gitHubId: gitHubId, username: username, avatarUrl: avatarUrl, token: token)) else { return }
+    static func save(gitHubId: Int64, username: String, avatarUrl: String? = nil, token: String? = nil, refreshToken: String? = nil, tokenExpiresAt: Date? = nil) {
+        guard let data = try? JSONEncoder().encode(Session(gitHubId: gitHubId, username: username, avatarUrl: avatarUrl, token: token, refreshToken: refreshToken, tokenExpiresAt: tokenExpiresAt)) else { return }
         SecItemDelete(baseQuery(service: service) as CFDictionary)
         var query = baseQuery(service: service)
         query[kSecValueData] = data
@@ -24,7 +35,7 @@ enum KeychainService {
     static func load() -> Session? {
         if let session = loadFrom(service: service) { return session }
         if let session = loadFrom(service: oldService) {
-            save(gitHubId: session.gitHubId, username: session.username, avatarUrl: session.avatarUrl, token: session.token)
+            save(gitHubId: session.gitHubId, username: session.username, avatarUrl: session.avatarUrl, token: session.token, refreshToken: session.refreshToken, tokenExpiresAt: session.tokenExpiresAt)
             SecItemDelete(baseQuery(service: oldService) as CFDictionary)
             return session
         }
@@ -33,6 +44,7 @@ enum KeychainService {
 
     static func delete() {
         SecItemDelete(baseQuery(service: service) as CFDictionary)
+        SecItemDelete(baseQuery(service: oldService) as CFDictionary)
     }
 
     private static func loadFrom(service: String) -> Session? {
@@ -42,7 +54,8 @@ enum KeychainService {
         var item: AnyObject?
         guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
               let data = item as? Data else { return nil }
-        return try? JSONDecoder().decode(Session.self, from: data)
+        let decoder = JSONDecoder()
+        return try? decoder.decode(Session.self, from: data)
     }
 
     private static func baseQuery(service: String) -> [CFString: Any] {
@@ -57,8 +70,8 @@ enum KeychainService {
 // MARK: - Protocol Wrapper for DI
 
 final class LiveKeychainService: KeychainServiceProtocol {
-    func save(gitHubId: Int64, username: String, avatarUrl: String?, token: String? = nil) {
-        KeychainService.save(gitHubId: gitHubId, username: username, avatarUrl: avatarUrl, token: token)
+    func save(gitHubId: Int64, username: String, avatarUrl: String?, token: String? = nil, refreshToken: String? = nil, tokenExpiresAt: Date? = nil) {
+        KeychainService.save(gitHubId: gitHubId, username: username, avatarUrl: avatarUrl, token: token, refreshToken: refreshToken, tokenExpiresAt: tokenExpiresAt)
     }
 
     func load() -> KeychainService.Session? {

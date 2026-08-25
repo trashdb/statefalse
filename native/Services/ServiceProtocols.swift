@@ -84,7 +84,7 @@ protocol SignalRServiceProtocol: AnyObject {
 // MARK: - KeychainServiceProtocol
 
 protocol KeychainServiceProtocol: AnyObject {
-    func save(gitHubId: Int64, username: String, avatarUrl: String?, token: String?)
+    func save(gitHubId: Int64, username: String, avatarUrl: String?, token: String?, refreshToken: String?, tokenExpiresAt: Date?)
     func load() -> KeychainService.Session?
     func delete()
 }
@@ -101,7 +101,16 @@ protocol PersistenceServiceProtocol: AnyObject {
 // MARK: - OAuthServiceProtocol
 
 protocol OAuthServiceProtocol: AnyObject {
-    func startLogin(backendUrl: String) async throws -> (id: Int64, username: String, avatarUrl: String?, token: String)
+    func startLogin(backendUrl: String) async throws -> OAuthSession
+}
+
+struct OAuthSession: Sendable {
+    let id: Int64
+    let username: String
+    let avatarUrl: String?
+    let token: String
+    let refreshToken: String?
+    let expiresIn: Int?
 }
 
 // MARK: - ConflictWatcherServiceProtocol

@@ -55,6 +55,12 @@ public static class ApiEndpoints
         routes.MapPost("/auth/exchange", async (OAuthExchangeRequest request, AuthService auth)
             => Map(auth.ExchangeCode(request.Code))).AllowAnonymous().RequireRateLimiting("oauth");
 
+        routes.MapPost("/auth/refresh", async (RefreshTokenRequest request, AuthService auth)
+            => await MapAsync(auth.RefreshAsync(request.RefreshToken))).AllowAnonymous().RequireRateLimiting("oauth");
+
+        routes.MapPost("/auth/logout", async (RefreshTokenRequest request, AuthService auth)
+            => await MapAsync(auth.LogoutAsync(request.RefreshToken))).AllowAnonymous().RequireRateLimiting("oauth");
+
         routes.MapPost("/auth/pat", async (HttpContext ctx, PatRequest body, AuthService auth)
             => await MapAsync(auth.SavePatAsync(ctx.GitHubId(), body.PatToken))).RequireAuthorization().RequireRateLimiting("oauth");
 

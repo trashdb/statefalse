@@ -17,8 +17,9 @@ public class AuthService
     private readonly JwtTokenService _jwt;
     private readonly OAuthStateStore _stateStore;
     private readonly OAuthCodeStore _codeStore;
+    private readonly IRefreshTokenService? _refreshTokens;
 
-    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, JwtTokenService jwt, OAuthStateStore stateStore, OAuthCodeStore codeStore)
+    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, JwtTokenService jwt, OAuthStateStore stateStore, OAuthCodeStore codeStore, IRefreshTokenService? refreshTokens = null)
     {
         _oauth = oauth;
         _users = users;
@@ -26,6 +27,7 @@ public class AuthService
         _jwt = jwt;
         _stateStore = stateStore;
         _codeStore = codeStore;
+        _refreshTokens = refreshTokens;
     }
 
     public string? LoginUrl(string? redirectUri)
@@ -74,16 +76,23 @@ public class AuthService
 
         await _uow.SaveChangesAsync();
 
-        var token = _jwt.GenerateToken(userInfo.Id, userInfo.Login, userInfo.AvatarUrl);
+        var refreshToken = _refreshTokens == null
+            ? null
+            : await _refreshTokens.CreateAsync(userInfo.Id, userInfo.Login, userInfo.AvatarUrl);
 
         if (!string.IsNullOrEmpty(redirectUri))
         {
-            var exchangeCode = _codeStore.Create(userInfo.Id, userInfo.Login, userInfo.AvatarUrl, token);
+            var exchangeCode = refreshToken == null
+                ? _codeStore.Create(userInfo.Id, userInfo.Login, userInfo.AvatarUrl, _jwt.GenerateToken(userInfo.Id, userInfo.Login, userInfo.AvatarUrl))
+                : _codeStore.Create(userInfo.Id, userInfo.Login, userInfo.AvatarUrl, refreshToken.Token, refreshToken.RefreshToken, refreshToken.ExpiresIn);
             var callbackUri = $"{redirectUri}?code={Uri.EscapeDataString(exchangeCode)}";
             return new AuthCallbackResponse(null, callbackUri, null);
         }
 
-        return new AuthCallbackResponse(null, null, new { id = userInfo.Id, username = userInfo.Login, avatarUrl = userInfo.AvatarUrl, token });
+        if (refreshToken != null)
+            return new AuthCallbackResponse(null, null, refreshToken);
+
+        return new AuthCallbackResponse(null, null, new { id = userInfo.Id, username = userInfo.Login, avatarUrl = userInfo.AvatarUrl, token = _jwt.GenerateToken(userInfo.Id, userInfo.Login, userInfo.AvatarUrl) });
     }
 
     public ApiResult ExchangeCode(string? code)
@@ -92,6 +101,23 @@ public class AuthService
             return ApiResult.Unauthorized(new { error = "Invalid or expired OAuth exchange code" });
 
         return ApiResult.Ok(result);
+    }
+
+    public async Task<ApiResult> RefreshAsync(string? refreshToken, CancellationToken cancellationToken = default)
+    {
+        var result = _refreshTokens == null
+            ? null
+            : await _refreshTokens.RotateAsync(refreshToken, cancellationToken);
+        return result == null
+            ? ApiResult.Unauthorized(new { error = "Invalid or expired refresh token" })
+            : ApiResult.Ok(result);
+    }
+
+    public async Task<ApiResult> LogoutAsync(string? refreshToken, CancellationToken cancellationToken = default)
+    {
+        if (_refreshTokens != null)
+            await _refreshTokens.RevokeAsync(refreshToken, cancellationToken);
+        return ApiResult.NoContent();
     }
 
     public async Task<ApiResult> GetUsersAsync()

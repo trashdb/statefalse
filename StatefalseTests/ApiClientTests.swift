@@ -264,6 +264,38 @@ final class ApiClientTests: XCTestCase {
         XCTAssertEqual(calls, 0)
     }
 
+    func test401RefreshesAndRetriesWithRotatedSession() async {
+        var apiCalls = 0
+        MockURLProtocol.handler = { request in
+            switch request.url?.path {
+            case "/api/v1/auth/refresh":
+                XCTAssertEqual(request.httpMethod, "POST")
+                return self.jsonResponse(200, #"{"id":123,"username":"alice","avatarUrl":null,"token":"jwt-2","refreshToken":"refresh-2","expiresIn":43200}"#)
+            case "/api/v1/auth/me":
+                apiCalls += 1
+                if apiCalls == 1 { return self.jsonResponse(401, #"{"error":"expired"}"#) }
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer jwt-2")
+                return self.jsonResponse(200, #"{"id":123,"username":"alice","avatarUrl":null}"#)
+            default:
+                return self.jsonResponse(404, "")
+            }
+        }
+
+        let client = makeClient()
+        client.authToken = "jwt-1"
+        client.refreshToken = "refresh-1"
+        var refreshed: OAuthSession?
+        client.onSessionRefreshed = { refreshed = $0 }
+
+        let me = await client.fetchMe()
+
+        XCTAssertEqual(me?.id, 123)
+        XCTAssertEqual(client.authToken, "jwt-2")
+        XCTAssertEqual(client.refreshToken, "refresh-2")
+        XCTAssertEqual(refreshed?.token, "jwt-2")
+        XCTAssertEqual(apiCalls, 2)
+    }
+
     // MARK: - workflow run management
 
     func testRerunWorkflowNilOn200() async {

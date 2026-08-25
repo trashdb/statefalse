@@ -60,6 +60,52 @@ After setup, run or update a workflow, or open a pull request, to confirm that t
 
 Statefalse uses GitHub OAuth for sign-in. The session used by the app is separate from your GitHub access token and is stored locally in the macOS Keychain when you choose to stay signed in. The public hosted backend also processes the metadata and credentials required for its GitHub integration; review [`PRIVACY.md`](https://github.com/trashdb/statefalse/blob/main/PRIVACY.md) before connecting company or client repositories.
 
+## 🔐 Session lifecycle
+
+```text
+🌐 GitHub OAuth
+	  │
+	  ▼
+🎫 short-lived access JWT + 🔁 one-time refresh token
+	  │                         │
+	  │  HTTP 401               │ rotation on every refresh
+	  └──────────────► 🔄 automatic refresh ────────┐
+													▼
+									  🗝️ Keychain is updated
+```
+
+- The access JWT is configurable and defaults to **12 hours**.
+- The refresh token is configurable and defaults to **30 days**.
+- Refresh tokens are opaque, random values. The backend stores only their
+  SHA-256 hash, and every successful refresh revokes the old token and issues a
+  replacement.
+- The macOS app refreshes automatically after an API response with `401`, then
+  retries the original request **once**. Concurrent requests share the refresh
+  operation instead of intentionally starting several rotations.
+- This is **reactive**, not a background timer: an idle app does not refresh just
+  because the expiry time is approaching. The next authenticated request causes
+  the refresh when the server rejects the JWT.
+- On logout, the app deletes its local Keychain session and asks the backend to
+  revoke the current refresh token. If the network or process stops before that
+  request arrives, the backend cannot revoke it early; it expires naturally.
+- Logout currently does **not** invalidate an access JWT that was already issued.
+  A copied access JWT may remain usable until its expiry. Treat a suspected
+  token theft as an incident: revoke/rotate the relevant GitHub credentials and
+  contact the service operator.
+
+### What is stored where?
+
+| Location | Stored data | Important boundary |
+|---|---|---|
+| macOS Keychain | Statefalse access JWT, refresh token and expiry metadata | Protected by macOS Keychain; remove it when signing out or uninstalling. |
+| Statefalse backend | Refresh-token hashes, account metadata and GitHub integration credentials | The hosted operator can access operational data; review [`PRIVACY.md`](../PRIVACY.md). |
+| URLs/logs | SignalR may carry the access JWT as `access_token` for WebSocket transport | Operators must redact query strings and never log full connection URLs. |
+
+🚨 **Never paste an access JWT, refresh token, GitHub OAuth token or PAT into an
+issue, screenshot, terminal transcript or support request.** Statefalse does
+not currently promise that a GitHub credential returned by its token endpoint
+is safe to expose beyond the trusted client process.
+
 ## Personal Access Token
 
 Some GitHub actions may require a personal access token, including:

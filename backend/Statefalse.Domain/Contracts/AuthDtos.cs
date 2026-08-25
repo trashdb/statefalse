@@ -6,6 +6,8 @@ public sealed record TokenDto(string Token);
 
 public sealed record OAuthExchangeRequest(string? Code);
 
+public sealed record RefreshTokenRequest(string? RefreshToken);
+
 public sealed record PatRequest
 {
     public string? PatToken { get; set; }

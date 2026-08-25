@@ -14,7 +14,22 @@ public sealed class JwtOptions
     public string Secret { get; set; } = "";
     public string Issuer { get; set; } = "statefalse";
     public string Audience { get; set; } = "statefalse-native";
-    public int ExpiryHours { get; set; } = 720; // 30 days
+    public int ExpiryHours { get; set; } = 12;
+    public int RefreshTokenExpiryDays { get; set; } = 30;
+
+    public void Validate()
+    {
+        if (string.IsNullOrWhiteSpace(Secret) || Encoding.UTF8.GetByteCount(Secret) < 32)
+            throw new InvalidOperationException("Jwt:Secret must be set and at least 32 bytes long.");
+        if (string.IsNullOrWhiteSpace(Issuer))
+            throw new InvalidOperationException("Jwt:Issuer must be configured.");
+        if (string.IsNullOrWhiteSpace(Audience))
+            throw new InvalidOperationException("Jwt:Audience must be configured.");
+        if (ExpiryHours is < 1 or > 24)
+            throw new InvalidOperationException("Jwt:ExpiryHours must be between 1 and 24 hours.");
+        if (RefreshTokenExpiryDays is < 1 or > 365)
+            throw new InvalidOperationException("Jwt:RefreshTokenExpiryDays must be between 1 and 365 days.");
+    }
 }
 
 /// <summary>
@@ -35,7 +50,8 @@ public class JwtTokenService
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, gitHubId.ToString()),
-            new(JwtRegisteredClaimNames.UniqueName, username)
+            new(JwtRegisteredClaimNames.UniqueName, username),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
         };
         if (!string.IsNullOrEmpty(avatarUrl))
             claims.Add(new Claim("avatar", avatarUrl));

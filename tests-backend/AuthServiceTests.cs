@@ -209,6 +209,33 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
     }
 
     [Fact]
+    public async Task Refresh_RotatesTokenAndLogoutRevokesReplacement()
+    {
+        var state = await BeginOAuthAsync();
+        var client = _factory.CreateClient();
+        var callback = await client.GetAsync($"/api/auth/callback?code=abc123&state={Uri.EscapeDataString(state)}");
+        var initial = await callback.Content.ReadFromJsonAsync<JsonElement>();
+        var originalRefresh = initial.GetProperty("refreshToken").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(originalRefresh));
+
+        var refresh = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken = originalRefresh });
+        Assert.Equal(HttpStatusCode.OK, refresh.StatusCode);
+        var rotated = await refresh.Content.ReadFromJsonAsync<JsonElement>();
+        var replacementRefresh = rotated.GetProperty("refreshToken").GetString();
+        Assert.NotEqual(originalRefresh, replacementRefresh);
+        Assert.False(string.IsNullOrWhiteSpace(rotated.GetProperty("token").GetString()));
+
+        var replay = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken = originalRefresh });
+        Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
+
+        var logout = await client.PostAsJsonAsync("/api/v1/auth/logout", new { refreshToken = replacementRefresh });
+        Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
+
+        var afterLogout = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken = replacementRefresh });
+        Assert.Equal(HttpStatusCode.Unauthorized, afterLogout.StatusCode);
+    }
+
+    [Fact]
     public async Task Callback_StateCanOnlyBeConsumedOnce()
     {
         var state = await BeginOAuthAsync();

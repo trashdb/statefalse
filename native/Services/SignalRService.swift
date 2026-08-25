@@ -77,6 +77,17 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         resolvedApi.onUnauthorized = { [weak self] in
             Task { await self?.handleSessionExpired() }
         }
+        resolvedApi.onSessionRefreshed = { [weak self] session in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.authToken = session.token
+                self.api.authToken = session.token
+                self.api.refreshToken = session.refreshToken
+                if let stored = self.keychain.load() {
+                    self.keychain.save(gitHubId: stored.gitHubId, username: stored.username, avatarUrl: stored.avatarUrl, token: session.token, refreshToken: session.refreshToken, tokenExpiresAt: session.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) })
+                }
+            }
+        }
     }
 
     func restoreSession() {
@@ -95,6 +106,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         avatarUrl = session.avatarUrl
         authToken = sessionToken
         api.authToken = sessionToken
+        api.refreshToken = session.refreshToken
         isLoggedIn = true
         let gid = session.gitHubId
 
@@ -110,7 +122,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
 
             if let fresh = await api.fetchMe(), let url = fresh.avatarUrl {
                 await MainActor.run { avatarUrl = url }
-                keychain.save(gitHubId: gid, username: session.username, avatarUrl: url, token: sessionToken)
+                keychain.save(gitHubId: gid, username: session.username, avatarUrl: url, token: sessionToken, refreshToken: session.refreshToken, tokenExpiresAt: session.tokenExpiresAt)
             }
         }
 
@@ -167,10 +179,14 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
             avatarUrl = result.avatarUrl
             authToken = result.token
             api.authToken = result.token
+            api.refreshToken = result.refreshToken
             isLoggedIn = true
             connect()
             if keepSignedIn {
-                keychain.save(gitHubId: result.id, username: result.username, avatarUrl: result.avatarUrl, token: result.token)
+                let expiresAt = result.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) }
+                keychain.save(gitHubId: result.id, username: result.username, avatarUrl: result.avatarUrl, token: result.token, refreshToken: result.refreshToken, tokenExpiresAt: expiresAt)
+            } else {
+                keychain.delete()
             }
         }
     }
@@ -183,13 +199,20 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     func logout() {
         stopPolling()
         disconnect()
+        let refreshToken = api.refreshToken
+        if refreshToken != nil {
+            Task { await api.revokeSession(refreshToken: refreshToken) }
+        }
         keychain.delete()
         api.authToken = nil
+        api.refreshToken = nil
         authToken = nil
         isLoggedIn = false
         username = ""
         avatarUrl = nil
         userGitHubId = 0
+        notifications = []
+        mainBranchUpdate = nil
     }
 
     /// Fired when the backend rejects the session JWT (expired or revoked).
