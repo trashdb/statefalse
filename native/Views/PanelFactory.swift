@@ -1,6 +1,13 @@
 import AppKit
 
 enum PanelFactory {
+    static func makeUtilityPanel(size: CGSize, title: String) -> NSPanel {
+        let panel = makePanel(size: size, title: title)
+        panel.minSize = CGSize(width: min(size.width, 360), height: min(size.height, 260))
+        panel.hidesOnDeactivate = false
+        return panel
+    }
+
     static func makePanel(size: CGSize, title: String) -> NSPanel {
         let p = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
