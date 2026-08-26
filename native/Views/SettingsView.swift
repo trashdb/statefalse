@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SettingsView: View {
     let api: ApiClientProtocol
+    var onBack: (() -> Void)? = nil
+    var onShowReleaseNotes: (() -> Void)? = nil
 
     @AppStorage("workspacePath") private var workspacePath = TeamDefaults.workspacePath
     @AppStorage("jiraBoardUrl") private var jiraBoardUrl = TeamDefaults.jiraBoardUrl
@@ -38,12 +40,6 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: DS.Spacing.lg) {
-                        Text("Settings")
-                            .font(DS.Font.largeTitle)
-                    }
-                    .padding(.bottom, DS.Spacing.xl)
-
                     CollapsibleSection(title: "About", icon: "info.circle") {
                         aboutSection
                     }
@@ -79,10 +75,13 @@ struct SettingsView: View {
                 .padding(24)
             }
         }
-        .frame(width: 540, height: 620)
         .onAppear { Task { await scanForRepos() } }
-        .closeOnEscape { SettingsPanelManager.shared.close() }
-        .closeOnCmdW { SettingsPanelManager.shared.close() }
+        .closeOnEscape {
+            if let onBack { onBack() } else { SettingsPanelManager.shared.close() }
+        }
+        .closeOnCmdW {
+            if let onBack { onBack() } else { SettingsPanelManager.shared.close() }
+        }
     }
 
     // MARK: - Sections
@@ -105,7 +104,7 @@ struct SettingsView: View {
                 if FileManager.default.fileExists(atPath: expanded) {
                     workspacePath = pathDraft
                     pathError = nil
-                    SettingsPanelManager.shared.close()
+                    if let onBack { onBack() } else { SettingsPanelManager.shared.close() }
                 } else {
                     pathError = "Directory not found at \(expanded)"
                 }
@@ -153,7 +152,7 @@ struct SettingsView: View {
             }
 
             actionButton("View What's New", color: .blue, help: "Read the release notes for this version") {
-                SettingsPanelManager.shared.showReleaseNotes()
+                if let onShowReleaseNotes { onShowReleaseNotes() } else { SettingsPanelManager.shared.showReleaseNotes() }
             }
         }
     }
@@ -495,6 +494,7 @@ enum ReleaseNotesStore {
 
 struct ReleaseNotesView: View {
     private let release = ReleaseNotesStore.current
+    var onBack: (() -> Void)? = nil
 
     var body: some View {
         ZStack {
@@ -503,13 +503,6 @@ struct ReleaseNotesView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: DS.Spacing.xl) {
                     VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                        HStack(spacing: DS.Spacing.md) {
-                            Image(systemName: "sparkles")
-                                .foregroundStyle(DS.Color.accent)
-                            Text(release.title)
-                                .font(DS.Font.largeTitle)
-                                .foregroundStyle(DS.Color.textPrimary)
-                        }
                         Text(release.summary)
                             .font(DS.Font.body)
                             .foregroundStyle(DS.Color.textSecondary)
@@ -540,8 +533,11 @@ struct ReleaseNotesView: View {
                 .padding(DS.Spacing.xxl)
             }
         }
-        .frame(width: 560, height: 620)
-        .closeOnEscape { SettingsPanelManager.shared.closeReleaseNotes() }
-        .closeOnCmdW { SettingsPanelManager.shared.closeReleaseNotes() }
+        .closeOnEscape {
+            if let onBack { onBack() } else { SettingsPanelManager.shared.closeReleaseNotes() }
+        }
+        .closeOnCmdW {
+            if let onBack { onBack() } else { SettingsPanelManager.shared.closeReleaseNotes() }
+        }
     }
 }
