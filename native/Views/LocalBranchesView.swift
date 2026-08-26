@@ -13,6 +13,7 @@ struct LocalBranchesView: View {
     @State private var showDeleteConfirmation = false
     @State private var checkingOutBranch: (repo: ScannedRepo, name: String)?
     @State private var pullingBranch: (repoId: String, name: String)?
+    @State private var selectedBranchInfo: BranchInfo?
     @AppStorage("favoriteRepo") private var favoriteRepo = TeamDefaults.favoriteRepo
     @AppStorage("workspacePath") private var workspacePath = TeamDefaults.workspacePath
 
@@ -103,6 +104,14 @@ struct LocalBranchesView: View {
                 deleteConfirmationOverlay
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
+        }
+        .background {
+            Color.clear
+                .popover(item: $selectedBranchInfo) { info in
+                    BranchDetailView(info: info, gitHubId: gitHubId, onCheckout: { Task { await scan() } })
+                        .transition(.scale(scale: 0.95).combined(with: .opacity))
+                }
+                .animation(DS.Animation.popover, value: selectedBranchInfo != nil)
         }
         .animation(DS.Animation.default, value: isLoading)
         .animation(DS.Animation.default, value: error != nil)
@@ -199,12 +208,12 @@ struct LocalBranchesView: View {
                 isPulling: pullingBranch?.repoId == repo.id && pullingBranch?.name == branch.name,
                 isDefault: isDefaultBranch(branch.name),
                 onSelect: {
-                    openBranchDetail(BranchInfo(
+                    selectedBranchInfo = BranchInfo(
                         name: branch.name, repoPath: repo.path,
                         repoName: GitService.repoName(from: repo.path),
                         isCurrent: branch.isCurrent, isLocal: true,
                         isMerged: false,
-                        isDefault: isDefaultBranch(branch.name)))
+                        isDefault: isDefaultBranch(branch.name))
                 },
                 onPull: { Task { await pullBranch(repo: repo, name: branch.name) } },
                 onDelete: {
@@ -227,23 +236,16 @@ struct LocalBranchesView: View {
                         isCurrent: false, isLocal: false,
                         isMerged: branch.isMerged,
                         isDefault: isDefaultBranch(branch.name))
-                    openBranchDetail(info)
+                    selectedBranchInfo = nil
+                    DispatchQueue.main.async {
+                        selectedBranchInfo = info
+                    }
                 },
                 onDelete: {
                     remoteBranchToDelete = (repo, branch)
                     showDeleteConfirmation = true
                 })
         }
-    }
-
-    @MainActor
-    private func openBranchDetail(_ info: BranchInfo) {
-        BranchDetailPanelManager.shared.show(
-            deps: deps,
-            info: info,
-            gitHubId: gitHubId,
-            onCheckout: { Task { await scan() } }
-        )
     }
 
     private func scrollTopIfCollapsed(_ proxy: ScrollViewProxy) {

@@ -3,7 +3,6 @@ import SwiftUI
 struct PRDetailView: View {
     let pr: PullRequest
     let gitHubId: Int64
-    private let onClose: () -> Void
     private let deps: Dependencies
     @StateObject private var model: PRDetailViewModel
 
@@ -13,11 +12,9 @@ struct PRDetailView: View {
          gitHubId: Int64,
          optimisticDraft: Bool? = nil,
          deps: Dependencies,
-         onDraftChanged: ((Bool) -> Void)? = nil,
-         onClose: @escaping () -> Void = {}) {
+         onDraftChanged: ((Bool) -> Void)? = nil) {
         self.pr = pr
         self.gitHubId = gitHubId
-        self.onClose = onClose
         self.deps = deps
         _model = StateObject(wrappedValue: PRDetailViewModel(
             pr: pr,
@@ -70,8 +67,8 @@ struct PRDetailView: View {
             default: break
             }
         }
-        .closeOnEscape { onClose() }
-        .closeOnCmdW { onClose() }
+        .closeOnEscape { PRDetailPanelManager.shared.close() }
+        .closeOnCmdW { PRDetailPanelManager.shared.close() }
     }
 
     // MARK: - Details Tab

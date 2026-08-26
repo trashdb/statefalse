@@ -1,7 +1,6 @@
 import SwiftUI
 
-@MainActor
-final class BranchDetailPanelManager: NSObject, NSWindowDelegate {
+final class BranchDetailPanelManager {
     static let shared = BranchDetailPanelManager()
     private var panel: NSWindow?
 
@@ -13,13 +12,10 @@ final class BranchDetailPanelManager: NSObject, NSWindowDelegate {
 
         let view = BranchDetailView(
             info: info, gitHubId: gitHubId,
-            onCheckout: onCheckout,
-            onClose: { [weak self] in self?.close() }
+            onCheckout: onCheckout
         )
         let hostingController = NSHostingController(rootView: view.environment(\.dependencies, deps))
-        let w = PanelFactory.makeWindow(size: CGSize(width: 360, height: 340), title: "Branch — \(info.name)")
-        w.delegate = self
-        w.minSize = CGSize(width: 340, height: 260)
+        let w = PanelFactory.makeWindow(size: CGSize(width: 320, height: 240), title: "Branch")
         w.contentViewController = hostingController
         w.makeKeyAndOrderFront(nil)
         panel = w
@@ -27,11 +23,6 @@ final class BranchDetailPanelManager: NSObject, NSWindowDelegate {
 
     func close() {
         panel?.close()
-        panel = nil
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        guard let closingWindow = notification.object as? NSWindow, closingWindow === panel else { return }
         panel = nil
     }
 }
