@@ -11,6 +11,7 @@ native/.build/
 native/.swiftpm/
 native/.derived-data/
 native/publish/
+.release-*/
 *.xcuserstate
 xcuserdata/
 # .NET publish output
