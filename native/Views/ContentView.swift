@@ -3,6 +3,26 @@ import Foundation
 import SwiftUI
 
 struct ContentView: View {
+    private enum InternalScreen: Equatable {
+        case home
+        case settings
+        case notificationHistory
+        case workflowHistory
+        case webhookLog
+        case releaseNotes
+
+        var title: String {
+            switch self {
+            case .home: return "Statefalse"
+            case .settings: return "Settings"
+            case .notificationHistory: return "Notification History"
+            case .workflowHistory: return "Workflow History"
+            case .webhookLog: return "Webhook Event Log"
+            case .releaseNotes: return "What's New"
+            }
+        }
+    }
+
     @ObservedObject var signalR: SignalRService
     @Environment(\.dependencies) private var deps
 
@@ -10,11 +30,13 @@ struct ContentView: View {
     @State private var isLoading = false
     @State private var loginError: String?
     @State private var showQuickSearch = false
+    @State private var internalScreen: InternalScreen = .home
     @FocusState private var quickSearchFocused: Bool
     @State private var resignFocusToken: Any?
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
+            VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: DS.Spacing.xl) {
                     // Header
                     HStack(spacing: DS.Spacing.md) {
@@ -76,7 +98,7 @@ struct ContentView: View {
                                         .foregroundStyle(DS.Color.destructive)
                                     Spacer()
                                     Button {
-                                        NotificationHistoryPanelManager.shared.show(signalR: signalR)
+                                        internalScreen = .notificationHistory
                                     } label: {
                                         HStack(spacing: DS.Spacing.xs) {
                                             Text("Show history")
@@ -125,7 +147,7 @@ struct ContentView: View {
                             )
                         } else {
                             EmptyNotificationView {
-                                NotificationHistoryPanelManager.shared.show(signalR: signalR)
+                                internalScreen = .notificationHistory
                             }
                         }
                     }
@@ -172,11 +194,11 @@ struct ContentView: View {
 
                 if signalR.isLoggedIn {
                     toolbarButton(icon: "list.bullet.rectangle", help: "Workflow History") {
-                        WorkflowHistoryPanelManager.shared.show(signalR: signalR, gitHubId: signalR.userGitHubId)
+                        internalScreen = .workflowHistory
                     }
 
                     toolbarButton(icon: "antenna.radiowaves.left.and.right", help: "Webhook Event Log (debug)") {
-                        WebhookLogPanelManager.shared.show(api: signalR.api)
+                        internalScreen = .webhookLog
                     }
 
                     toolbarButton(icon: "tray.full", help: "See All PRs") {
@@ -197,15 +219,13 @@ struct ContentView: View {
                     }
 
                     toolbarButton(icon: "gearshape.fill", help: "Settings") {
-                        let m = SettingsPanelManager.shared
-                        m.api = signalR.api
-                        m.show()
+                        internalScreen = .settings
                     }
                 }
 
                 if signalR.isLoggedIn, signalR.runningWorkflows.count > 0 {
                     Button {
-                        WorkflowHistoryPanelManager.shared.show(signalR: signalR, gitHubId: signalR.userGitHubId)
+                        internalScreen = .workflowHistory
                     } label: {
                         HStack(spacing: DS.Spacing.sm) {
                             Circle()
@@ -236,7 +256,15 @@ struct ContentView: View {
             .padding(.horizontal, DS.Spacing.xxl)
             .padding(.vertical, DS.Spacing.xl)
         }
-        .frame(width: 400, height: 910, alignment: .top)
+            .opacity(internalScreen == .home ? 1 : 0)
+            .allowsHitTesting(internalScreen == .home)
+            .accessibilityHidden(internalScreen != .home)
+
+            if internalScreen != .home {
+                internalScreenView
+            }
+        }
+        .frame(width: 460, height: 910, alignment: .top)
         .background(.regularMaterial)
         .onAppear {
             signalR.restoreSession()
@@ -245,7 +273,8 @@ struct ContentView: View {
             setupResignFocusMonitor()
             if ReleaseNotesStore.shouldPresentCurrentVersion {
                 DispatchQueue.main.async {
-                    SettingsPanelManager.shared.showReleaseNotes(markCurrentVersionAsSeen: true)
+                    internalScreen = .releaseNotes
+                    ReleaseNotesStore.markCurrentVersionAsSeen()
                 }
             }
         }
@@ -262,14 +291,67 @@ struct ContentView: View {
         .animation(DS.Animation.popover, value: showQuickSearch)
         .background(
             Button("") {
-                let m = SettingsPanelManager.shared
-                m.api = signalR.api
-                m.show()
+                internalScreen = .settings
             }
             .keyboardShortcut(",", modifiers: .command)
             .labelsHidden()
             .hidden()
         )
+    }
+
+    @ViewBuilder
+    private var internalScreenView: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Text(internalScreen.title)
+                    .font(DS.Font.section)
+                    .foregroundStyle(DS.Color.textPrimary)
+
+                HStack {
+                    Button {
+                        withAnimation(DS.Animation.popover) { internalScreen = .home }
+                    } label: {
+                        Label("Back", systemImage: "chevron.left")
+                    }
+                    .buttonStyle(.borderless)
+                    .font(DS.Font.small.medium())
+                    .foregroundStyle(DS.Color.accent)
+                    .cursor(.pointingHand)
+                    Spacer()
+                }
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.vertical, 12)
+
+            Divider()
+
+            Group {
+                switch internalScreen {
+                case .home:
+                    EmptyView()
+                case .settings:
+                    SettingsView(
+                        api: signalR.api,
+                        onBack: { internalScreen = .home },
+                        onShowReleaseNotes: { internalScreen = .releaseNotes }
+                    )
+                case .notificationHistory:
+                    NotificationHistoryView(signalR: signalR, onBack: { internalScreen = .home })
+                case .workflowHistory:
+                    WorkflowHistoryView(
+                        signalR: signalR,
+                        gitHubId: signalR.userGitHubId,
+                        onBack: { internalScreen = .home }
+                    )
+                case .webhookLog:
+                    WebhookLogView(api: signalR.api, onBack: { internalScreen = .home })
+                case .releaseNotes:
+                    ReleaseNotesView(onBack: { internalScreen = .settings })
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(.regularMaterial)
     }
 
     private var quickSearchActions: [QuickSearchAction] {

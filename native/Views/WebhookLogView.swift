@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WebhookLogView: View {
     let api: ApiClientProtocol
+    var onBack: (() -> Void)? = nil
 
     @State private var logs: [WebhookLogEntry] = []
     @State private var isLoading = true
@@ -13,13 +14,9 @@ struct WebhookLogView: View {
 
             VStack(alignment: .leading, spacing: DS.Spacing.section) {
                 HStack {
-                    Text("Webhook Event Log")
-                        .font(DS.Font.largeTitle)
                     Spacer()
                     actionButton("Refresh", color: .blue) { loadLogs() }
                 }
-
-                Divider()
 
                 if isLoading {
                     Spacer()
@@ -50,10 +47,13 @@ struct WebhookLogView: View {
             }
             .padding(DS.Spacing.xxl)
         }
-        .frame(width: 560, height: 500)
         .onAppear(perform: loadLogs)
-        .closeOnEscape { WebhookLogPanelManager.shared.close() }
-        .closeOnCmdW { WebhookLogPanelManager.shared.close() }
+        .closeOnEscape {
+            if let onBack { onBack() } else { WebhookLogPanelManager.shared.close() }
+        }
+        .closeOnCmdW {
+            if let onBack { onBack() } else { WebhookLogPanelManager.shared.close() }
+        }
     }
 
     private func loadLogs() {

@@ -3,17 +3,13 @@ import SwiftUI
 struct WorkflowHistoryView: View {
     @ObservedObject var signalR: SignalRService
     let gitHubId: Int64
+    var onBack: (() -> Void)? = nil
 
     var body: some View {
         ZStack {
             VisualEffectBackground(material: .sidebar)
 
             VStack(alignment: .leading, spacing: DS.Spacing.section) {
-                Text("Workflow History")
-                    .font(DS.Font.largeTitle)
-
-                Divider()
-
                 if signalR.recentWorkflows.isEmpty {
                     emptyState("No workflows yet", icon: "gearshape.arrow.triangle.2.circlepath")
                 } else {
@@ -32,9 +28,12 @@ struct WorkflowHistoryView: View {
             }
             .padding(DS.Spacing.xxl)
         }
-        .frame(width: 600, height: 500)
-        .closeOnEscape { WorkflowHistoryPanelManager.shared.close() }
-        .closeOnCmdW { WorkflowHistoryPanelManager.shared.close() }
+        .closeOnEscape {
+            if let onBack { onBack() } else { WorkflowHistoryPanelManager.shared.close() }
+        }
+        .closeOnCmdW {
+            if let onBack { onBack() } else { WorkflowHistoryPanelManager.shared.close() }
+        }
     }
 }
 

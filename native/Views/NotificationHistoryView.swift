@@ -3,18 +3,10 @@ import SwiftUI
 
 struct NotificationHistoryView: View {
     @ObservedObject var signalR: SignalRService
+    var onBack: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            HStack {
-                Text("Notification history")
-                    .font(DS.Font.title)
-                Spacer()
-                Text("Last 24 hours")
-                    .font(DS.Font.caption)
-                    .foregroundStyle(DS.Color.textSecondary)
-            }
-
             if signalR.unreadNotificationCount > 0 {
                 Text("\(signalR.unreadNotificationCount) unread")
                     .font(DS.Font.caption)
@@ -69,10 +61,13 @@ struct NotificationHistoryView: View {
         }
         .padding(.horizontal, DS.Spacing.xxl)
         .padding(.vertical, DS.Spacing.xl)
-        .frame(width: 430, height: 520)
         .background(VisualEffectBackground(material: .sidebar))
-        .closeOnEscape { NotificationHistoryPanelManager.shared.close() }
-        .closeOnCmdW { NotificationHistoryPanelManager.shared.close() }
+        .closeOnEscape {
+            if let onBack { onBack() } else { NotificationHistoryPanelManager.shared.close() }
+        }
+        .closeOnCmdW {
+            if let onBack { onBack() } else { NotificationHistoryPanelManager.shared.close() }
+        }
     }
 
     private func open(_ notification: ApiNotification, at url: URL) {
