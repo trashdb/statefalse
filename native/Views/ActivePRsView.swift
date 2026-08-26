@@ -4,7 +4,6 @@ struct ActivePRsView: View {
     let prs: [PullRequest]
     let gitHubId: Int64
     let deps: Dependencies
-    @State private var selectedPR: PullRequest?
     @State private var optimisticDrafts: [String: Bool] = [:]
     @State private var searchQuery = ""
     @State private var selectedRepo: String? = nil
@@ -54,17 +53,6 @@ struct ActivePRsView: View {
         let draft = optimisticDrafts[pr.id] ?? pr.draft
         return (DS.Color.statusLabel(for: pr, draft: draft),
                 DS.Color.statusColor(for: pr, draft: draft))
-    }
-
-    private func detailPopover(for pr: PullRequest) -> PRDetailView {
-        PRDetailView(
-            pr: pr,
-            gitHubId: gitHubId,
-            optimisticDraft: optimisticDrafts[pr.id],
-            deps: deps
-        ) { newDraft in
-            optimisticDrafts[pr.id] = newDraft
-        }
     }
 
     var body: some View {
@@ -144,12 +132,17 @@ struct ActivePRsView: View {
                             PRCardRow(
                                 pr: pr,
                                 status: status(for: pr),
-                                isPresented: Binding(
-                                    get: { selectedPR?.id == pr.id },
-                                    set: { if !$0 { selectedPR = nil } }
-                                ),
-                                action: { selectedPR = pr },
-                                popover: detailPopover(for: pr)
+                                action: {
+                                    PRDetailPanelManager.shared.show(
+                                        deps: deps,
+                                        pr: pr,
+                                        gitHubId: gitHubId,
+                                        optimisticDraft: optimisticDrafts[pr.id],
+                                        onDraftChanged: { newDraft in
+                                            optimisticDrafts[pr.id] = newDraft
+                                        }
+                                    )
+                                }
                             )
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         }
@@ -170,9 +163,6 @@ struct ActivePRsView: View {
                 if optimisticDrafts[pr.id] == pr.draft {
                     optimisticDrafts.removeValue(forKey: pr.id)
                 }
-            }
-            if let sel = selectedPR, !activeIDs.contains(sel.id) {
-                selectedPR = nil
             }
         }
     }
@@ -208,12 +198,10 @@ enum PRFilterStatus: String, CaseIterable {
 }
 
 // MARK: - Individual PR Card Row
-private struct PRCardRow<PopoverContent: View>: View {
+private struct PRCardRow: View {
     let pr: PullRequest
     let status: (label: String, color: Color)
-    @Binding var isPresented: Bool
     let action: () -> Void
-    let popover: PopoverContent
 
     @State private var isHovering = false
 
@@ -271,11 +259,6 @@ private struct PRCardRow<PopoverContent: View>: View {
                 isHovering = hovering
             }
         }
-        .popover(isPresented: $isPresented) {
-            popover
-                .transition(.scale(scale: 0.95).combined(with: .opacity))
-        }
-        .animation(DS.Animation.popover, value: isPresented)
         .help("\(pr.title) — \(shortRepo(pr.repo)) → \(pr.baseBranch) (\(status.label))")
     }
 }

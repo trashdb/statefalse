@@ -4,7 +4,7 @@ struct BranchDetailView: View {
     let info: BranchInfo
     let gitHubId: Int64
     var onCheckout: (() -> Void)?
-    @Environment(\.dismiss) private var dismiss
+    var onClose: () -> Void = {}
     @Environment(\.dependencies) private var deps
 
     @State private var deleting = false
@@ -27,7 +27,7 @@ struct BranchDetailView: View {
                 repoPath: info.repoPath, branchName: info.name,
                 gitHubId: gitHubId, api: deps.apiClient,
                 onComplete: { url in
-                    dismiss()
+                    onClose()
                     NSWorkspace.shared.open(url)
                 },
                 onCancel: { showCreatePR = false }
@@ -73,7 +73,7 @@ struct BranchDetailView: View {
                             .foregroundStyle(DS.Color.accent)
                         if let url = info.jiraUrl {
                             actionButton("Open", color: .blue) {
-                                dismiss()
+                                onClose()
                                 NSWorkspace.shared.open(url)
                             }
                         }
@@ -196,7 +196,7 @@ struct BranchDetailView: View {
             try await git.checkoutBranch(repoPath: info.repoPath, name: newBranchName.trimmingCharacters(in: .whitespaces))
             openRider()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                dismiss()
+                onClose()
             }
         } catch {
             createBranchError = (error as? GitError)?.localizedDescription ?? error.localizedDescription

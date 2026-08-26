@@ -3,21 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0c10">
+  <meta name="theme-color" content="#090b0f">
   <meta name="description" content="Statefalse documentation: installation, GitHub setup, local Git and administration.">
   <title>Statefalse Docs</title>
   <style>
-    :root { color-scheme: dark; --bg: #0a0c10; --panel: #121720; --line: #283241; --text: #e9edf3; --muted: #9da8b8; --accent: #b8f36b; }
+    :root { color-scheme: dark; --bg: #090b0f; --panel: #10141b; --line: #242c37; --text: #f0f3f7; --muted: #9aa5b3; --accent: #ff6b45; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     a { color: var(--accent); }
     .shell { width: min(1080px, calc(100% - 40px)); margin: 0 auto; }
-    header { border-bottom: 1px solid var(--line); padding: 22px 0; }
-    header .shell { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-    .brand { color: var(--text); font-weight: 700; letter-spacing: .04em; text-decoration: none; }
-    nav { display: flex; flex-wrap: wrap; gap: 18px; font-size: .92rem; }
-    nav a { color: var(--muted); text-decoration: none; }
-    nav a:hover { color: var(--text); }
     main { padding: 78px 0 100px; }
     .eyebrow { color: var(--accent); font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
     h1 { font-size: clamp(2.8rem, 8vw, 5.8rem); letter-spacing: -.06em; line-height: .98; margin: 14px 0 24px; max-width: 720px; }
@@ -27,37 +21,60 @@
     .card h2 { font-size: 1.1rem; margin: 0 0 10px; }
     .card p { color: var(--muted); font-size: .94rem; margin: 0 0 16px; }
     .card a { font-weight: 600; text-decoration: none; }
+    .guide { border-top: 1px solid var(--line); margin-top: 72px; padding-top: 24px; }
+    .guide h2 { font-size: 1.7rem; margin: 42px 0 12px; }
+    .guide h3 { font-size: 1.05rem; margin: 26px 0 7px; }
+    .guide p, .guide li { color: var(--muted); }
+    .guide code { background: #171d26; border-radius: 4px; color: var(--text); padding: 2px 5px; }
+    pre { background: #07090c; border: 1px solid var(--line); border-radius: 9px; overflow-x: auto; padding: 16px; }
+    pre code { background: none; color: var(--text); padding: 0; }
     .note { border-left: 2px solid var(--accent); color: var(--muted); margin-top: 58px; padding: 4px 0 4px 18px; }
     footer { border-top: 1px solid var(--line); color: var(--muted); padding: 26px 0 44px; font-size: .9rem; }
-    @media (max-width: 620px) { header .shell { align-items: flex-start; flex-direction: column; } main { padding-top: 52px; } }
+    @media (max-width: 620px) { main { padding-top: 52px; } }
   </style>
 </head>
 <body>
-  <header>
-    <div class="shell">
-      <a class="brand" href="/">statefalse</a>
-      <nav aria-label="Documentation navigation">
-        <a href="/">Home</a>
-        <a href="https://github.com/trashdb/statefalse/releases/latest">Releases</a>
-        <a href="https://github.com/trashdb/statefalse">GitHub</a>
-      </nav>
-    </div>
-  </header>
   <main class="shell">
     <p class="eyebrow">Documentation</p>
     <h1>Everything you need to stay in flow.</h1>
     <p class="lede">Install Statefalse, connect GitHub, configure local repository access and understand how the backend, webhooks and notifications work together.</p>
     <section class="grid" aria-label="Documentation sections">
-      <article class="card"><h2>Get started</h2><p>Install the macOS app and complete first-time setup.</p><a href="https://github.com/trashdb/statefalse/blob/main/docs/USER-GUIDE.md#install-statefalse">Read the user guide →</a></article>
-      <article class="card"><h2>Local Git</h2><p>Configure SSH or macOS Keychain credentials for pull, fetch and push.</p><a href="https://github.com/trashdb/statefalse/blob/main/docs/GIT-LOCAL.md">Configure local Git →</a></article>
-      <article class="card"><h2>GitHub &amp; webhooks</h2><p>Understand OAuth, permissions, webhook events and delivery troubleshooting.</p><a href="https://github.com/trashdb/statefalse/blob/main/docs/WEBHOOKS.md">Configure webhooks →</a></article>
-      <article class="card"><h2>Administration</h2><p>Configure the backend, secrets, refresh tokens and production operations.</p><a href="https://github.com/trashdb/statefalse/blob/main/docs/ADMIN-GUIDE.md">Open admin guide →</a></article>
-      <article class="card"><h2>Security &amp; privacy</h2><p>Learn how credentials are separated and how Statefalse handles your data.</p><a href="https://github.com/trashdb/statefalse/blob/main/SECURITY.md">Read security notes →</a></article>
-      <article class="card"><h2>Releases</h2><p>Download the latest app and verify its SHA-256 checksum.</p><a href="https://github.com/trashdb/statefalse/releases">Browse all releases →</a></article>
+      <article class="card"><h2>Get started</h2><p>Install the macOS app and complete first-time setup.</p><a href="#installation">Read the guide →</a></article>
+      <article class="card"><h2>Local Git</h2><p>Configure SSH or macOS Keychain credentials for pull, fetch and push.</p><a href="#local-git">Configure local Git →</a></article>
+      <article class="card"><h2>GitHub &amp; webhooks</h2><p>Understand OAuth, permissions, webhook events and troubleshooting.</p><a href="#github">Configure GitHub →</a></article>
+      <article class="card"><h2>Administration</h2><p>Configure the backend, secrets, refresh tokens and operations.</p><a href="#administration">Open admin guide →</a></article>
+      <article class="card"><h2>Security &amp; privacy</h2><p>Learn how credentials are separated and how Statefalse handles data.</p><a href="#security">Read security notes →</a></article>
+      <article class="card"><h2>Releases</h2><p>Download the latest app and verify its SHA-256 checksum.</p><a href="#releases">Release instructions →</a></article>
     </section>
-    <p class="note">Statefalse is open source. If something is unclear or incorrect, <a href="https://github.com/trashdb/statefalse/issues">open an issue</a> and help improve the docs.</p>
+    <section class="guide" aria-label="Statefalse documentation">
+      <h2 id="installation">Installation &amp; first setup</h2>
+      <p>Download the ZIP from the <a href="https://github.com/trashdb/statefalse/releases">GitHub releases page</a>, unzip it and move <code>Statefalse.app</code> to Applications. On first launch, allow the app in System Settings if macOS asks.</p>
+      <p>Sign in with GitHub, select the workspace containing your repositories and choose the repository used for pull requests. Notifications and workflow status are then available from the menu bar.</p>
+      <h2 id="local-git">Local Git authentication</h2>
+      <p>Pull, fetch and push run locally on your Mac against <code>origin</code>. The PAT saved in Settings is never returned to the app for local Git; it remains backend-only for GitHub API operations.</p>
+      <h3>Recommended: SSH</h3>
+      <pre><code>ssh-keygen -t ed25519 -C "you@example.com"
+ssh-add --apple-use-keychain ~/.ssh/id_ed25519
+ssh -T git@github.com
+git remote set-url origin git@github.com:OWNER/REPOSITORY.git</code></pre>
+      <h3>Alternative: HTTPS Keychain</h3>
+      <pre><code>git config --global credential.helper osxkeychain
+git remote set-url origin https://github.com/OWNER/REPOSITORY.git</code></pre>
+      <h2 id="github">GitHub, OAuth &amp; webhooks</h2>
+      <p>OAuth signs you into Statefalse and authorizes the backend integration. The backend uses short-lived session tokens and refresh tokens. Configure a GitHub webhook for <code>/api/webhook/github</code> with a secret and workflow, check-suite, pull-request, review and comment events.</p>
+      <p>Webhook deliveries are verified with HMAC. If notifications stop, check delivery status and confirm that the configured secret matches the backend secret.</p>
+      <h2 id="administration">Administration</h2>
+      <p>Production configuration belongs in environment variables, never in the repository. Keep OAuth secrets, JWT signing keys, webhook secrets and backend PATs private; rotate them if they have ever been exposed.</p>
+      <p>Database migrations run during backend startup. Before production deployment, create a backup, deploy the release, verify <code>/health</code> and keep the previous release available for rollback.</p>
+      <h2 id="security">Security &amp; privacy</h2>
+      <p>Statefalse separates authentication, GitHub API access and local Git credentials. Repository files and Git credentials remain on the Mac. The backend receives only the data required by connected GitHub features and does not expose the stored PAT to the native client.</p>
+      <h2 id="releases">Releases &amp; verification</h2>
+      <p>Every macOS release includes a ZIP and <code>SHA256SUMS</code>. Verify the downloaded archive before installing:</p>
+      <pre><code>shasum -a 256 -c SHA256SUMS</code></pre>
+      <p>Use the <a href="https://github.com/trashdb/statefalse/releases">all releases page</a> to choose an older version or review changes.</p>
+    </section>
+    <p class="note">Statefalse is open source. For source code, issues and contributions, visit <a href="https://github.com/trashdb/statefalse">GitHub</a>.</p>
   </main>
-  <footer><div class="shell">Statefalse · macOS GitHub workflow companion · <a href="/">Back to statefalse.com</a></div></footer>
+  <footer><div class="shell">Statefalse · macOS GitHub workflow companion</div></footer>
 </body>
 </html>
-
