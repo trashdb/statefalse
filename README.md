@@ -27,7 +27,6 @@ Statefalse is an independent, open-source macOS menu-bar app for GitHub pull req
 
 ## Contents
 
-- [Product preview](#product-preview)
 - [Start here](#start-here)
 - [Install](#install)
   - [Requirements](#requirements)
@@ -37,14 +36,6 @@ Statefalse is an independent, open-source macOS menu-bar app for GitHub pull req
 - [Webhooks](#webhooks)
 - [What Statefalse does](#what-statefalse-does)
 
-## Product preview
-
-<div align="center">
-  <img src="ReferenceImages/pr_row_title.png" alt="Statefalse pull request row" width="440">
-  <img src="ReferenceImages/segmented_picker.png" alt="Statefalse status filter" width="440">
-</div>
-
-<p align="center"><em>A focused menu-bar view for pull requests, statuses and the next action.</em></p>
 
 ## Start here
 

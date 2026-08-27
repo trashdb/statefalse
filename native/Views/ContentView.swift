@@ -503,7 +503,16 @@ struct ContentView: View {
             do {
                 try await signalR.login(keepSignedIn: keepSignedIn)
             } catch {
-                await MainActor.run { loginError = "Login failed. Please try again." }
+                let message: String
+                switch error {
+                case OAuthService.OAuthError.cancelled:
+                    message = "GitHub sign-in was cancelled."
+                case OAuthService.OAuthError.timeout:
+                    message = "GitHub sign-in timed out. Please try again."
+                default:
+                    message = "Login failed. Please try again."
+                }
+                await MainActor.run { loginError = message }
             }
             await MainActor.run { isLoading = false }
         }
