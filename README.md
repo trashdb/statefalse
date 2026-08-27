@@ -5,7 +5,7 @@
   <p>
     <a href="https://github.com/trashdb/statefalse">⭐ Star us on GitHub</a>
     ·
-    <a href="docs/USER-GUIDE.md">Install and configure</a>
+    <a href="docs/USER-GUIDE.md">Install and configureee</a>
     ·
     <a href="https://github.com/trashdb/statefalse/releases/latest">Download the latest release</a>
   </p>
