@@ -1,5 +1,5 @@
 [Unit]
-Description=Daily Statefalse SQLite backup
+Description=Daily Statefalse PostgreSQL backup
 
 [Timer]
 OnCalendar=*-*-* 03:15:00 UTC
@@ -8,4 +8,3 @@ RandomizedDelaySec=15m
 
 [Install]
 WantedBy=timers.target
-

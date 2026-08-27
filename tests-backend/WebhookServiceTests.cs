@@ -31,6 +31,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Jwt:Secret", TestAuth.Secret);
+            builder.UseSetting("Database:Provider", "Sqlite");
             builder.UseSetting("WebhookSecret", Secret);
             builder.UseSetting("WebhookLogs:AdminGitHubIds:0", "123");
             builder.ConfigureServices(services =>

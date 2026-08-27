@@ -28,6 +28,7 @@ public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Jwt:Secret", TestAuth.Secret);
+            builder.UseSetting("Database:Provider", "Sqlite");
             builder.UseSetting("GitHub:PatToken", "ghp_server_only_test_token");
             builder.ConfigureServices(services =>
             {
