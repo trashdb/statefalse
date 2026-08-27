@@ -117,6 +117,30 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
     }
 
     [Fact]
+    public async Task Callback_GitHubCancellation_RedirectsToLocalClientWithoutAuthenticating()
+    {
+        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+        var state = await BeginOAuthAsync("http://localhost:51625/callback");
+
+        var response = await client.GetAsync(
+            $"/api/auth/callback?error=access_denied&error_description=The%20user%20cancelled&state={Uri.EscapeDataString(state)}");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var location = response.Headers.Location!;
+        Assert.StartsWith("http://localhost:51625/callback?", location.ToString());
+        var query = System.Web.HttpUtility.ParseQueryString(location.Query);
+        Assert.Equal("access_denied", query["error"]);
+        Assert.Equal("The user cancelled", query["error_description"]);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Empty(db.GitHubUsers);
+    }
+
+    [Fact]
     public async Task Callback_NewUser_CreatesUserAndReturnsToken()
     {
         var state = await BeginOAuthAsync();

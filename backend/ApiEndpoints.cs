@@ -68,9 +68,9 @@ public static class ApiEndpoints
 
     private static void MapAuthCallback(IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/api/auth/callback", async (string code, string? state, AuthService auth) =>
+        routes.MapGet("/api/auth/callback", async (string? code, string? state, string? error, string? error_description, AuthService auth) =>
         {
-            var result = await auth.HandleCallbackAsync(code, state);
+            var result = await auth.HandleCallbackAsync(code, state, error, error_description);
             if (result.Error != null)
                 return Results.Json(result.Error.Value, statusCode: result.Error.StatusCode);
             if (result.RedirectUrl != null)

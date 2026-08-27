@@ -50,9 +50,22 @@ class OAuthService: OAuthServiceProtocol {
                         }
 
                         guard let path = request.split(separator: " ").dropFirst().first,
-                              let query = path.split(separator: "?").last,
-                              let components = URLComponents(string: "://localhost?" + String(query)),
-                              let exchangeCode = components.queryItems?.first(where: { $0.name == "code" })?.value,
+                              let query = path.split(separator: "?").dropFirst().first,
+                              let components = URLComponents(string: "://localhost?" + String(query)) else {
+                            connection.cancel()
+                            listener.cancel()
+                            continuation.resume(throwing: OAuthError.failed)
+                            return
+                        }
+
+                        if let error = components.queryItems?.first(where: { $0.name == "error" })?.value {
+                            connection.cancel()
+                            listener.cancel()
+                            continuation.resume(throwing: error == "access_denied" ? OAuthError.cancelled : OAuthError.failed)
+                            return
+                        }
+
+                        guard let exchangeCode = components.queryItems?.first(where: { $0.name == "code" })?.value,
                               !exchangeCode.isEmpty else {
                             connection.cancel()
                             listener.cancel()
@@ -151,15 +164,20 @@ class OAuthService: OAuthServiceProtocol {
                 }
 
                 Task {
-                    try? await Task.sleep(for: .seconds(120))
+                    try? await Task.sleep(for: .seconds(60))
                     if !handled.value {
                         handled.value = true
+                        listener.cancel()
                         continuation.resume(throwing: OAuthError.timeout)
                     }
                 }
 
                 listener.start(queue: .main)
-                NSWorkspace.shared.open(loginUrl)
+                if !NSWorkspace.shared.open(loginUrl), !handled.value {
+                    handled.value = true
+                    listener.cancel()
+                    continuation.resume(throwing: OAuthError.failed)
+                }
             } catch {
                 continuation.resume(throwing: error)
             }
@@ -201,6 +219,7 @@ class OAuthService: OAuthServiceProtocol {
 
     enum OAuthError: Error {
         case failed
+        case cancelled
         case timeout
     }
 }

@@ -742,7 +742,7 @@
 					<string>@executable_path/../Frameworks</string>
 				</array>
 				<key>MARKETING_VERSION</key>
-				<string>0.2.26</string>
+							  <string>0.2.28</string>
 				<key>PRODUCT_BUNDLE_IDENTIFIER</key>
 				<string>com.statefalse.app</string>
 				<key>PRODUCT_NAME</key>
@@ -801,7 +801,7 @@
 					<string>@executable_path/../Frameworks</string>
 				</array>
 				<key>MARKETING_VERSION</key>
-				<string>0.2.26</string>
+							  <string>0.2.28</string>
 				<key>PRODUCT_BUNDLE_IDENTIFIER</key>
 				<string>com.statefalse.app</string>
 				<key>PRODUCT_NAME</key>

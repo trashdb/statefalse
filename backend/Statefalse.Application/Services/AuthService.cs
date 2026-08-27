@@ -39,13 +39,26 @@ public class AuthService
         return _oauth.GetAuthorizationUrl(state);
     }
 
-    public async Task<AuthCallbackResponse> HandleCallbackAsync(string code, string? state)
+    public async Task<AuthCallbackResponse> HandleCallbackAsync(string? code, string? state, string? error = null, string? errorDescription = null)
     {
-        if (string.IsNullOrEmpty(code))
-            return new AuthCallbackResponse(ApiResult.BadRequest("No authorization code provided."), null, null);
-
         if (string.IsNullOrEmpty(state) || !_stateStore.TryConsume(state, out var redirectUri))
             return new AuthCallbackResponse(ApiResult.BadRequest("Invalid or expired OAuth state."), null, null);
+
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            if (!string.IsNullOrEmpty(redirectUri))
+            {
+                var callbackUri = $"{redirectUri}?error={Uri.EscapeDataString(error)}";
+                if (!string.IsNullOrWhiteSpace(errorDescription))
+                    callbackUri += $"&error_description={Uri.EscapeDataString(errorDescription)}";
+                return new AuthCallbackResponse(null, callbackUri, null);
+            }
+
+            return new AuthCallbackResponse(ApiResult.BadRequest("GitHub authorization was not completed."), null, null);
+        }
+
+        if (string.IsNullOrWhiteSpace(code))
+            return new AuthCallbackResponse(ApiResult.BadRequest("No authorization code provided."), null, null);
 
         var userInfo = await _oauth.ExchangeCodeForUserInfoAsync(code);
         if (userInfo == null)
