@@ -27,6 +27,7 @@ public class WebhookHandlersAdditionalTests : IClassFixture<WebApplicationFactor
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Jwt:Secret", TestAuth.Secret);
+            builder.UseSetting("Database:Provider", "Sqlite");
             builder.UseSetting("WebhookSecret", WebhookSecret);
             builder.ConfigureServices(services =>
             {

@@ -36,9 +36,15 @@ try
                 retainedFileCountLimit: 30);
     });
 
-    // Database
+    // Database — in tests the host is configured with Database:Provider=Sqlite
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    {
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        if (string.Equals(builder.Configuration["Database:Provider"], "Sqlite", StringComparison.OrdinalIgnoreCase))
+            options.UseSqlite(connectionString);
+        else
+            options.UseNpgsql(connectionString);
+    });
 
     // SignalR
     builder.Services.AddSignalR(options =>
@@ -298,42 +304,14 @@ finally
 }
 void ApplyMigrations(AppDbContext db)
 {
+    // Tests use SQLite in-memory with EnsureCreated(); create schema from model.
+    if (string.Equals(db.Database.ProviderName, "Microsoft.EntityFrameworkCore.Sqlite", StringComparison.OrdinalIgnoreCase))
+    {
+        db.Database.EnsureCreated();
+        return;
+    }
     var migrations = db.Database.GetMigrations().ToList();
     if (migrations.Count == 0) return;
-
-    // Databases created before EF migrations adoption (or from a failed early
-    // Migrate() attempt) have tables but no applied migrations. Baseline them so
-    // Migrate() skips the schema that already exists.
-    var hasHistoryTable = db.Database
-        .SqlQueryRaw<int>("SELECT COUNT(*) AS \"Value\" FROM sqlite_master WHERE type = 'table' AND name = '__EFMigrationsHistory'")
-        .Single() > 0;
-
-    var appliedMigrations = hasHistoryTable
-        ? db.Database.GetAppliedMigrations().ToList()
-        : new List<string>();
-
-    var hasTables = db.Database
-        .SqlQueryRaw<int>("SELECT COUNT(*) AS \"Value\" FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
-        .Single() > 0;
-
-    if (hasTables && !hasHistoryTable)
-    {
-        db.Database.ExecuteSqlRaw("""
-            CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
-                "MigrationId" TEXT NOT NULL CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY,
-                "ProductVersion" TEXT NOT NULL
-            );
-            """);
-
-        var productVersion = typeof(DbContext).Assembly.GetName().Version?.ToString() ?? "10.0";
-        foreach (var m in migrations)
-        {
-            db.Database.ExecuteSqlRaw(
-                """INSERT OR IGNORE INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion") VALUES ({0}, {1});""",
-                m, productVersion);
-        }
-    }
-
     db.Database.Migrate();
 }
 

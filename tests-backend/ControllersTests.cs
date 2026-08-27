@@ -30,6 +30,7 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Jwt:Secret", TestAuth.Secret);
+            builder.UseSetting("Database:Provider", "Sqlite");
             builder.UseSetting("WebhookLogs:AdminGitHubIds:0", "1001");
             builder.ConfigureServices(services =>
             {

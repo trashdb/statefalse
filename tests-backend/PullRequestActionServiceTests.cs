@@ -30,6 +30,7 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Jwt:Secret", TestAuth.Secret);
+            builder.UseSetting("Database:Provider", "Sqlite");
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<DbContextOptions<AppDbContext>>();

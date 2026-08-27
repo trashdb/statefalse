@@ -5,7 +5,7 @@ This guide covers the configuration required to run the Statefalse backend. For 
 ## Prerequisites
 
 - .NET runtime compatible with `backend/Statefalse.Api.csproj`.
-- A persistent SQLite data directory with restricted permissions.
+- A running PostgreSQL instance with a dedicated database and user.
 - A public HTTPS hostname for OAuth callbacks and GitHub webhooks.
 - A GitHub OAuth App and a webhook secret.
 
@@ -15,7 +15,7 @@ Do not put production credentials in tracked JSON files. Use environment variabl
 
 | Setting | Purpose |
 |---|---|
-| `ConnectionStrings__DefaultConnection` | Persistent SQLite database path. |
+| `ConnectionStrings__DefaultConnection` | PostgreSQL connection string (e.g. `Host=localhost;Database=statefalse;Username=...;Password=...`). |
 | `GitHubOAuth__ClientId` | GitHub OAuth App client ID. |
 | `GitHubOAuth__ClientSecret` | GitHub OAuth App client secret. |
 | `GitHubOAuth__RedirectUri` | Exact public callback URL, normally `https://your-api.example.com/api/auth/callback`. |
@@ -41,7 +41,7 @@ Keep the client secret and JWT secret out of source control. Rotate them if they
 ```text
 GitHub OAuth → access JWT (default 1 h)
 			 └→ opaque refresh token (default 30 d)
-					└→ SHA-256 hash in SQLite only
+					└→ SHA-256 hash in PostgreSQL only
 ```
 
 - `POST /api/v1/auth/refresh` rotates the refresh token on every successful
@@ -64,7 +64,7 @@ The backend currently persists the GitHub OAuth access token and optional user
 PAT in the `GitHubUsers` record for backend-only GitHub API calls. The former
 `/api/v1/auth/token` endpoint has been removed. Local Git pulls and pushes use
 the repository's configured SSH agent or credential helper; Statefalse never
-returns a GitHub credential to the native client. Protect the SQLite database,
+returns a GitHub credential to the native client. Protect the PostgreSQL database,
 backups, logs and host access accordingly, and plan field encryption or an
 external secret store as the remaining credential-storage hardening.
 

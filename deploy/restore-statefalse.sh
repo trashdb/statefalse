@@ -1,26 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SOURCE="${1:?Usage: restore-statefalse.sh BACKUP.db DESTINATION.db [--force]}"
-DESTINATION="${2:?Usage: restore-statefalse.sh BACKUP.db DESTINATION.db [--force]}"
+SOURCE="${1:?Usage: restore-statefalse.sh BACKUP.dump DATABASE [--force]}"
+DATABASE="${2:?Usage: restore-statefalse.sh BACKUP.dump DATABASE [--force]}"
 FORCE="${3:-}"
+
+PGUSER="${STATEFALSE_PGUSER:-statefalse}"
+PGHOST="${STATEFALSE_PGHOST:-localhost}"
 
 if [ ! -f "$SOURCE" ]; then
   echo "ERROR: backup not found: $SOURCE" >&2
   exit 1
 fi
-if [ -e "$DESTINATION" ] && [ "$FORCE" != "--force" ]; then
-  echo "ERROR: destination exists; use --force only after explicit approval: $DESTINATION" >&2
+if ! pg_restore --list "$SOURCE" >/dev/null 2>&1; then
+  echo "ERROR: not a valid pg_dump archive: $SOURCE" >&2
+  exit 1
+fi
+if [ "$FORCE" != "--force" ]; then
+  echo "ERROR: restore is destructive; pass --force after explicit approval" >&2
   exit 1
 fi
 
-mkdir -p "$(dirname "$DESTINATION")"
-tmp_path="$DESTINATION.restore.tmp"
-trap 'rm -f "$tmp_path"' EXIT
-sqlite3 "$SOURCE" 'PRAGMA integrity_check;' | grep -qx 'ok'
-sqlite3 "$SOURCE" ".backup '$tmp_path'"
-sqlite3 "$tmp_path" 'PRAGMA integrity_check;' | grep -qx 'ok'
-chmod 600 "$tmp_path"
-mv "$tmp_path" "$DESTINATION"
-printf 'Restore verified: %s\n' "$DESTINATION"
+echo "WARNING: This will drop and recreate the database '$DATABASE'." >&2
+echo "Press Ctrl+C within 5 seconds to abort." >&2
+sleep 5
 
+dropdb -U "$PGUSER" -h "$PGHOST" --if-exists "$DATABASE"
+createdb -U "$PGUSER" -h "$PGHOST" "$DATABASE"
+pg_restore -U "$PGUSER" -h "$PGHOST" -d "$DATABASE" --no-owner --no-privileges "$SOURCE"
+
+printf 'Restore verified: %s -> %s\n' "$SOURCE" "$DATABASE"

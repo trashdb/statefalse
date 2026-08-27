@@ -1,8 +1,9 @@
 [Unit]
-Description=Statefalse SQLite backup
-After=statefalse.service
+Description=Statefalse PostgreSQL backup
+After=postgresql.service statefalse.service
 
 [Service]
 Type=oneshot
 ExecStart=/opt/statefalse/deploy/backup-statefalse.sh
-User=root
+User=postgres
+Environment=PGPASSFILE=/var/lib/postgresql/.pgpass
