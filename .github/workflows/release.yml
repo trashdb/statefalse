@@ -11,25 +11,38 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: native-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - name: Validate tag format
+        id: tag
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+
+  build:
     name: Build macOS artifact
+    needs: validate
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
-
-      - name: Validate release tag
-        env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: |
-          set -euo pipefail
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
-          echo "RELEASE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+          ref: refs/tags/${{ needs.validate.outputs.tag }}
 
       - name: Run native tests
         run: |
@@ -43,6 +56,8 @@ jobs:
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
       - name: Build unsigned Release app
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
           set -euo pipefail
           xcodebuild build \
@@ -56,6 +71,9 @@ jobs:
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
       - name: Package, validate and checksum
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
           set -euo pipefail
           APP="$RUNNER_TEMP/DerivedData/Build/Products/Release/Statefalse.app"
@@ -88,16 +106,37 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: statefalse-${{ inputs.tag || github.ref_name }}
+          name: statefalse-${{ needs.validate.outputs.tag }}
           path: |
-            Statefalse-${{ inputs.tag || github.ref_name }}.zip
+            Statefalse-${{ needs.validate.outputs.tag }}.zip
             SHA256SUMS
             release-manifest.txt
 
+  publish:
+    name: Publish GitHub Release
+    needs: [validate, build]
+    environment:
+      name: release
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: statefalse-${{ needs.validate.outputs.tag }}
+          path: release-artifact
+
+      - name: Verify downloaded artifact
+        working-directory: release-artifact
+        run: sha256sum -c SHA256SUMS
+
       - name: Publish GitHub Release
+        working-directory: release-artifact
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
         run: |
+          set -euo pipefail
           gh release create "$RELEASE_TAG" \
             "Statefalse-${RELEASE_TAG}.zip" \
             SHA256SUMS \

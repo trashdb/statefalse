@@ -12,6 +12,9 @@ on:
       - 'backend/**'
       - 'tests-backend/**'
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Build and Test (Linux)
