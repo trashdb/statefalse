@@ -10,9 +10,9 @@ Implemented: PR reads are scoped to authors/subscribers; PR mutations are owner-
 
 The current deployment model is one isolated instance/database per tenant. Application-level multi-tenancy (`TenantId`, organization membership, and tenant-scoped persistence) is a separate future step and is not assumed by this phase.
 
-## 2. Encrypt GitHub credentials at rest
+## 2. Encrypt GitHub credentials at rest — core completed 2026-08-29
 
-Encrypt OAuth access tokens and user PATs using a key held outside the database, migrate existing credentials safely, support rotation/revocation, review GitHub scopes, and remove the shared PAT fallback where possible.
+Implemented and deployed: OAuth access tokens and user PATs are encrypted with AES-256-GCM using an external key, and legacy plaintext rows are migrated idempotently at startup. Remaining work: explicit key rotation/revocation procedures, encrypted/off-host database backups, GitHub scope review, and removal of the shared PAT fallback where possible.
 
 ## 3. Harden webhooks
 
