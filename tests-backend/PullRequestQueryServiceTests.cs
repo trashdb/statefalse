@@ -413,6 +413,20 @@ public class PullRequestQueryServiceTests : IClassFixture<WebApplicationFactory<
         Assert.Empty(await GetActive(other));
     }
 
+    [Fact]
+    public async Task Detail_UnrelatedUser_ReturnsNotFoundWithoutProxyingToGitHub()
+    {
+        var author = SeedUser();
+        var other = SeedUser();
+        SeedPr(author);
+
+        var response = await AuthClient(other)
+            .GetAsync("/api/v1/pullrequests/42/detail?repo=acme/repo");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(0, _fakeGithub.CallCount);
+    }
+
     // ───────────── Merged 24h window ─────────────
 
     [Fact]

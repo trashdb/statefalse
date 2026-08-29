@@ -144,8 +144,8 @@ public static class ApiEndpoints
         routes.MapPost("/pullrequests/{prNumber}/unsubscribe", async (long prNumber, string repo, HttpContext ctx, PullRequestSubscriptionService service)
             => await MapAsync(service.UnsubscribeAsync(prNumber, repo, ctx.GitHubId()))).RequireAuthorization().RequireRateLimiting("api");
 
-        routes.MapGet("/pullrequests/{prNumber}/subscribers", async (long prNumber, string repo, PullRequestSubscriptionService service)
-            => await MapAsync(service.GetSubscribersAsync(prNumber, repo))).RequireAuthorization().RequireRateLimiting("api");
+        routes.MapGet("/pullrequests/{prNumber}/subscribers", async (long prNumber, string repo, HttpContext ctx, PullRequestSubscriptionService service)
+            => await MapAsync(service.GetSubscribersAsync(prNumber, repo, ctx.GitHubId()))).RequireAuthorization().RequireRateLimiting("api");
 
         routes.MapPost("/pullrequests/{prNumber}/add-subscriber", async (long prNumber, string repo, HttpContext ctx, string? username, long? subscriberId, PullRequestSubscriptionService service)
             => await MapAsync(service.AddSubscriberAsync(prNumber, repo, ctx.GitHubId(), username, subscriberId))).RequireAuthorization().RequireRateLimiting("api");
@@ -212,8 +212,8 @@ public static class ApiEndpoints
             string title, bool useAI = true)
             => await MapAsync(service.PrPreviewAsync(ctx.GitHubId(), repo, head, baseBranch, title, useAI))).RequireAuthorization().RequireRateLimiting("action");
 
-        routes.MapPost("/github/interpret", async (InterpretRequest request, GitHubApiService service)
-            => await MapAsync(service.InterpretAsync(request))).RequireAuthorization().RequireRateLimiting("action");
+        routes.MapPost("/github/interpret", async (InterpretRequest request, HttpContext ctx, GitHubApiService service)
+            => await MapAsync(service.InterpretAsync(request with { GitHubId = ctx.GitHubId() }))).RequireAuthorization().RequireRateLimiting("action");
     }
 
     private static void MapWorkflows(IEndpointRouteBuilder routes)

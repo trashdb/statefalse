@@ -428,7 +428,7 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
     }
 
     [Fact]
-    public async Task SetWorkflowTarget_TargetedUser_CanSet()
+    public async Task SetWorkflowTarget_TargetedUser_IsForbidden()
     {
         var ownerId = SeedUser();
         var targetId = SeedUser();
@@ -443,11 +443,11 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
         db.SaveChanges();
         var runId = db.WorkflowRuns.First().Id;
 
-        // Target user (not owner) can still manage targets — they can see the run
+        // A target can see the run, but cannot change its audience.
         var client = AuthClient(targetId);
         var body = JsonContent.Create(new { targetGitHubIds = new long[] { 7 } });
         var response = await client.PutAsync($"/api/v1/workflows/runs/{runId}/target", body);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     // ───────────── PullRequests ─────────────
@@ -471,12 +471,12 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
     }
 
     [Fact]
-    public async Task GetPRDetail_NoPR_ReturnsPartialData()
+    public async Task GetPRDetail_NoPR_ReturnsNotFound()
     {
         var id = SeedUser();
         var client = AuthClient(id);
         var response = await client.GetAsync("/api/v1/pullrequests/999999/detail?repo=org/repo");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -561,6 +561,31 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
         var id = SeedUser();
         var client = AuthClient(id);
         var response = await client.PostAsync("/api/v1/workflows/runs/999999/rerun", null);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RerunRun_UnrelatedUser_ReturnsNotFound()
+    {
+        var ownerId = SeedUser();
+        var strangerId = SeedUser();
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.WorkflowRuns.Add(new WorkflowRun
+        {
+            RunId = 987654,
+            GitHubId = ownerId,
+            WorkflowName = "CI",
+            Repo = "org/repo",
+            Actor = "owner",
+            Status = "failure",
+            StartedAt = DateTime.UtcNow
+        });
+        db.SaveChanges();
+
+        var response = await AuthClient(strangerId)
+            .PostAsync("/api/v1/workflows/runs/987654/rerun", null);
+
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 

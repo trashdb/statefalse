@@ -37,6 +37,10 @@ public class PullRequestActionService
 
     public async Task<ApiResult> MergeAsync(long prNumber, string repo, long gitHubId, string method)
     {
+        var prEvent = await _prs.FindLatestOpenAsync(prNumber, repo);
+        if (prEvent?.AuthorGitHubId != gitHubId)
+            return ApiResult.NotFound(new { error = "PR not found" });
+
         var token = await _tokens.ResolveAsync(gitHubId);
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No access token found" });
@@ -70,7 +74,6 @@ public class PullRequestActionService
         }
 
         // Mark PR as merged in DB
-        var prEvent = await _prs.FindLatestOpenAsync(prNumber, repo);
         if (prEvent != null)
         {
             prEvent.Status = "merged";
@@ -89,6 +92,10 @@ public class PullRequestActionService
 
     public async Task<ApiResult> SetDraftAsync(long prNumber, string repo, long gitHubId, bool draft)
     {
+        var prEvent = await _prs.FindLatestOpenAsync(prNumber, repo);
+        if (prEvent?.AuthorGitHubId != gitHubId)
+            return ApiResult.NotFound(new { error = "PR not found" });
+
         var user = await _tokens.GetUserAsync(gitHubId);
         var token = _tokens.ResolveForUser(user);
         if (string.IsNullOrEmpty(token))
@@ -131,7 +138,6 @@ public class PullRequestActionService
         }
 
         // Update DB
-        var prEvent = await _prs.FindLatestAsync(prNumber, repo);
         if (prEvent != null)
         {
             prEvent.Draft = draft;
@@ -145,6 +151,10 @@ public class PullRequestActionService
 
     public async Task<ApiResult> UpdateBranchAsync(long prNumber, string repo, long gitHubId)
     {
+        var prEvent = await _prs.FindLatestOpenAsync(prNumber, repo);
+        if (prEvent?.AuthorGitHubId != gitHubId)
+            return ApiResult.NotFound(new { error = "PR not found" });
+
         var user = await _tokens.GetUserAsync(gitHubId);
         var token = _tokens.ResolveForUser(user);
         if (string.IsNullOrEmpty(token))
@@ -163,7 +173,6 @@ public class PullRequestActionService
 
         // Mark old workflow runs for this PR's branch as superseded so ciStatus
         // does not stay "failed" while waiting for new workflow webhooks
-        var prEvent = await _prs.FindLatestOpenAsync(prNumber, repo);
         if (prEvent?.HeadBranch != null)
         {
             var stale = await _runs.FindStaleAsync(repo, prEvent.HeadBranch);

@@ -194,6 +194,20 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Merge_UnrelatedUser_ReturnsNotFoundWithoutCallingGitHub()
+    {
+        var author = SeedUser();
+        var other = SeedUser();
+        SeedPr(author);
+
+        var response = await AuthClient(other)
+            .PostAsync("/api/v1/pullrequests/42/merge?repo=acme/repo", null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Empty(_fakeGithub.Responses);
+    }
+
     // ───────────── Draft ─────────────
 
     [Fact]
@@ -292,19 +306,20 @@ public class PullRequestActionServiceTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task UpdateBranch_Success_NoPrNoRuns_StillOk()
+    public async Task UpdateBranch_UntrackedPr_ReturnsNotFound()
     {
         var uid = SeedUser();
         StubUpdateBranch(new { message = "Branch updated" });
 
         var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/update-branch?repo=acme/repo", null);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
     public async Task UpdateBranch_GitHubError_ReturnsMessage()
     {
         var uid = SeedUser();
+        SeedPr(uid);
         StubUpdateBranch(new { message = "Branch protection rule prevented update" }, status: 403);
 
         var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/42/update-branch?repo=acme/repo", null);

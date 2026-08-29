@@ -208,6 +208,19 @@ public class PullRequestSubscriptionServiceTests : IClassFixture<WebApplicationF
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GetSubscribers_UnrelatedUser_ReturnsNotFound()
+    {
+        var author = SeedUser();
+        var other = SeedUser();
+        SeedPr(author);
+
+        var response = await AuthClient(other)
+            .GetAsync("/api/v1/pullrequests/42/subscribers?repo=acme/repo");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     // ───────────── Add / remove subscriber ─────────────
 
     [Fact]

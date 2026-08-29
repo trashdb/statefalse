@@ -9,7 +9,9 @@ namespace Statefalse.Application;
 public interface IPullRequestEventRepository
 {
     Task<PullRequestEvent?> FindLatestAsync(long prNumber, string repo, CancellationToken cancellationToken = default);
+    Task<PullRequestEvent?> FindLatestForUserAsync(long prNumber, string repo, long gitHubId, CancellationToken cancellationToken = default);
     Task<PullRequestEvent?> FindLatestOpenAsync(long prNumber, string repo, CancellationToken cancellationToken = default);
+    Task<PullRequestEvent?> FindOpenForUserAsync(long prNumber, string repo, long gitHubId, CancellationToken cancellationToken = default);
     Task<PullRequestEvent?> FindOpenAsync(long prNumber, string repo, CancellationToken cancellationToken = default);
     Task<PullRequestEvent?> FindByRepoAndPrNumberAsync(string repo, long prNumber, CancellationToken cancellationToken = default);
     Task<List<PullRequestEvent>> GetActiveForUserAsync(long gitHubId, int page, int pageSize, DateTime mergedSince, CancellationToken cancellationToken = default);

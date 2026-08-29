@@ -60,12 +60,14 @@ public class PullRequestSubscriptionService
         return ApiResult.Ok(new { subscribed = false, subscribers = IdListSerializer.Deserialize(pr.SubscriberIds) });
     }
 
-    public async Task<ApiResult> GetSubscribersAsync(long prNumber, string repo)
+    public async Task<ApiResult> GetSubscribersAsync(long prNumber, string repo, long gitHubId)
     {
         var pr = await _prs.FindLatestAsync(prNumber, repo);
         if (pr == null) return ApiResult.NotFound(new { error = "PR not found" });
 
         var ids = IdListSerializer.Deserialize(pr.SubscriberIds);
+        if (pr.AuthorGitHubId != gitHubId && !ids.Contains(gitHubId))
+            return ApiResult.NotFound(new { error = "PR not found" });
 
         var users = await _users.FindByIdsAsync(ids);
 

@@ -126,12 +126,10 @@ public class WorkflowService
         if (run == null)
             return ApiResult.NotFound("Workflow run not found.");
 
-        // Multi-tenant rule: only users that can see the run (own it, are targeted
-        // by it, or are subscribed to a matching PR) may change its targets.
-        var canManage = run.GitHubId == gitHubId
-            || IdListSerializer.Deserialize(run.TargetGitHubIds).Contains(gitHubId)
-            || await _prs.AnyOpenForRepoAndBranchByUserAsync(run.Repo, run.HeadBranch, gitHubId);
-        if (!canManage)
+        // Targets can view a run, but only its owner may change its audience.
+        // Otherwise a target could add arbitrary users and cause cross-account
+        // notifications or take control of the run's visibility.
+        if (run.GitHubId != gitHubId)
             return ApiResult.Forbid("You don't have access to this workflow run.");
 
         run.TargetGitHubIds = IdListSerializer.Serialize(request.TargetGitHubIds ?? []);
@@ -144,6 +142,9 @@ public class WorkflowService
     {
         var run = await _runs.FindLatestByRunIdAsync(runId);
         if (run == null)
+            return ApiResult.NotFound("Workflow run not found.");
+
+        if (run.GitHubId != gitHubId)
             return ApiResult.NotFound("Workflow run not found.");
 
         var token = await _tokens.ResolveAsync(gitHubId);

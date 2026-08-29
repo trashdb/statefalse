@@ -23,6 +23,17 @@ public class PullRequestEventRepository : IPullRequestEventRepository
             .OrderByDescending(e => e.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public Task<PullRequestEvent?> FindLatestForUserAsync(long prNumber, string repo, long gitHubId, CancellationToken cancellationToken = default)
+        => _db.PullRequestEvents
+            .Where(e => e.PrNumber == prNumber && e.RepoFullName == repo
+                && (e.AuthorGitHubId == gitHubId
+                    || e.SubscriberIds == $"[{gitHubId}]"
+                    || e.SubscriberIds!.Contains($"[{gitHubId},")
+                    || e.SubscriberIds!.Contains($",{gitHubId}]")
+                    || e.SubscriberIds!.Contains($",{gitHubId},")))
+            .OrderByDescending(e => e.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public Task<PullRequestEvent?> FindLatestOpenAsync(long prNumber, string repo, CancellationToken cancellationToken = default)
         => _db.PullRequestEvents
             .Where(e => e.PrNumber == prNumber && e.RepoFullName == repo && e.Status == "open")
@@ -35,6 +46,17 @@ public class PullRequestEventRepository : IPullRequestEventRepository
             .OrderByDescending(e => e.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public Task<PullRequestEvent?> FindOpenForUserAsync(long prNumber, string repo, long gitHubId, CancellationToken cancellationToken = default)
+        => _db.PullRequestEvents
+            .Where(e => e.PrNumber == prNumber && e.RepoFullName == repo && e.Status == "open"
+                && (e.AuthorGitHubId == gitHubId
+                    || e.SubscriberIds == $"[{gitHubId}]"
+                    || e.SubscriberIds!.Contains($"[{gitHubId},")
+                    || e.SubscriberIds!.Contains($",{gitHubId}]")
+                    || e.SubscriberIds!.Contains($",{gitHubId},")))
+            .OrderByDescending(e => e.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public Task<PullRequestEvent?> FindByRepoAndPrNumberAsync(string repo, long prNumber, CancellationToken cancellationToken = default)
         => _db.PullRequestEvents
             .FirstOrDefaultAsync(e => e.RepoFullName == repo && e.PrNumber == prNumber, cancellationToken);
@@ -42,7 +64,11 @@ public class PullRequestEventRepository : IPullRequestEventRepository
     public Task<List<PullRequestEvent>> GetActiveForUserAsync(long gitHubId, int page, int pageSize, DateTime mergedSince, CancellationToken cancellationToken = default)
         => _db.PullRequestEvents
             .Where(e => ((e.Status == "open" || e.Status == "in_progress") || (e.Status == "merged" && e.OccurredAt >= mergedSince))
-                && (e.AuthorGitHubId == gitHubId || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))))
+                && (e.AuthorGitHubId == gitHubId
+                    || e.SubscriberIds == $"[{gitHubId}]"
+                    || e.SubscriberIds!.Contains($"[{gitHubId},")
+                    || e.SubscriberIds!.Contains($",{gitHubId}]")
+                    || e.SubscriberIds!.Contains($",{gitHubId},")))
             .OrderByDescending(e => e.OccurredAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -57,7 +83,10 @@ public class PullRequestEventRepository : IPullRequestEventRepository
         => _db.PullRequestEvents
             .Where(e => e.Status == "open"
                 && (e.AuthorGitHubId == gitHubId
-                    || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))))
+                    || e.SubscriberIds == $"[{gitHubId}]"
+                    || e.SubscriberIds!.Contains($"[{gitHubId},")
+                    || e.SubscriberIds!.Contains($",{gitHubId}]")
+                    || e.SubscriberIds!.Contains($",{gitHubId},")))
             .ToListAsync(cancellationToken);
 
     public Task<List<PullRequestEvent>> GetOpenForReposAndBranchesAsync(ICollection<string> repos, ICollection<string> branches, CancellationToken cancellationToken = default)
@@ -71,7 +100,10 @@ public class PullRequestEventRepository : IPullRequestEventRepository
             && e.RepoFullName == repo
             && e.HeadBranch == branch
             && (e.AuthorGitHubId == gitHubId
-                || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))), cancellationToken);
+                || e.SubscriberIds == $"[{gitHubId}]"
+                || e.SubscriberIds!.Contains($"[{gitHubId},")
+                || e.SubscriberIds!.Contains($",{gitHubId}]")
+                || e.SubscriberIds!.Contains($",{gitHubId},")), cancellationToken);
 
     public Task<List<string>> GetSubscribedReposAsync(long gitHubId, CancellationToken cancellationToken = default)
         => _db.PullRequestEvents
@@ -79,7 +111,10 @@ public class PullRequestEventRepository : IPullRequestEventRepository
                     || e.Status == "in_progress"
                     || (e.Status == "merged" && e.OccurredAt >= DateTime.UtcNow.AddDays(-7)))
                 && (e.AuthorGitHubId == gitHubId
-                    || (e.SubscriberIds != null && e.SubscriberIds.Contains(gitHubId.ToString()))))
+                    || e.SubscriberIds == $"[{gitHubId}]"
+                    || e.SubscriberIds!.Contains($"[{gitHubId},")
+                    || e.SubscriberIds!.Contains($",{gitHubId}]")
+                    || e.SubscriberIds!.Contains($",{gitHubId},")))
             .Select(e => e.RepoFullName)
             .Distinct()
             .ToListAsync(cancellationToken);
@@ -89,4 +124,5 @@ public class PullRequestEventRepository : IPullRequestEventRepository
         _db.PullRequestEvents.Add(pullRequestEvent);
         return Task.CompletedTask;
     }
+
 }

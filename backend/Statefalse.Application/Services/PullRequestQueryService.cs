@@ -178,7 +178,9 @@ public class PullRequestQueryService
     {
         var token = await _tokens.ResolveAsync(gitHubId);
 
-        var prEvent = await _prs.FindLatestAsync(prNumber, repo);
+        var prEvent = await _prs.FindLatestForUserAsync(prNumber, repo, gitHubId);
+        if (prEvent == null)
+            return ApiResult.NotFound(new { error = "PR not found" });
 
         int? behindBy = null, aheadBy = null;
         string? mergeableState = null;
@@ -237,6 +239,9 @@ public class PullRequestQueryService
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No access token" });
 
+        if (await _prs.FindLatestForUserAsync(prNumber, repo, gitHubId) == null)
+            return ApiResult.NotFound(new { error = "PR not found" });
+
         var resp = await _github.GetAsync($"/repos/{repo}/pulls/{prNumber}/commits?per_page=30", token);
         if (resp.StatusCode == 0)
             return ApiResult.FromGitHubStatus(0, new { error = "GitHub API unreachable" });
@@ -261,6 +266,9 @@ public class PullRequestQueryService
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No access token" });
 
+        if (await _prs.FindLatestForUserAsync(prNumber, repo, gitHubId) == null)
+            return ApiResult.NotFound(new { error = "PR not found" });
+
         var resp = await _github.GetAsync($"/repos/{repo}/pulls/{prNumber}/files?per_page=30", token);
         if (resp.StatusCode == 0)
             return ApiResult.FromGitHubStatus(0, new { error = "GitHub API unreachable" });
@@ -281,6 +289,9 @@ public class PullRequestQueryService
         var token = await _tokens.ResolveAsync(gitHubId);
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No access token" });
+
+        if (await _prs.FindLatestForUserAsync(prNumber, repo, gitHubId) == null)
+            return ApiResult.NotFound(new { error = "PR not found" });
 
         // First get PR to get head SHA
         var prResp = await _github.GetAsync($"/repos/{repo}/pulls/{prNumber}", token);
