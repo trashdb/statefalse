@@ -21,9 +21,9 @@ PUBLISH_DIR="$(mktemp -d "${TMPDIR:-/tmp}/statefalse-publish.XXXXXX")"
 trap 'rm -rf "$PUBLISH_DIR"' EXIT
 
 if [ -f "$SCRIPT_DIR/deploy/statefalse.env" ]; then
-  for required in ConnectionStrings__DefaultConnection WebhookSecret GitHubOAuth__ClientId GitHubOAuth__ClientSecret Jwt__Secret; do
+  for required in ConnectionStrings__DefaultConnection WebhookSecret GitHubOAuth__ClientId GitHubOAuth__ClientSecret Jwt__Secret GitHubCredentials__EncryptionKey; do
     value="$(awk -F= -v key="$required" '$1 == key { print substr($0, index($0, "=") + 1); exit }' "$SCRIPT_DIR/deploy/statefalse.env")"
-    if [ -z "$value" ] || [ "$value" = "CHANGE_ME" ] || [ "$value" = "YOUR_GITHUB_CLIENT_ID" ] || [ "$value" = "YOUR_GITHUB_CLIENT_SECRET" ]; then
+    if [ -z "$value" ] || [ "$value" = "CHANGE_ME" ] || [ "$value" = "CHANGE_ME_BASE64_256_BIT_KEY" ] || [ "$value" = "YOUR_GITHUB_CLIENT_ID" ] || [ "$value" = "YOUR_GITHUB_CLIENT_SECRET" ]; then
       echo "ERROR: deploy/statefalse.env contains placeholder or missing $required. Refusing deployment."
       exit 1
     fi

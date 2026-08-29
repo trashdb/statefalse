@@ -60,13 +60,16 @@ GitHub OAuth → access JWT (default 1 h)
 
 ### 🚨 Credential handling boundary
 
-The backend currently persists the GitHub OAuth access token and optional user
-PAT in the `GitHubUsers` record for backend-only GitHub API calls. The former
+The backend persists the GitHub OAuth access token and optional user PAT in the
+`GitHubUsers` record for backend-only GitHub API calls. These fields are
+encrypted with AES-256-GCM before persistence; the encryption key is supplied
+through the deployment environment as `GitHubCredentials__EncryptionKey` and
+must be backed up separately from the database. The former
 `/api/v1/auth/token` endpoint has been removed. Local Git pulls and pushes use
 the repository's configured SSH agent or credential helper; Statefalse never
 returns a GitHub credential to the native client. Protect the PostgreSQL database,
-backups, logs and host access accordingly, and plan field encryption or an
-external secret store as the remaining credential-storage hardening.
+backups, logs and host access accordingly. Existing plaintext rows are migrated
+idempotently during application startup.
 
 SignalR authentication can place the JWT in the WebSocket `access_token` query
 parameter. nginx API access logging is disabled and the native client avoids

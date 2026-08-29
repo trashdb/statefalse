@@ -18,8 +18,9 @@ public class AuthService
     private readonly OAuthStateStore _stateStore;
     private readonly OAuthCodeStore _codeStore;
     private readonly IRefreshTokenService? _refreshTokens;
+    private readonly IGitHubCredentialProtector _credentialProtector;
 
-    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, JwtTokenService jwt, OAuthStateStore stateStore, OAuthCodeStore codeStore, IRefreshTokenService? refreshTokens = null)
+    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, JwtTokenService jwt, OAuthStateStore stateStore, OAuthCodeStore codeStore, IGitHubCredentialProtector credentialProtector, IRefreshTokenService? refreshTokens = null)
     {
         _oauth = oauth;
         _users = users;
@@ -27,6 +28,7 @@ public class AuthService
         _jwt = jwt;
         _stateStore = stateStore;
         _codeStore = codeStore;
+        _credentialProtector = credentialProtector;
         _refreshTokens = refreshTokens;
     }
 
@@ -61,7 +63,7 @@ public class AuthService
             return new AuthCallbackResponse(ApiResult.BadRequest("No authorization code provided."), null, null);
 
         var userInfo = await _oauth.ExchangeCodeForUserInfoAsync(code);
-        if (userInfo == null)
+        if (userInfo?.AccessToken is not { Length: > 0 })
             return new AuthCallbackResponse(ApiResult.BadRequest("Failed to authenticate with GitHub."), null, null);
 
         // Upsert by immutable GitHubId, update username in case it changed
@@ -73,7 +75,7 @@ public class AuthService
             {
                 GitHubId = userInfo.Id,
                 GitHubUsername = userInfo.Login,
-                AccessToken = userInfo.AccessToken,
+                AccessToken = _credentialProtector.Protect(userInfo.AccessToken),
                 AvatarUrl = userInfo.AvatarUrl,
                 CreatedAt = DateTime.UtcNow,
                 LastLoginAt = DateTime.UtcNow
@@ -82,7 +84,7 @@ public class AuthService
         else
         {
             existing.GitHubUsername = userInfo.Login;
-            existing.AccessToken = userInfo.AccessToken;
+            existing.AccessToken = _credentialProtector.Protect(userInfo.AccessToken);
             existing.AvatarUrl = userInfo.AvatarUrl;
             existing.LastLoginAt = DateTime.UtcNow;
         }
@@ -153,7 +155,7 @@ public class AuthService
         var user = await _users.FindByIdAsync(gitHubId);
         if (user == null) return ApiResult.NotFound();
 
-        user.UserPatToken = string.IsNullOrWhiteSpace(patToken) ? null : patToken;
+        user.UserPatToken = string.IsNullOrWhiteSpace(patToken) ? null : _credentialProtector.Protect(patToken);
         await _uow.SaveChangesAsync();
         return ApiResult.Ok(new { saved = true });
     }

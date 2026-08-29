@@ -156,7 +156,9 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var user = Assert.Single(db.GitHubUsers);
         Assert.Equal("oauthuser", user.GitHubUsername);
-        Assert.Equal("gho_access_token", user.AccessToken);
+        Assert.StartsWith("v1.", user.AccessToken);
+        var tokens = scope.ServiceProvider.GetRequiredService<IGitHubTokenResolver>();
+        Assert.Equal("gho_access_token", tokens.ResolveForUser(user));
         Assert.Equal("https://avatars.example/777.png", user.AvatarUrl);
     }
 
@@ -179,7 +181,9 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var user = Assert.Single(db.GitHubUsers);
         Assert.Equal("oauthuser", user.GitHubUsername);
-        Assert.Equal("gho_access_token", user.AccessToken);
+        Assert.StartsWith("v1.", user.AccessToken);
+        var tokens = scope.ServiceProvider.GetRequiredService<IGitHubTokenResolver>();
+        Assert.Equal("gho_access_token", tokens.ResolveForUser(user));
     }
 
     [Fact]
@@ -317,7 +321,10 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.Equal("ghp_new_pat", Assert.Single(db.GitHubUsers).UserPatToken);
+        var user = Assert.Single(db.GitHubUsers);
+        Assert.StartsWith("v1.", user.UserPatToken);
+        var tokens = scope.ServiceProvider.GetRequiredService<IGitHubTokenResolver>();
+        Assert.Equal("ghp_new_pat", tokens.ResolveForUser(user));
     }
 
     [Fact]

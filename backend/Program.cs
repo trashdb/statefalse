@@ -73,6 +73,8 @@ try
     builder.Services.AddScoped<IWorkflowRunRepository, WorkflowRunRepository>();
     builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
     builder.Services.AddScoped<IGitHubTokenResolver, GitHubTokenResolver>();
+    builder.Services.AddSingleton<IGitHubCredentialProtector, GitHubCredentialProtector>();
+    builder.Services.AddScoped<GitHubCredentialMigrationService>();
     builder.Services.AddScoped<ISignalRNotifier, SignalRNotifier>();
     builder.Services.AddScoped<PullRequestSyncService>();
     builder.Services.AddScoped<PullRequestQueryService>();
@@ -244,6 +246,9 @@ try
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         ApplyMigrations(db);
+
+        var credentialMigration = scope.ServiceProvider.GetRequiredService<GitHubCredentialMigrationService>();
+        await credentialMigration.MigrateAsync();
 
         var cleanup = scope.ServiceProvider.GetServices<IHostedService>()
             .OfType<WorkflowCleanupService>()
