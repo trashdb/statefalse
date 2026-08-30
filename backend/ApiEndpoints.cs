@@ -64,6 +64,9 @@ public static class ApiEndpoints
         routes.MapPost("/auth/pat", async (HttpContext ctx, PatRequest body, AuthService auth)
             => await MapAsync(auth.SavePatAsync(ctx.GitHubId(), body.PatToken))).RequireAuthorization().RequireRateLimiting("oauth");
 
+        routes.MapPost("/auth/credentials/revoke", async (HttpContext ctx, AuthService auth)
+            => await MapAsync(auth.RevokeCredentialsAsync(ctx.GitHubId(), ctx.RequestAborted))).RequireAuthorization().RequireRateLimiting("oauth");
+
     }
 
     private static void MapAuthCallback(IEndpointRouteBuilder routes)

@@ -12,13 +12,11 @@ namespace Statefalse.Infrastructure;
 public class GitHubTokenResolver : IGitHubTokenResolver
 {
     private readonly AppDbContext _db;
-    private readonly IConfiguration _configuration;
     private readonly IGitHubCredentialProtector _protector;
 
-    public GitHubTokenResolver(AppDbContext db, IConfiguration configuration, IGitHubCredentialProtector protector)
+    public GitHubTokenResolver(AppDbContext db, IGitHubCredentialProtector protector)
     {
         _db = db;
-        _configuration = configuration;
         _protector = protector;
     }
 
@@ -27,13 +25,11 @@ public class GitHubTokenResolver : IGitHubTokenResolver
 
     public string? ResolveForUser(GitHubUser? user)
         => _protector.Unprotect(user?.UserPatToken)
-            ?? _protector.Unprotect(user?.AccessToken)
-            ?? _configuration["GitHub:PatToken"];
+            ?? _protector.Unprotect(user?.AccessToken);
 
     public async Task<string?> ResolveAsync(long gitHubId)
         => ResolveForUser(await GetUserAsync(gitHubId));
 
-    public string? SharedPat => _configuration["GitHub:PatToken"];
 
     public async Task<GitHubUser?> FindByLoginAsync(string login)
         => await _db.GitHubUsers.FirstOrDefaultAsync(u => u.GitHubUsername == login);

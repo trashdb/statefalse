@@ -21,7 +21,7 @@ PUBLISH_DIR="$(mktemp -d "${TMPDIR:-/tmp}/statefalse-publish.XXXXXX")"
 trap 'rm -rf "$PUBLISH_DIR"' EXIT
 
 if [ -f "$SCRIPT_DIR/deploy/statefalse.env" ]; then
-  for required in ConnectionStrings__DefaultConnection WebhookSecret GitHubOAuth__ClientId GitHubOAuth__ClientSecret Jwt__Secret GitHubCredentials__EncryptionKey; do
+  for required in ConnectionStrings__DefaultConnection WebhookSecret GitHubOAuth__ClientId GitHubOAuth__ClientSecret Jwt__Secret GitHubCredentials__EncryptionKey Backup__EncryptionKey; do
     value="$(awk -F= -v key="$required" '$1 == key { print substr($0, index($0, "=") + 1); exit }' "$SCRIPT_DIR/deploy/statefalse.env")"
     if [ -z "$value" ] || [ "$value" = "CHANGE_ME" ] || [ "$value" = "CHANGE_ME_BASE64_256_BIT_KEY" ] || [ "$value" = "YOUR_GITHUB_CLIENT_ID" ] || [ "$value" = "YOUR_GITHUB_CLIENT_SECRET" ]; then
       echo "ERROR: deploy/statefalse.env contains placeholder or missing $required. Refusing deployment."
@@ -55,11 +55,18 @@ trap 'ssh "$VPS" "rm -rf $REMOTE_UPLOAD" >/dev/null 2>&1 || true; rm -rf "$PUBLI
 
 echo "=== Installing backup timer ==="
 # shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
-  ssh "$VPS" "sudo mkdir -p /var/backups/statefalse && sudo chown postgres:postgres /var/backups/statefalse && sudo chmod 700 /var/backups/statefalse && sudo chmod 755 $REMOTE $REMOTE/deploy && sudo chmod +x $REMOTE/deploy/backup-statefalse.sh $REMOTE/deploy/healthcheck.sh $REMOTE/deploy/install-release.sh $REMOTE/deploy/rollback-release.sh && sudo cp $REMOTE/deploy/statefalse-backup.service /etc/systemd/system/ && sudo cp $REMOTE/deploy/statefalse-backup.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now statefalse-backup.timer"
+  ssh "$VPS" "sudo mkdir -p /var/backups/statefalse && sudo chown postgres:postgres /var/backups/statefalse && sudo chmod 700 /var/backups/statefalse && sudo chmod 755 $REMOTE $REMOTE/deploy && sudo chmod +x $REMOTE/deploy/backup-statefalse.sh $REMOTE/deploy/healthcheck.sh $REMOTE/deploy/install-release.sh $REMOTE/deploy/rollback-release.sh && sudo cp $REMOTE/deploy/statefalse-backup.service /etc/systemd/system/ && sudo cp $REMOTE/deploy/statefalse-backup.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable statefalse-backup.timer"
+
+echo "=== Installing backup key ==="
+backup_key="$(awk -F= '$1 == "Backup__EncryptionKey" { print substr($0, index($0, "=") + 1); exit }' "$SCRIPT_DIR/deploy/statefalse.env")"
+printf '%s\n' "$backup_key" | ssh "$VPS" "sudo mkdir -p /etc/statefalse && sudo tee /etc/statefalse/backup.key >/dev/null && sudo chown root:postgres /etc/statefalse/backup.key && sudo chmod 640 /etc/statefalse/backup.key"
+unset backup_key
+echo "Installed /etc/statefalse/backup.key (mode 640, root:postgres)"
 
 echo "=== Backing up database ==="
 # shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
   ssh "$VPS" "sudo -u postgres bash $REMOTE/deploy/backup-statefalse.sh"
+ssh "$VPS" "sudo systemctl start statefalse-backup.timer"
 
 echo "=== Installing systemd unit ==="
 # shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.

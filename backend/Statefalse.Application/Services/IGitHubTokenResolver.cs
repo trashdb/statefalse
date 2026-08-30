@@ -14,7 +14,6 @@ public interface IGitHubTokenResolver
 
     Task<string?> ResolveAsync(long gitHubId);
 
-    string? SharedPat { get; }
 
     Task<GitHubUser?> FindByLoginAsync(string login);
 

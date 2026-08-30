@@ -8,6 +8,7 @@ public class GitHubOAuthOptions
     public string ClientId { get; set; } = string.Empty;
     public string ClientSecret { get; set; } = string.Empty;
     public string RedirectUri { get; set; } = string.Empty;
+    public string Scope { get; set; } = "read:user,repo";
 }
 
 public class GitHubOAuthService
@@ -27,7 +28,7 @@ public class GitHubOAuthService
         {
             ["client_id"] = _options.ClientId,
             ["redirect_uri"] = _options.RedirectUri,
-            ["scope"] = "read:user,repo",
+            ["scope"] = _options.Scope,
             ["state"] = state
         };
         var encodedQuery = string.Join("&", query.Select(pair =>

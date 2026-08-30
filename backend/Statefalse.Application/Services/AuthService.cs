@@ -160,6 +160,20 @@ public class AuthService
         return ApiResult.Ok(new { saved = true });
     }
 
+    public async Task<ApiResult> RevokeCredentialsAsync(long gitHubId, CancellationToken cancellationToken = default)
+    {
+        var user = await _users.FindByIdAsync(gitHubId, cancellationToken);
+        if (user == null)
+            return ApiResult.NotFound();
+
+        user.AccessToken = null;
+        user.UserPatToken = null;
+        if (_refreshTokens != null)
+            await _refreshTokens.RevokeAllAsync(gitHubId, cancellationToken);
+        await _uow.SaveChangesAsync(cancellationToken);
+        return ApiResult.NoContent();
+    }
+
 
     private static bool IsAllowedLocalRedirect(string redirectUri)
     {

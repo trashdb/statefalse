@@ -98,6 +98,11 @@ public sealed class RefreshTokenService : IRefreshTokenService
         return true;
     }
 
+    public Task<int> RevokeAllAsync(long gitHubId, CancellationToken cancellationToken = default)
+        => _db.RefreshTokens
+            .Where(t => t.GitHubId == gitHubId && t.RevokedAt == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.RevokedAt, DateTime.UtcNow), cancellationToken);
+
     private AuthTokenResult CreateResult(long id, string username, string? avatarUrl, string refreshToken)
         => new(id, username, avatarUrl, _jwt.GenerateToken(id, username, avatarUrl), refreshToken,
             checked(_options.ExpiryHours * 60 * 60));

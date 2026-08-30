@@ -341,6 +341,38 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
     }
 
     [Fact]
+    public async Task RevokeCredentials_ClearsCredentialsAndRefreshSessions()
+    {
+        var uid = SeedUser(u =>
+        {
+            u.AccessToken = "oauth-token";
+            u.UserPatToken = "pat-token";
+        });
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.RefreshTokens.Add(new RefreshToken
+            {
+                GitHubId = uid,
+                TokenHash = "refresh-hash",
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await AuthClient(uid).PostAsync("/api/v1/auth/credentials/revoke", null);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = Assert.Single(verifyDb.GitHubUsers);
+        Assert.Null(user.AccessToken);
+        Assert.Null(user.UserPatToken);
+        Assert.All(verifyDb.RefreshTokens, token => Assert.NotNull(token.RevokedAt));
+    }
+
+    [Fact]
     public async Task SavePat_NoAuth_Unauthorized()
     {
         var response = await _factory.CreateClient().PostAsync("/api/v1/auth/pat",
