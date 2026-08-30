@@ -12,7 +12,7 @@ The current deployment model is one isolated instance/database per tenant. Appli
 
 ## 2. Encrypt GitHub credentials at rest — core completed 2026-08-29
 
-Implemented and deployed: OAuth access tokens and user PATs are encrypted with AES-256-GCM using an external key, and legacy plaintext rows are migrated idempotently at startup. Remaining work: explicit key rotation/revocation procedures, encrypted/off-host database backups, GitHub scope review, and removal of the shared PAT fallback where possible.
+Implemented and deployed: OAuth access tokens and user PATs are encrypted with AES-256-GCM using an external key, legacy plaintext rows are migrated idempotently at startup, credentials and refresh sessions can be revoked, the shared PAT fallback is disabled, and PostgreSQL backups are encrypted with a separate key. Remaining work: explicit key rotation, off-host backup replication and isolated restore testing, and GitHub scope review.
 
 ## 3. Harden webhooks
 
