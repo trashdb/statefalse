@@ -184,35 +184,32 @@ public static class ApiEndpoints
                 return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
             var signature = ctx.Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
-            var eventType = ctx.Request.Headers["X-GitHub-Event"].FirstOrDefault() ?? "";
+            var eventType = ctx.Request.Headers["X-GitHub-Event"].FirstOrDefault();
+            var deliveryId = ctx.Request.Headers["X-GitHub-Delivery"].FirstOrDefault();
 
             ctx.Request.EnableBuffering();
             var result = await service.HandleGitHubWebhookAsync(
                 signatureHeader: signature,
                 readRawBody: async () =>
                 {
-                    using var reader = new StreamReader(ctx.Request.Body, leaveOpen: true);
-                    var buffer = new char[16 * 1024];
-                    var builder = new System.Text.StringBuilder();
-                    var total = 0;
+                    using var buffer = new MemoryStream();
+                    var chunk = new byte[16 * 1024];
+                    var total = 0L;
                     int read;
-                    while ((read = await reader.ReadAsync(buffer.AsMemory(), ctx.RequestAborted)) > 0)
+                    while ((read = await ctx.Request.Body.ReadAsync(chunk.AsMemory(), ctx.RequestAborted)) > 0)
                     {
                         total += read;
                         if (total > maxBodyBytes)
-                            throw new InvalidOperationException("Webhook payload exceeds the maximum size.");
-                        builder.Append(buffer, 0, read);
+                            throw new BadHttpRequestException("Webhook payload exceeds the maximum size.", StatusCodes.Status413PayloadTooLarge);
+                        await buffer.WriteAsync(chunk.AsMemory(0, read), ctx.RequestAborted);
                     }
-                    var body = builder.ToString();
+                    var body = buffer.ToArray();
                     ctx.Request.Body.Position = 0;
                     return body;
                 },
-                readJsonBody: async () =>
-                {
-                    var payload = await JsonSerializer.DeserializeAsync<JsonElement>(ctx.Request.Body, cancellationToken: ctx.RequestAborted);
-                    return payload;
-                },
-                eventType: eventType);
+                eventType: eventType,
+                deliveryId: deliveryId,
+                cancellationToken: ctx.RequestAborted);
 
             return Results.Json(result.Value, statusCode: result.StatusCode);
         }).AllowAnonymous().RequireRateLimiting("webhook");

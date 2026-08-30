@@ -71,12 +71,14 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
     private async Task<HttpResponseMessage> PostWebhookAsync(
         string payload,
         string eventType = "workflow_run",
-        string? signature = null)
+        string? signature = null,
+        string? deliveryId = null)
     {
         var client = _factory.CreateClient();
         var content = new StringContent(payload);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         content.Headers.Add("X-GitHub-Event", eventType);
+        content.Headers.Add("X-GitHub-Delivery", deliveryId ?? Guid.NewGuid().ToString());
         if (signature is not null)
             content.Headers.Add("X-Hub-Signature-256", signature);
         return await client.PostAsync("/api/webhook/github", content);
@@ -170,6 +172,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
         var content = new StringContent(WorkflowRunPayload(1, "in_progress"));
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         content.Headers.Add("X-GitHub-Event", "workflow_run");
+        content.Headers.Add("X-GitHub-Delivery", Guid.NewGuid().ToString());
 
         var response = await client.PostAsync("/api/webhook/github", content);
 
@@ -212,6 +215,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
         var content = new StringContent(payload);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         content.Headers.Add("X-GitHub-Event", "boom_event");
+        content.Headers.Add("X-GitHub-Delivery", Guid.NewGuid().ToString());
         content.Headers.Add("X-Hub-Signature-256", Sign(payload));
 
         var response = await client.PostAsync("/api/webhook/github", content);
@@ -254,5 +258,20 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
                                    && l.GetProperty("message").GetString() == "Missing X-Hub-Signature-256");
         Assert.Contains(logs, l => l.GetProperty("outcome").GetString() == "rejected"
                                    && l.GetProperty("message").GetString() == "Invalid webhook signature");
+    }
+
+    [Fact]
+    public async Task ReplayedDelivery_IsProcessedOnlyOnce()
+    {
+        var payload = WorkflowRunPayload(99, "in_progress");
+        var deliveryId = Guid.NewGuid().ToString();
+
+        var first = await PostWebhookAsync(payload, signature: Sign(payload), deliveryId: deliveryId);
+        var second = await PostWebhookAsync(payload, signature: Sign(payload), deliveryId: deliveryId);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Single(Query(db => db.WebhookDeliveries.ToList()));
+        Assert.Single(Query(db => db.WorkflowRuns.ToList()));
     }
 }

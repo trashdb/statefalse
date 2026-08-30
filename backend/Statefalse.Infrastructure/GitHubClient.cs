@@ -63,7 +63,11 @@ public sealed class GitHubClient : IGitHubClient
             }
             return new GitHubResponse((int)resp.StatusCode, json);
         }
-        catch
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
         {
             return new GitHubResponse(0, null);
         }

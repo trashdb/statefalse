@@ -64,6 +64,7 @@ public class WebhookHandlersTests : IClassFixture<WebApplicationFactory<Program>
         var content = new StringContent(payload);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         content.Headers.Add("X-GitHub-Event", eventType);
+        content.Headers.Add("X-GitHub-Delivery", Guid.NewGuid().ToString());
         var hash = HMACSHA256.HashData(Encoding.UTF8.GetBytes(WebhookSecret), Encoding.UTF8.GetBytes(payload));
         content.Headers.Add("X-Hub-Signature-256", "sha256=" + Convert.ToHexString(hash).ToLowerInvariant());
         return await client.PostAsync("/api/webhook/github", content);
@@ -253,6 +254,7 @@ public class WebhookHandlersTests : IClassFixture<WebApplicationFactory<Program>
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         content.Headers.Add("X-GitHub-Event", "workflow_run");
         content.Headers.Add("X-Hub-Signature-256", "sha256=wrong");
+        content.Headers.Add("X-GitHub-Delivery", Guid.NewGuid().ToString());
 
         var response = await client.PostAsync("/api/webhook/github", content);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);

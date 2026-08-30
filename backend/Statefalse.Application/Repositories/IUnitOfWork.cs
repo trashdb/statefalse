@@ -7,4 +7,7 @@ namespace Statefalse.Application;
 public interface IUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+    Task<bool> TryClaimWebhookDeliveryAsync(string deliveryId, string eventType, CancellationToken cancellationToken = default);
+    Task CompleteWebhookDeliveryAsync(string deliveryId, CancellationToken cancellationToken = default);
+    Task ReleaseWebhookDeliveryAsync(string deliveryId, CancellationToken cancellationToken = default);
 }

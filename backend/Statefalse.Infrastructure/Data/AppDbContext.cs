@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -60,6 +61,12 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(t => t.TokenHash).IsUnique();
             entity.HasIndex(t => new { t.GitHubId, t.RevokedAt, t.ExpiresAt });
+        });
+
+        modelBuilder.Entity<WebhookDelivery>(entity =>
+        {
+            entity.HasIndex(d => d.DeliveryId).IsUnique();
+            entity.HasIndex(d => d.ReceivedAt);
         });
     }
 }
