@@ -12,6 +12,8 @@ public interface IGitHubTokenResolver
 
     string? ResolveForUser(GitHubUser? user);
 
+    string? ResolveOAuthForUser(GitHubUser? user);
+
     Task<string?> ResolveAsync(long gitHubId);
 
 

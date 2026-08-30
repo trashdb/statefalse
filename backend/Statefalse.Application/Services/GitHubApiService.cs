@@ -233,7 +233,7 @@ public class GitHubApiService
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No token" });
 
-        var preview = await _preview.BuildPreviewAsync(repo, baseBranch, head, title, useAI, token, user?.AccessToken);
+        var preview = await _preview.BuildPreviewAsync(repo, baseBranch, head, title, useAI, token, _tokens.ResolveOAuthForUser(user));
 
         return ApiResult.Ok(new PrPreviewDto(
             preview.Template,
@@ -249,7 +249,7 @@ public class GitHubApiService
             return ApiResult.BadRequest(new { error = "Query is required" });
 
         var user = await _tokens.GetUserAsync(request.GitHubId);
-        var oauthToken = user?.AccessToken;
+        var oauthToken = _tokens.ResolveOAuthForUser(user);
         if (string.IsNullOrEmpty(oauthToken))
             return ApiResult.BadRequest(new { error = "GitHub OAuth is required to use Copilot." });
 

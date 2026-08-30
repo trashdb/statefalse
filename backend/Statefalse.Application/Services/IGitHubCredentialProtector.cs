@@ -10,4 +10,8 @@ public interface IGitHubCredentialProtector
     string? Unprotect(string? value);
 
     bool IsProtected(string? value);
+
+    bool NeedsReEncryption(string? value);
+
+    string ReEncrypt(string value);
 }

@@ -28,13 +28,13 @@ public sealed class GitHubCredentialMigrationService
         foreach (var user in users)
         {
             var changed = false;
-            if (!string.IsNullOrEmpty(user.AccessToken) && !_protector.IsProtected(user.AccessToken))
+            if (!string.IsNullOrEmpty(user.AccessToken) && _protector.NeedsReEncryption(user.AccessToken))
             {
                 user.AccessToken = _protector.Protect(user.AccessToken);
                 changed = true;
             }
 
-            if (!string.IsNullOrEmpty(user.UserPatToken) && !_protector.IsProtected(user.UserPatToken))
+            if (!string.IsNullOrEmpty(user.UserPatToken) && _protector.NeedsReEncryption(user.UserPatToken))
             {
                 user.UserPatToken = _protector.Protect(user.UserPatToken);
                 changed = true;

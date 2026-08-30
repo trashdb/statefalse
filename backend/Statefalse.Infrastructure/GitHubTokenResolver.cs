@@ -27,6 +27,9 @@ public class GitHubTokenResolver : IGitHubTokenResolver
         => _protector.Unprotect(user?.UserPatToken)
             ?? _protector.Unprotect(user?.AccessToken);
 
+    public string? ResolveOAuthForUser(GitHubUser? user)
+        => _protector.Unprotect(user?.AccessToken);
+
     public async Task<string?> ResolveAsync(long gitHubId)
         => ResolveForUser(await GetUserAsync(gitHubId));
 
