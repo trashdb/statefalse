@@ -62,6 +62,12 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
         return client;
     }
 
+    private T Query<T>(Func<AppDbContext, T> query)
+    {
+        using var scope = _factory.Services.CreateScope();
+        return query(scope.ServiceProvider.GetRequiredService<AppDbContext>());
+    }
+
     private async Task<string> BeginOAuthAsync(string? redirectUri = null)
     {
         using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
@@ -256,6 +262,11 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
 
         var replay = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken = originalRefresh });
         Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
+
+        var refreshRows = Query(db => db.RefreshTokens.ToList());
+        Assert.NotEmpty(refreshRows);
+        Assert.All(refreshRows, token => Assert.NotNull(token.RevokedAt));
+        Assert.Contains(refreshRows, token => token.ReuseDetectedAt is not null);
 
         var logout = await client.PostAsJsonAsync("/api/v1/auth/logout", new { refreshToken = replacementRefresh });
         Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);

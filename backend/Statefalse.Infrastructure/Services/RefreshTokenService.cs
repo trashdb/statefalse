@@ -23,12 +23,15 @@ public sealed class RefreshTokenService : IRefreshTokenService
     public async Task<AuthTokenResult> CreateAsync(long gitHubId, string username, string? avatarUrl, CancellationToken cancellationToken = default)
     {
         var refreshToken = RefreshTokenHash.Create();
+        var tokenHash = RefreshTokenHash.Compute(refreshToken);
+        var now = DateTime.UtcNow;
         _db.RefreshTokens.Add(new RefreshToken
         {
             GitHubId = gitHubId,
-            TokenHash = RefreshTokenHash.Compute(refreshToken),
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddDays(_options.RefreshTokenExpiryDays)
+            FamilyId = Guid.NewGuid().ToString("N"),
+            TokenHash = tokenHash,
+            CreatedAt = now,
+            ExpiresAt = now.AddDays(_options.RefreshTokenExpiryDays)
         });
         await _db.SaveChangesAsync(cancellationToken);
         return CreateResult(gitHubId, username, avatarUrl, refreshToken);
@@ -48,18 +51,38 @@ public sealed class RefreshTokenService : IRefreshTokenService
         try
         {
             await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+            var stored = await _db.RefreshTokens
+                .SingleOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
+            if (stored is null)
+                return null;
+
+            if (stored.RevokedAt is not null || stored.ExpiresAt <= now)
+            {
+                if (stored.RevokedAt is not null)
+                {
+                    await _db.RefreshTokens
+                        .Where(t => t.FamilyId == stored.FamilyId && t.RevokedAt == null)
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(t => t.RevokedAt, now)
+                            .SetProperty(t => t.ReuseDetectedAt, now), cancellationToken);
+                }
+                await transaction.CommitAsync(cancellationToken);
+                return null;
+            }
+
             var revoked = await _db.RefreshTokens
                 .Where(t => t.TokenHash == hash && t.RevokedAt == null && t.ExpiresAt > now)
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(t => t.RevokedAt, now)
+                    .SetProperty(t => t.UsedAt, now)
                     .SetProperty(t => t.ReplacedByTokenHash, replacementHash), cancellationToken);
 
             if (revoked != 1)
+            {
+                await transaction.CommitAsync(cancellationToken);
                 return null;
+            }
 
-            var stored = await _db.RefreshTokens
-                .AsNoTracking()
-                .SingleAsync(t => t.TokenHash == hash, cancellationToken);
             var user = await _db.GitHubUsers
                 .AsNoTracking()
                 .SingleOrDefaultAsync(u => u.GitHubId == stored.GitHubId, cancellationToken);
@@ -69,6 +92,8 @@ public sealed class RefreshTokenService : IRefreshTokenService
             _db.RefreshTokens.Add(new RefreshToken
             {
                 GitHubId = user.GitHubId,
+                FamilyId = stored.FamilyId,
+                ParentTokenHash = hash,
                 TokenHash = replacementHash,
                 CreatedAt = now,
                 ExpiresAt = now.AddDays(_options.RefreshTokenExpiryDays)

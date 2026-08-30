@@ -61,6 +61,7 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(t => t.TokenHash).IsUnique();
             entity.HasIndex(t => new { t.GitHubId, t.RevokedAt, t.ExpiresAt });
+            entity.HasIndex(t => new { t.FamilyId, t.RevokedAt });
         });
 
         modelBuilder.Entity<WebhookDelivery>(entity =>
