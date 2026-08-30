@@ -73,7 +73,7 @@ echo "=== Installing systemd unit ==="
 ssh "$VPS" "sudo cp $REMOTE/deploy/statefalse.service /etc/systemd/system/ && sudo systemctl daemon-reload"
 
 echo "=== Installing environment file ==="
-ssh "$VPS" "sudo mkdir -p /etc/statefalse && sudo chmod 750 /etc/statefalse && sudo tee /etc/statefalse/statefalse.env >/dev/null && sudo chmod 600 /etc/statefalse/statefalse.env" < "$SCRIPT_DIR/deploy/statefalse.env"
+ssh "$VPS" "sudo mkdir -p /etc/statefalse && sudo chown root:postgres /etc/statefalse && sudo chmod 750 /etc/statefalse && sudo tee /etc/statefalse/statefalse.env >/dev/null && sudo chmod 600 /etc/statefalse/statefalse.env" < "$SCRIPT_DIR/deploy/statefalse.env"
 echo "Installed /etc/statefalse/statefalse.env (mode 600)"
 
 echo "=== Copying production config ==="
