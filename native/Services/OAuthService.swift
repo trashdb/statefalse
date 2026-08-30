@@ -12,7 +12,10 @@ class OAuthService: OAuthServiceProtocol {
                 continuation.resume(throwing: OAuthError.failed)
                 return
             }
-            loginComponents.queryItems = [URLQueryItem(name: "redirect_uri", value: redirectUri)]
+            loginComponents.queryItems = [
+                URLQueryItem(name: "redirect_uri", value: redirectUri),
+                URLQueryItem(name: "pkce", value: "true")
+            ]
             guard let loginUrl = loginComponents.url else {
                 continuation.resume(throwing: OAuthError.failed)
                 return

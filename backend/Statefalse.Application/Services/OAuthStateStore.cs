@@ -8,25 +8,27 @@ public sealed class OAuthStateStore
     private static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(5);
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
 
-    public string Create(string? redirectUri)
+    public string Create(string? redirectUri, string? codeVerifier = null)
     {
         var state = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
             .Replace('+', '-')
             .Replace('/', '_')
             .TrimEnd('=');
-        _entries[state] = new Entry(redirectUri, DateTimeOffset.UtcNow.Add(Lifetime));
+        _entries[state] = new Entry(redirectUri, codeVerifier, DateTimeOffset.UtcNow.Add(Lifetime));
         RemoveExpired();
         return state;
     }
 
-    public bool TryConsume(string state, out string? redirectUri)
+    public bool TryConsume(string state, out string? redirectUri, out string? codeVerifier)
     {
         redirectUri = null;
+        codeVerifier = null;
         if (!_entries.TryRemove(state, out var entry))
             return false;
         if (entry.ExpiresAt <= DateTimeOffset.UtcNow)
             return false;
         redirectUri = entry.RedirectUri;
+        codeVerifier = entry.CodeVerifier;
         return true;
     }
 
@@ -40,7 +42,7 @@ public sealed class OAuthStateStore
         }
     }
 
-    private sealed record Entry(string? RedirectUri, DateTimeOffset ExpiresAt);
+    private sealed record Entry(string? RedirectUri, string? CodeVerifier, DateTimeOffset ExpiresAt);
 }
 
 public sealed class OAuthCodeStore

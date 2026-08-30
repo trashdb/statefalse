@@ -22,7 +22,7 @@ public class GitHubOAuthService
         _options = options.Value;
     }
 
-    public string GetAuthorizationUrl(string state)
+    public string GetAuthorizationUrl(string state, string? codeChallenge = null)
     {
         var query = new Dictionary<string, string>
         {
@@ -31,12 +31,16 @@ public class GitHubOAuthService
             ["scope"] = _options.Scope,
             ["state"] = state
         };
+        if (!string.IsNullOrWhiteSpace(codeChallenge))
+            query["code_challenge"] = codeChallenge;
+        if (!string.IsNullOrWhiteSpace(codeChallenge))
+            query["code_challenge_method"] = "S256";
         var encodedQuery = string.Join("&", query.Select(pair =>
             $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
         return "https://github.com/login/oauth/authorize?" + encodedQuery;
     }
 
-    public async Task<GitHubUserInfo?> ExchangeCodeForUserInfoAsync(string code, CancellationToken cancellationToken = default)
+    public async Task<GitHubUserInfo?> ExchangeCodeForUserInfoAsync(string code, string? codeVerifier = null, CancellationToken cancellationToken = default)
     {
         var tokenRequest = new Dictionary<string, string>
         {
@@ -45,6 +49,8 @@ public class GitHubOAuthService
             ["code"] = code,
             ["redirect_uri"] = _options.RedirectUri
         };
+        if (!string.IsNullOrWhiteSpace(codeVerifier))
+            tokenRequest["code_verifier"] = codeVerifier;
 
         HttpResponseMessage tokenResponse;
         try

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using Serilog;
@@ -264,27 +265,50 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
-    // Health check
+    // Liveness must not depend on external services.
+    app.MapGet("/health/live", () => Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow }));
+
+    // Readiness reports a failure status when the database cannot be reached.
+    app.MapGet("/health/ready", async (AppDbContext db) =>
+    {
+        try
+        {
+            var canConnect = await db.Database.CanConnectAsync();
+            return canConnect
+                ? Results.Ok(new
+                {
+                    status = "healthy",
+                    database = true,
+                    timestamp = DateTime.UtcNow
+                })
+                : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+        catch (Exception)
+        {
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+    });
+
     app.MapGet("/health", async (AppDbContext db) =>
     {
         try
         {
             var canConnect = await db.Database.CanConnectAsync();
-            return Results.Ok(new
+            return Results.Json(new
             {
                 status = canConnect ? "healthy" : "degraded",
                 database = canConnect,
                 timestamp = DateTime.UtcNow
-            });
+            }, statusCode: canConnect ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable);
         }
         catch (Exception)
         {
-            return Results.Ok(new
+            return Results.Json(new
             {
                 status = "unhealthy",
                 database = false,
                 timestamp = DateTime.UtcNow
-            });
+            }, statusCode: StatusCodes.Status503ServiceUnavailable);
         }
     });
 
@@ -321,7 +345,9 @@ void ApplyMigrations(AppDbContext db)
 }
 
 static string GetClientKey(HttpContext context) =>
-    context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    context.User.FindFirstValue(ClaimTypes.NameIdentifier) is { Length: > 0 } userId
+        ? $"user:{userId}"
+        : $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
 
 static FixedWindowRateLimiterOptions ToLimiterOptions(RateLimitPolicyOptions policy) => new()
 {

@@ -41,9 +41,9 @@ public static class ApiEndpoints
 
     private static void MapAuth(IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/auth/login", (string? redirect_uri, AuthService auth) =>
+        routes.MapGet("/auth/login", (string? redirect_uri, bool? pkce, AuthService auth) =>
         {
-            var authorizationUrl = auth.LoginUrl(redirect_uri);
+            var authorizationUrl = auth.LoginUrl(redirect_uri, pkce == true);
             return authorizationUrl is null
                 ? Results.BadRequest(new { error = "Invalid local redirect URI." })
                 : Results.Redirect(authorizationUrl);
@@ -179,6 +179,10 @@ public static class ApiEndpoints
     {
         routes.MapPost("/api/webhook/github", async (HttpContext ctx, WebhookService service) =>
         {
+            const long maxBodyBytes = 1_048_576;
+            if (ctx.Request.ContentLength is > maxBodyBytes)
+                return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+
             var signature = ctx.Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
             var eventType = ctx.Request.Headers["X-GitHub-Event"].FirstOrDefault() ?? "";
 
@@ -187,13 +191,25 @@ public static class ApiEndpoints
                 signatureHeader: signature,
                 readRawBody: async () =>
                 {
-                    var body = await new StreamReader(ctx.Request.Body).ReadToEndAsync();
+                    using var reader = new StreamReader(ctx.Request.Body, leaveOpen: true);
+                    var buffer = new char[16 * 1024];
+                    var builder = new System.Text.StringBuilder();
+                    var total = 0;
+                    int read;
+                    while ((read = await reader.ReadAsync(buffer.AsMemory(), ctx.RequestAborted)) > 0)
+                    {
+                        total += read;
+                        if (total > maxBodyBytes)
+                            throw new InvalidOperationException("Webhook payload exceeds the maximum size.");
+                        builder.Append(buffer, 0, read);
+                    }
+                    var body = builder.ToString();
                     ctx.Request.Body.Position = 0;
                     return body;
                 },
                 readJsonBody: async () =>
                 {
-                    var payload = await JsonSerializer.DeserializeAsync<JsonElement>(ctx.Request.Body);
+                    var payload = await JsonSerializer.DeserializeAsync<JsonElement>(ctx.Request.Body, cancellationToken: ctx.RequestAborted);
                     return payload;
                 },
                 eventType: eventType);

@@ -1,6 +1,8 @@
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 using Statefalse.Domain.Models;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Statefalse.Application;
 
@@ -32,18 +34,20 @@ public class AuthService
         _refreshTokens = refreshTokens;
     }
 
-    public string? LoginUrl(string? redirectUri)
+    public string? LoginUrl(string? redirectUri, bool usePkce = false)
     {
         if (redirectUri is not null && !IsAllowedLocalRedirect(redirectUri))
             return null;
 
-        var state = _stateStore.Create(redirectUri);
-        return _oauth.GetAuthorizationUrl(state);
+        var verifier = usePkce ? Base64Url(RandomNumberGenerator.GetBytes(32)) : null;
+        var challenge = verifier == null ? null : Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
+        var state = _stateStore.Create(redirectUri, verifier);
+        return _oauth.GetAuthorizationUrl(state, challenge);
     }
 
     public async Task<AuthCallbackResponse> HandleCallbackAsync(string? code, string? state, string? error = null, string? errorDescription = null)
     {
-        if (string.IsNullOrEmpty(state) || !_stateStore.TryConsume(state, out var redirectUri))
+        if (string.IsNullOrEmpty(state) || !_stateStore.TryConsume(state, out var redirectUri, out var codeVerifier))
             return new AuthCallbackResponse(ApiResult.BadRequest("Invalid or expired OAuth state."), null, null);
 
         if (!string.IsNullOrWhiteSpace(error))
@@ -62,7 +66,7 @@ public class AuthService
         if (string.IsNullOrWhiteSpace(code))
             return new AuthCallbackResponse(ApiResult.BadRequest("No authorization code provided."), null, null);
 
-        var userInfo = await _oauth.ExchangeCodeForUserInfoAsync(code);
+        var userInfo = await _oauth.ExchangeCodeForUserInfoAsync(code, codeVerifier);
         if (userInfo?.AccessToken is not { Length: > 0 })
             return new AuthCallbackResponse(ApiResult.BadRequest("Failed to authenticate with GitHub."), null, null);
 
@@ -109,6 +113,8 @@ public class AuthService
 
         return new AuthCallbackResponse(null, null, new { id = userInfo.Id, username = userInfo.Login, avatarUrl = userInfo.AvatarUrl, token = _jwt.GenerateToken(userInfo.Id, userInfo.Login, userInfo.AvatarUrl) });
     }
+
+    private static string Base64Url(byte[] value) => Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     public ApiResult ExchangeCode(string? code)
     {

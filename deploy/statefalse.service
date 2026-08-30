@@ -8,6 +8,19 @@ WorkingDirectory=/opt/statefalse/current
 ExecStart=/opt/statefalse/current/Statefalse.Api
 Restart=always
 RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077
+LimitNOFILE=4096
+TasksMax=256
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://127.0.0.1:5000;http://172.18.0.1:5000
 EnvironmentFile=/etc/statefalse/statefalse.env
