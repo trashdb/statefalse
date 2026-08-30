@@ -1,0 +1,30 @@
+name: Shell validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.sh'
+      - '.github/workflows/shell-validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.sh'
+      - '.github/workflows/shell-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: Shell validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install --yes shellcheck
+      - name: Validate shell syntax
+        run: find . -type f -name '*.sh' -not -path './.git/*' -print0 | xargs -0 -r -n1 bash -n
+      - name: ShellCheck
+        run: find . -type f -name '*.sh' -not -path './.git/*' -print0 | xargs -0 -r shellcheck --severity=warning
+
