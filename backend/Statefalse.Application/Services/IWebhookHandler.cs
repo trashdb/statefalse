@@ -10,5 +10,5 @@ namespace Statefalse.Application;
 public interface IWebhookHandler
 {
     string EventType { get; }
-    Task<ApiResult> HandleAsync(JsonElement payload);
+    Task<ApiResult> HandleAsync(JsonElement payload, CancellationToken cancellationToken = default);
 }

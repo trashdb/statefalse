@@ -33,7 +33,7 @@ public class CheckSuiteWebhookHandler : IWebhookHandler
 
     public string EventType => "check_suite";
 
-    public async Task<ApiResult> HandleAsync(JsonElement payload)
+    public async Task<ApiResult> HandleAsync(JsonElement payload, CancellationToken cancellationToken = default)
     {
         var action = payload.GetProperty("action").GetString();
         var repo = WebhookPayload.TryGetRepo(payload);

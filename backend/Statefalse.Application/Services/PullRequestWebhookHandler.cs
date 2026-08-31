@@ -30,7 +30,7 @@ public class PullRequestWebhookHandler : IWebhookHandler
 
     public string EventType => "pull_request";
 
-    public async Task<ApiResult> HandleAsync(JsonElement payload)
+    public async Task<ApiResult> HandleAsync(JsonElement payload, CancellationToken cancellationToken = default)
     {
         var action = payload.GetProperty("action").GetString();
         var pr = payload.GetProperty("pull_request");

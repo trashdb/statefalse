@@ -210,7 +210,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
                 services.RemoveAll<IWebhookHandler>();
                 services.AddScoped<IWebhookHandler>(_ => new ThrowingHandler());
             }));
-        var payload = """{"x":1}""";
+        var payload = """{"action":"test","x":1}""";
         var client = factory.CreateClient();
         var content = new StringContent(payload);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
@@ -235,7 +235,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
     private sealed class ThrowingHandler : IWebhookHandler
     {
         public string EventType => "boom_event";
-        public Task<ApiResult> HandleAsync(JsonElement payload) =>
+        public Task<ApiResult> HandleAsync(JsonElement payload, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("boom");
     }
 

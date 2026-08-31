@@ -92,9 +92,18 @@ public class WebhookService
 
         if (_handlers.TryGetValue(eventType, out var handler))
         {
+            if (!body.TryGetProperty("action", out var action)
+                || action.ValueKind != JsonValueKind.String
+                || string.IsNullOrWhiteSpace(action.GetString()))
+            {
+                WebhookLog.Log(eventType, null, WebhookPayload.TryGetRepo(body), null, "rejected", "Missing or invalid action");
+                await _uow.CompleteWebhookDeliveryAsync(deliveryId, cancellationToken);
+                return ApiResult.BadRequest("Missing or invalid action");
+            }
+
             try
             {
-                var result = await handler.HandleAsync(body);
+                var result = await handler.HandleAsync(body, cancellationToken);
                 await _uow.CompleteWebhookDeliveryAsync(deliveryId, cancellationToken);
                 return result;
             }

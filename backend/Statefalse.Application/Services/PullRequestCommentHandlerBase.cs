@@ -36,7 +36,7 @@ public abstract class PullRequestCommentHandlerBase : IWebhookHandler
 
     public abstract string EventType { get; }
 
-    public async Task<ApiResult> HandleAsync(JsonElement payload)
+    public async Task<ApiResult> HandleAsync(JsonElement payload, CancellationToken cancellationToken = default)
     {
         var action = payload.GetProperty("action").GetString();
         if (action != "created")
