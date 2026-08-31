@@ -19,6 +19,7 @@ public interface IRefreshTokenService
     Task<AuthTokenResult?> RotateAsync(string? refreshToken, CancellationToken cancellationToken = default);
     Task<bool> RevokeAsync(string? refreshToken, CancellationToken cancellationToken = default);
     Task<int> RevokeAllAsync(long gitHubId, CancellationToken cancellationToken = default);
+    Task<int> DeleteExpiredAsync(CancellationToken cancellationToken = default);
 }
 
 public static class RefreshTokenHash
