@@ -19,6 +19,7 @@ public sealed class RefreshToken
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime ExpiresAt { get; set; }
+    public DateTime FamilyExpiresAt { get; set; }
     public DateTime? RevokedAt { get; set; }
 
     public DateTime? UsedAt { get; set; }

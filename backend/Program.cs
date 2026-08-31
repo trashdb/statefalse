@@ -94,6 +94,7 @@ try
 
     // Periodic data maintenance (stuck/superseded workflow runs)
     builder.Services.AddHostedService<WorkflowCleanupService>();
+    builder.Services.AddHostedService<RefreshTokenCleanupService>();
 
     // Webhook handlers (dispatched by WebhookService via X-GitHub-Event)
     builder.Services.AddScoped<IWebhookHandler, WorkflowRunWebhookHandler>();

@@ -16,6 +16,7 @@ public sealed class JwtOptions
     public string Audience { get; set; } = "statefalse-native";
     public int ExpiryHours { get; set; } = 1;
     public int RefreshTokenExpiryDays { get; set; } = 30;
+    public int RefreshTokenAbsoluteLifetimeDays { get; set; } = 90;
 
     public void Validate()
     {
@@ -29,6 +30,8 @@ public sealed class JwtOptions
             throw new InvalidOperationException("Jwt:ExpiryHours must be between 1 and 24 hours.");
         if (RefreshTokenExpiryDays is < 1 or > 365)
             throw new InvalidOperationException("Jwt:RefreshTokenExpiryDays must be between 1 and 365 days.");
+        if (RefreshTokenAbsoluteLifetimeDays < RefreshTokenExpiryDays || RefreshTokenAbsoluteLifetimeDays > 730)
+            throw new InvalidOperationException("Jwt:RefreshTokenAbsoluteLifetimeDays must be between RefreshTokenExpiryDays and 730 days.");
     }
 }
 

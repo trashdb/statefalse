@@ -25,13 +25,15 @@ public sealed class RefreshTokenService : IRefreshTokenService
         var refreshToken = RefreshTokenHash.Create();
         var tokenHash = RefreshTokenHash.Compute(refreshToken);
         var now = DateTime.UtcNow;
+        var familyExpiresAt = now.AddDays(_options.RefreshTokenAbsoluteLifetimeDays);
         _db.RefreshTokens.Add(new RefreshToken
         {
             GitHubId = gitHubId,
             FamilyId = Guid.NewGuid().ToString("N"),
             TokenHash = tokenHash,
             CreatedAt = now,
-            ExpiresAt = now.AddDays(_options.RefreshTokenExpiryDays)
+            ExpiresAt = now.AddDays(_options.RefreshTokenExpiryDays),
+            FamilyExpiresAt = familyExpiresAt
         });
         await _db.SaveChangesAsync(cancellationToken);
         return CreateResult(gitHubId, username, avatarUrl, refreshToken);
@@ -56,7 +58,7 @@ public sealed class RefreshTokenService : IRefreshTokenService
             if (stored is null)
                 return null;
 
-            if (stored.RevokedAt is not null || stored.ExpiresAt <= now)
+            if (stored.RevokedAt is not null || stored.ExpiresAt <= now || stored.FamilyExpiresAt <= now)
             {
                 if (stored.RevokedAt is not null)
                 {
@@ -96,7 +98,10 @@ public sealed class RefreshTokenService : IRefreshTokenService
                 ParentTokenHash = hash,
                 TokenHash = replacementHash,
                 CreatedAt = now,
-                ExpiresAt = now.AddDays(_options.RefreshTokenExpiryDays)
+                    ExpiresAt = now.AddDays(_options.RefreshTokenExpiryDays) < stored.FamilyExpiresAt
+                        ? now.AddDays(_options.RefreshTokenExpiryDays)
+                        : stored.FamilyExpiresAt,
+                    FamilyExpiresAt = stored.FamilyExpiresAt
             });
             await _db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -127,6 +132,14 @@ public sealed class RefreshTokenService : IRefreshTokenService
         => _db.RefreshTokens
             .Where(t => t.GitHubId == gitHubId && t.RevokedAt == null)
             .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.RevokedAt, DateTime.UtcNow), cancellationToken);
+
+    public Task<int> DeleteExpiredAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        return _db.RefreshTokens
+            .Where(t => t.ExpiresAt <= now || t.FamilyExpiresAt <= now)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 
     private AuthTokenResult CreateResult(long id, string username, string? avatarUrl, string refreshToken)
         => new(id, username, avatarUrl, _jwt.GenerateToken(id, username, avatarUrl), refreshToken,

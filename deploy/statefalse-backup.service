@@ -7,3 +7,17 @@ Type=oneshot
 ExecStart=/opt/statefalse/deploy/backup-statefalse.sh
 User=postgres
 Environment=PGPASSFILE=/var/lib/postgresql/.pgpass
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+PrivateDevices=true
+UMask=0077
+ReadWritePaths=/var/backups/statefalse
+TimeoutStartSec=30min
