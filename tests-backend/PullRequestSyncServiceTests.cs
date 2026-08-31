@@ -196,17 +196,17 @@ public class PullRequestSyncServiceTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
-    public async Task Sync_SearchError_SyncedZeroOk()
+    public async Task Sync_SearchError_PropagatesFailure()
     {
         var uid = SeedUser();
         _fakeGithub.Responses[$"/search/issues?q=type:pr+state:open+author:user{uid}&per_page=100&page=1"]
             = JsonResponse(500, new { message = "boom" });
 
         var response = await AuthClient(uid).PostAsync("/api/v1/pullrequests/sync", null);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
 
         var body = (await response.Content.ReadFromJsonAsync<JsonElement>());
-        Assert.Equal(0, body.GetProperty("synced").GetInt32());
+        Assert.Equal("GitHub search failed", body.GetProperty("error").GetString());
     }
 
     private sealed class FakeGitHubClient : IGitHubClient

@@ -21,8 +21,9 @@ public class AuthService
     private readonly OAuthCodeStore _codeStore;
     private readonly IRefreshTokenService? _refreshTokens;
     private readonly IGitHubCredentialProtector _credentialProtector;
+    private readonly IGitHubClient _github;
 
-    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, JwtTokenService jwt, OAuthStateStore stateStore, OAuthCodeStore codeStore, IGitHubCredentialProtector credentialProtector, IRefreshTokenService? refreshTokens = null)
+    public AuthService(GitHubOAuthService oauth, IGitHubUserRepository users, IUnitOfWork uow, JwtTokenService jwt, OAuthStateStore stateStore, OAuthCodeStore codeStore, IGitHubCredentialProtector credentialProtector, IGitHubClient github, IRefreshTokenService? refreshTokens = null)
     {
         _oauth = oauth;
         _users = users;
@@ -31,6 +32,7 @@ public class AuthService
         _stateStore = stateStore;
         _codeStore = codeStore;
         _credentialProtector = credentialProtector;
+        _github = github;
         _refreshTokens = refreshTokens;
     }
 
@@ -156,13 +158,34 @@ public class AuthService
         return ApiResult.Ok(new UserProfileDto(user.GitHubId, user.GitHubUsername, user.AvatarUrl, user.UserPatToken != null));
     }
 
-    public async Task<ApiResult> SavePatAsync(long gitHubId, string? patToken)
+    public async Task<ApiResult> SavePatAsync(long gitHubId, string? patToken, CancellationToken cancellationToken = default)
     {
-        var user = await _users.FindByIdAsync(gitHubId);
+        var user = await _users.FindByIdAsync(gitHubId, cancellationToken);
         if (user == null) return ApiResult.NotFound();
 
-        user.UserPatToken = string.IsNullOrWhiteSpace(patToken) ? null : _credentialProtector.Protect(patToken);
-        await _uow.SaveChangesAsync();
+        if (!string.IsNullOrWhiteSpace(patToken))
+        {
+            var validation = await _github.GetAsync("/user", patToken, cancellationToken);
+            if (validation.StatusCode == 0)
+                return ApiResult.Error(StatusCodes.Status502BadGateway, new { error = "GitHub API unreachable" });
+
+            if (validation.StatusCode is < 200 or >= 300)
+                return ApiResult.Error(StatusCodes.Status422UnprocessableEntity, new { error = "GitHub rejected this personal access token" });
+
+            if (validation.Body is not { } body
+                || !body.TryGetProperty("id", out var id)
+                || !id.TryGetInt64(out var tokenGitHubId)
+                || tokenGitHubId != gitHubId)
+                return ApiResult.Error(StatusCodes.Status422UnprocessableEntity, new { error = "The personal access token belongs to a different GitHub account" });
+
+            user.UserPatToken = _credentialProtector.Protect(patToken);
+        }
+        else
+        {
+            user.UserPatToken = null;
+        }
+
+        await _uow.SaveChangesAsync(cancellationToken);
         return ApiResult.Ok(new { saved = true });
     }
 

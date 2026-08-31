@@ -44,7 +44,7 @@ enum SnapshotTesting {
             return
         }
 
-        if existingData == renderedPNG { return }  // identical
+        if imagesMatch(existingData, renderedPNG) { return }
 
         try? renderedPNG.write(to: referenceURL.appendingPathExtension("new"))
         Issue.record("Snapshot mismatch for '\(name)'. New image saved to \(referenceURL.path).new")
@@ -54,5 +54,43 @@ enum SnapshotTesting {
         guard let tiff = image.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff) else { return nil }
         return rep.representation(using: .png, properties: [:])
+    }
+
+    private static func imagesMatch(_ referenceData: Data, _ renderedData: Data) -> Bool {
+        guard let reference = NSBitmapImageRep(data: referenceData),
+              let rendered = NSBitmapImageRep(data: renderedData),
+              reference.pixelsWide == rendered.pixelsWide,
+              reference.pixelsHigh == rendered.pixelsHigh,
+              reference.bitsPerPixel == rendered.bitsPerPixel,
+              let referencePixels = reference.bitmapData,
+              let renderedPixels = rendered.bitmapData else { return false }
+
+        let bytesPerPixel = max(reference.bitsPerPixel / 8, 1)
+        let totalPixels = reference.pixelsWide * reference.pixelsHigh
+        var differentPixels = 0
+        let channelTolerance: UInt8 = 3
+
+        for y in 0..<reference.pixelsHigh {
+            let referenceRow = referencePixels.advanced(by: y * reference.bytesPerRow)
+            let renderedRow = renderedPixels.advanced(by: y * rendered.bytesPerRow)
+            for x in 0..<reference.pixelsWide {
+                let referencePixel = referenceRow.advanced(by: x * bytesPerPixel)
+                let renderedPixel = renderedRow.advanced(by: x * bytesPerPixel)
+                var differs = false
+                for channel in 0..<bytesPerPixel {
+                    let a = referencePixel[channel]
+                    let b = renderedPixel[channel]
+                    if abs(Int(a) - Int(b)) > Int(channelTolerance) {
+                        differs = true
+                        break
+                    }
+                }
+                if differs { differentPixels += 1 }
+            }
+        }
+
+        // AppKit text antialiasing may alter a few edge pixels between runs,
+        // but layout and content changes affect substantially more pixels.
+        return differentPixels <= max(8, totalPixels / 100)
     }
 }

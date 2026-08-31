@@ -39,6 +39,8 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
                 services.RemoveAll<GitHubOAuthService>();
                 services.AddHttpClient<GitHubOAuthService>()
                     .ConfigurePrimaryHttpMessageHandler(() => handler);
+                services.RemoveAll<IGitHubClient>();
+                services.AddScoped<IGitHubClient, TestGitHubClient>();
             });
         });
 
@@ -327,7 +329,7 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
     {
         var uid = SeedUser();
         var response = await AuthClient(uid).PostAsync("/api/v1/auth/pat",
-            JsonContent.Create(new { patToken = "ghp_new_pat" }));
+            JsonContent.Create(new { patToken = $"ghp_new_pat_{uid}" }));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var scope = _factory.Services.CreateScope();
@@ -335,7 +337,7 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
         var user = Assert.Single(db.GitHubUsers);
         Assert.StartsWith("v2.", user.UserPatToken);
         var tokens = scope.ServiceProvider.GetRequiredService<IGitHubTokenResolver>();
-        Assert.Equal("ghp_new_pat", tokens.ResolveForUser(user));
+        Assert.Equal($"ghp_new_pat_{uid}", tokens.ResolveForUser(user));
     }
 
     [Fact]
@@ -349,6 +351,20 @@ public class AuthServiceTests : IClassFixture<WebApplicationFactory<Program>>, I
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.Null(Assert.Single(db.GitHubUsers).UserPatToken);
+    }
+
+    [Fact]
+    public async Task SavePat_Rejected_DoesNotOverwriteExistingToken()
+    {
+        var uid = SeedUser(u => u.UserPatToken = "existing-encrypted-pat");
+        var response = await AuthClient(uid).PostAsync("/api/v1/auth/pat",
+            JsonContent.Create(new { patToken = "ghp_rejected" }));
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var user = Assert.Single(scope.ServiceProvider.GetRequiredService<AppDbContext>().GitHubUsers);
+        Assert.Equal("existing-encrypted-pat", user.UserPatToken);
     }
 
     [Fact]

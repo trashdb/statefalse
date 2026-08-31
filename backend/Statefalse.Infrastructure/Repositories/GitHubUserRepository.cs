@@ -25,6 +25,11 @@ public class GitHubUserRepository : IGitHubUserRepository
             .Where(u => gitHubIds.Contains(u.GitHubId))
             .ToListAsync(cancellationToken);
 
+    public Task<List<GitHubUser>> FindConnectedByIdsAsync(IReadOnlyCollection<long> gitHubIds, CancellationToken cancellationToken = default)
+        => _db.GitHubUsers
+            .Where(u => gitHubIds.Contains(u.GitHubId) && u.SignalRConnectionId != null)
+            .ToListAsync(cancellationToken);
+
     public Task<GitHubUser?> FindByUsernameAsync(string username, CancellationToken cancellationToken = default)
         => _db.GitHubUsers.FirstOrDefaultAsync(u => u.GitHubUsername == username, cancellationToken);
 

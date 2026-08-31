@@ -8,6 +8,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Statefalse.Application;
 
 namespace Statefalse.Api.Tests;
 
@@ -38,6 +39,8 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
                 services.RemoveAll<AppDbContext>();
                 services.AddDbContext<AppDbContext>(options =>
                     options.UseSqlite(_sqliteConnection));
+                services.RemoveAll<IGitHubClient>();
+                services.AddScoped<IGitHubClient, TestGitHubClient>();
             });
         });
 
@@ -327,7 +330,7 @@ public class ControllersTests : IClassFixture<WebApplicationFactory<Program>>, I
         var id = SeedUser(u => u.UserPatToken = null);
         var client = AuthClient(id);
 
-        var content = JsonContent.Create(new { patToken = "ghp_new_pat" });
+        var content = JsonContent.Create(new { patToken = $"ghp_new_pat_{id}" });
         var response = await client.PostAsync("/api/v1/auth/pat", content);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 

@@ -13,19 +13,25 @@ public class PullRequestSubscriptionService
     private readonly IUnitOfWork _uow;
     private readonly ISignalRNotifier _notifier;
     private readonly INotificationRepository _notifications;
+    private readonly IGitHubClient _github;
+    private readonly IGitHubTokenResolver _tokens;
 
     public PullRequestSubscriptionService(
         IPullRequestEventRepository prs,
         IGitHubUserRepository users,
         IUnitOfWork uow,
         ISignalRNotifier notifier,
-        INotificationRepository notifications)
+        INotificationRepository notifications,
+        IGitHubClient github,
+        IGitHubTokenResolver tokens)
     {
         _prs = prs;
         _users = users;
         _uow = uow;
         _notifier = notifier;
         _notifications = notifications;
+        _github = github;
+        _tokens = tokens;
     }
 
     public async Task<ApiResult> SubscribeAsync(long prNumber, string repo, long gitHubId)
@@ -123,6 +129,45 @@ public class PullRequestSubscriptionService
 
         await _notifier.NotifyPullRequestsUpdatedAsync();
         return ApiResult.Ok(new { added = true, subscribers = IdListSerializer.Deserialize(pr.SubscriberIds) });
+    }
+
+    public async Task<ApiResult> GetSubscriberCandidatesAsync(
+        long prNumber,
+        string repo,
+        long gitHubId,
+        CancellationToken cancellationToken = default)
+    {
+        var pr = await _prs.FindOpenAsync(prNumber, repo);
+        if (pr == null) return ApiResult.NotFound(new { error = "PR not found" });
+        if (pr.AuthorGitHubId != gitHubId) return ApiResult.Forbid();
+
+        var token = await _tokens.ResolveAsync(gitHubId);
+        if (string.IsNullOrEmpty(token))
+            return ApiResult.Unauthorized(new { error = "No access token available" });
+
+        var response = await _github.GetAsync(
+            $"/repos/{repo}/collaborators?per_page=100",
+            token,
+            cancellationToken);
+        if (response.StatusCode == 0)
+            return ApiResult.FromGitHubStatus(0, new { error = "GitHub API unreachable" });
+        if (response.StatusCode is < 200 or >= 300 || response.Body is not { } body || body.ValueKind != System.Text.Json.JsonValueKind.Array)
+            return ApiResult.FromGitHubStatus(response.StatusCode, new { error = "Could not load repository collaborators" });
+
+        var collaboratorIds = body.EnumerateArray()
+            .Where(item => item.TryGetProperty("id", out var id) && id.TryGetInt64(out _))
+            .Select(item => item.GetProperty("id").GetInt64())
+            .ToHashSet();
+        collaboratorIds.Remove(gitHubId);
+
+        var existingIds = IdListSerializer.Deserialize(pr.SubscriberIds).ToHashSet();
+        var users = await _users.FindConnectedByIdsAsync(collaboratorIds, cancellationToken);
+
+        return ApiResult.Ok(users
+            .Where(user => user.GitHubId != pr.AuthorGitHubId && !existingIds.Contains(user.GitHubId))
+            .OrderBy(user => user.GitHubUsername)
+            .Select(user => new { gitHubId = user.GitHubId, login = user.GitHubUsername, avatarUrl = user.AvatarUrl })
+            .ToList());
     }
 
     private static NotificationPayload ToPayload(Statefalse.Domain.Models.Notification notification)

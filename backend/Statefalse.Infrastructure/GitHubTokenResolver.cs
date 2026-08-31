@@ -27,6 +27,17 @@ public class GitHubTokenResolver : IGitHubTokenResolver
         => _protector.Unprotect(user?.UserPatToken)
             ?? _protector.Unprotect(user?.AccessToken);
 
+    public GitHubTokenSource ResolveSourceForUser(GitHubUser? user)
+    {
+        if (!string.IsNullOrEmpty(_protector.Unprotect(user?.UserPatToken)))
+            return GitHubTokenSource.Pat;
+
+        if (!string.IsNullOrEmpty(_protector.Unprotect(user?.AccessToken)))
+            return GitHubTokenSource.OAuth;
+
+        return GitHubTokenSource.None;
+    }
+
     public string? ResolveOAuthForUser(GitHubUser? user)
         => _protector.Unprotect(user?.AccessToken);
 

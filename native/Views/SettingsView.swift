@@ -383,7 +383,7 @@ struct SettingsView: View {
             patSaved = true
             patDraft = ""
         } else {
-            patError = "Saved locally, but backend rejected it"
+            patError = "The backend rejected this PAT; it was not saved"
         }
     }
 

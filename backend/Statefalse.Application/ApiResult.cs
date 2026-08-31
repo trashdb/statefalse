@@ -16,5 +16,7 @@ public sealed record ApiResult(int StatusCode, object? Value)
     public static ApiResult Error(int status, object? value) => new(status, value);
 
     public static ApiResult FromGitHubStatus(int status, object? value = null)
-        => status <= 0 ? new(StatusCodes.Status502BadGateway, value ?? new { error = "GitHub API unreachable" }) : new(status, value);
+        => status <= 0 || status == StatusCodes.Status401Unauthorized
+            ? new(StatusCodes.Status502BadGateway, value ?? new { error = "GitHub API unavailable or authentication was rejected" })
+            : new(status, value);
 }

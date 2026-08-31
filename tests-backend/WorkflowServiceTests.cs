@@ -160,6 +160,28 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Empty(runs.EnumerateArray());
     }
 
+    [Fact]
+    public async Task GetRuns_SubscribedPrWithSameBranch_DoesNotRevealOtherUsersRun()
+    {
+        var uid = SeedUser();
+        var other = SeedUser();
+        SeedPr(uid, headBranch: "feature/shared");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var pr = Assert.Single(db.PullRequestEvents);
+            pr.SubscriberIds = $"[{uid}]";
+            db.SaveChanges();
+        }
+        SeedRun(other, runId: 99, branch: "feature/shared");
+
+        var response = await AuthClient(uid).GetAsync("/api/v1/workflows/runs?limit=20");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var runs = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.DoesNotContain(runs.EnumerateArray(), run => run.GetProperty("runId").GetInt64() == 99);
+    }
+
     // ───────────── Set target ─────────────
 
     private static StringContent TargetBody(params long[] ids)

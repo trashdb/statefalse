@@ -134,6 +134,7 @@ class MockApiClient: ApiClientProtocol {
     func fetchFiles(prNumber: Int64, repo: String) async -> ApiFetch<[ApiFileInfo]> { .success([]) }
     func fetchChecks(prNumber: Int64, repo: String) async -> ApiFetch<[ApiCheckInfo]> { .success([]) }
     func fetchSubscribers(prNumber: Int64, repo: String) async -> ApiFetch<[ApiSubscriberInfo]> { .success([]) }
+    func fetchSubscriberCandidates(prNumber: Int64, repo: String) async -> ApiFetch<[ApiAvailableUser]> { .success([]) }
     func fetchAvailableUsers() async -> ApiFetch<[ApiAvailableUser]> { .success([]) }
     func addSubscriber(prNumber: Int64, repo: String, subscriberId: Int64) async -> String? { nil }
     func removeSubscriber(prNumber: Int64, repo: String, subscriberId: Int64) async -> String? { nil }

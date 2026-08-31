@@ -41,42 +41,11 @@ public class WorkflowService
 
     public async Task<ApiResult> GetRunsAsync(long gitHubId, int limit)
     {
-        // Get PRs user is subscribed to (including authored)
-        var subscribedPrs = await _prs.GetSubscribedToByUserAsync(gitHubId);
-        var subscribedRepoBranches = subscribedPrs
-            .Select(p => (p.RepoFullName, p.HeadBranch))
-            .Where(p => !string.IsNullOrEmpty(p.HeadBranch))
-            .ToList();
-
+        // A workflow run belongs to the account that launched it. Do not infer
+        // visibility from repo/branch, subscriptions, or targets: branches are
+        // not unique and that made unrelated users' runs leak into history.
         var myRuns = await _runs.GetForUserAsync(gitHubId, limit);
-
-        var targetRuns = await _runs.GetTargetRunsAsync(gitHubId, limit * 2);
-
-        var filteredTargetRuns = targetRuns
-            .Where(w => IdListSerializer.Deserialize(w.TargetGitHubIds).Contains(gitHubId))
-            .Take(limit)
-            .ToList();
-
-        // Get runs from PRs user is subscribed to (but not already in myRuns/targetRuns)
-        var subscribedRuns = new List<WorkflowRun>();
-        if (subscribedRepoBranches.Count > 0)
-        {
-            var repoList = subscribedRepoBranches.Select(rb => rb.RepoFullName).Distinct().ToList();
-            // EF Core can't translate .Any() over a local tuple list; translate the
-            // repo filter, then match head branches in memory.
-            var candidates = await _runs.GetCandidatesAsync(gitHubId, repoList, limit * 10);
-            var branchKeySet = subscribedRepoBranches
-                .Where(rb => !string.IsNullOrEmpty(rb.HeadBranch))
-                .Select(rb => (rb.RepoFullName, rb.HeadBranch))
-                .ToHashSet();
-            subscribedRuns = candidates
-                .Where(w => w.HeadBranch != null && branchKeySet.Contains((w.Repo, w.HeadBranch)))
-                .Take(limit)
-                .ToList();
-        }
-
-        var allRuns = myRuns.Concat(filteredTargetRuns).Concat(subscribedRuns)
-            .DistinctBy(w => w.Id)
+        var allRuns = myRuns
             .OrderByDescending(w => w.Id)
             .Take(limit)
             .ToList();

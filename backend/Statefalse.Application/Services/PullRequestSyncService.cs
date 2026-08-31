@@ -35,12 +35,12 @@ public class PullRequestSyncService
         _logger = logger;
     }
 
-    public async Task<ApiResult> SyncFromGitHubAsync(long gitHubId)
+    public async Task<ApiResult> SyncFromGitHubAsync(long gitHubId, CancellationToken cancellationToken = default)
     {
         var user = await _tokens.GetUserAsync(gitHubId);
         var token = _tokens.ResolveForUser(user);
-        _logger.LogInformation("SyncFromGitHub start user={User} hasPat={HasPat} hasOauth={HasOauth}",
-            user?.GitHubUsername, user?.UserPatToken != null, user?.AccessToken != null);
+        _logger.LogInformation("SyncFromGitHub start user={User} tokenSource={TokenSource}",
+            user?.GitHubUsername, _tokens.ResolveSourceForUser(user));
         if (string.IsNullOrEmpty(token))
             return ApiResult.Unauthorized(new { error = "No token" });
 
@@ -54,16 +54,18 @@ public class PullRequestSyncService
         while (true)
         {
             var searchResp = await _github.GetAsync(
-                $"/search/issues?q=type:pr+state:open+author:{username}&per_page=100&page={searchPage}", token);
+                $"/search/issues?q=type:pr+state:open+author:{username}&per_page=100&page={searchPage}", token, cancellationToken);
             if (searchResp.StatusCode == 0 || searchResp.StatusCode is < 200 or >= 300)
             {
                 _logger.LogWarning("SyncFromGitHub search returned {Status}", searchResp.StatusCode);
-                break;
+                return ApiResult.FromGitHubStatus(searchResp.StatusCode, new { error = "GitHub search failed" });
             }
 
             var searchDoc = searchResp.Body;
-            if (!searchDoc!.Value.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
-                break;
+            if (searchDoc is not { } searchJson
+                || !searchJson.TryGetProperty("items", out var items)
+                || items.ValueKind != JsonValueKind.Array)
+                return ApiResult.Error(StatusCodes.Status502BadGateway, new { error = "Invalid response from GitHub search" });
 
             var itemList = items.EnumerateArray().ToList();
             if (itemList.Count == 0) break;
@@ -94,22 +96,19 @@ public class PullRequestSyncService
         foreach (var repo in repos)
         {
             var repoPrs = searchResults.Where(r => r.RepoFullName == repo).ToList();
-            var repoResp = await _github.GetAsync($"/repos/{repo}/pulls?state=open&per_page=100", token);
+            var repoResp = await _github.GetAsync($"/repos/{repo}/pulls?state=open&per_page=100", token, cancellationToken);
 
             if (repoResp.StatusCode == 0 || repoResp.StatusCode is < 200 or >= 300)
             {
                 _logger.LogWarning("SyncFromGitHub {Repo} returned {Status}", repo, repoResp.StatusCode);
-                continue;
+                return ApiResult.FromGitHubStatus(repoResp.StatusCode, new { error = "GitHub repository request failed" });
             }
 
             var repoDoc = repoResp.Body;
-            if (repoDoc!.Value.ValueKind != JsonValueKind.Array)
-            {
-                _logger.LogWarning("SyncFromGitHub {Repo} response is not array", repo);
-                continue;
-            }
+            if (repoDoc is not { } repoJson || repoJson.ValueKind != JsonValueKind.Array)
+                return ApiResult.Error(StatusCodes.Status502BadGateway, new { error = "Invalid response from GitHub repository" });
 
-            foreach (var prDetail in repoDoc.Value.EnumerateArray())
+            foreach (var prDetail in repoJson.EnumerateArray())
             {
                 var prNumber = prDetail.GetProperty("number").GetInt64();
                 var matched = searchResults.FirstOrDefault(r => r.PrNumber == prNumber && r.RepoFullName == repo);
@@ -158,7 +157,7 @@ public class PullRequestSyncService
             }
         }
 
-        await _uow.SaveChangesAsync();
+        await _uow.SaveChangesAsync(cancellationToken);
         return ApiResult.Ok(new SyncResult(synced));
     }
 

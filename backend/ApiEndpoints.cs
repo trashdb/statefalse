@@ -62,7 +62,7 @@ public static class ApiEndpoints
             => await MapAsync(auth.LogoutAsync(request.RefreshToken))).AllowAnonymous().RequireRateLimiting("oauth");
 
         routes.MapPost("/auth/pat", async (HttpContext ctx, PatRequest body, AuthService auth)
-            => await MapAsync(auth.SavePatAsync(ctx.GitHubId(), body.PatToken))).RequireAuthorization().RequireRateLimiting("oauth");
+            => await MapAsync(auth.SavePatAsync(ctx.GitHubId(), body.PatToken, ctx.RequestAborted))).RequireAuthorization().RequireRateLimiting("oauth");
 
         routes.MapPost("/auth/credentials/revoke", async (HttpContext ctx, AuthService auth)
             => await MapAsync(auth.RevokeCredentialsAsync(ctx.GitHubId(), ctx.RequestAborted))).RequireAuthorization().RequireRateLimiting("oauth");
@@ -115,7 +115,7 @@ public static class ApiEndpoints
     private static void MapPullRequests(IEndpointRouteBuilder routes)
     {
         routes.MapPost("/pullrequests/sync", async (HttpContext ctx, PullRequestSyncService service)
-            => await MapAsync(service.SyncFromGitHubAsync(ctx.GitHubId()))).RequireAuthorization().RequireRateLimiting("api");
+            => await MapAsync(service.SyncFromGitHubAsync(ctx.GitHubId(), ctx.RequestAborted))).RequireAuthorization().RequireRateLimiting("api");
 
         routes.MapGet("/pullrequests/active", async (PullRequestQueryService service, HttpContext ctx, int page = 1, int pageSize = 50)
             => await MapAsync(service.GetActiveAsync(ctx.GitHubId(), page, pageSize))).RequireAuthorization().RequireRateLimiting("api");
@@ -149,6 +149,9 @@ public static class ApiEndpoints
 
         routes.MapGet("/pullrequests/{prNumber}/subscribers", async (long prNumber, string repo, HttpContext ctx, PullRequestSubscriptionService service)
             => await MapAsync(service.GetSubscribersAsync(prNumber, repo, ctx.GitHubId()))).RequireAuthorization().RequireRateLimiting("api");
+
+        routes.MapGet("/pullrequests/{prNumber}/subscriber-candidates", async (long prNumber, string repo, HttpContext ctx, PullRequestSubscriptionService service)
+            => await MapAsync(service.GetSubscriberCandidatesAsync(prNumber, repo, ctx.GitHubId(), ctx.RequestAborted))).RequireAuthorization().RequireRateLimiting("api");
 
         routes.MapPost("/pullrequests/{prNumber}/add-subscriber", async (long prNumber, string repo, HttpContext ctx, string? username, long? subscriberId, PullRequestSubscriptionService service)
             => await MapAsync(service.AddSubscriberAsync(prNumber, repo, ctx.GitHubId(), username, subscriberId))).RequireAuthorization().RequireRateLimiting("api");

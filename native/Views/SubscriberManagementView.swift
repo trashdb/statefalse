@@ -108,7 +108,7 @@ struct SubscriberManagementView: View {
     
     private func loadAvailableUsers() async {
         isLoadingUsers = true
-        let result = await api.fetchAvailableUsers()
+        let result = await api.fetchSubscriberCandidates(prNumber: pr.prNumber, repo: pr.repo)
         switch result {
         case .success(let users):
             availableUsers = users.filter { $0.gitHubId != gitHubId }

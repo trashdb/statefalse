@@ -9,6 +9,7 @@ public interface IGitHubUserRepository
 {
     Task<GitHubUser?> FindByIdAsync(long gitHubId, CancellationToken cancellationToken = default);
     Task<List<GitHubUser>> FindByIdsAsync(IReadOnlyCollection<long> gitHubIds, CancellationToken cancellationToken = default);
+    Task<List<GitHubUser>> FindConnectedByIdsAsync(IReadOnlyCollection<long> gitHubIds, CancellationToken cancellationToken = default);
     Task<GitHubUser?> FindByUsernameAsync(string username, CancellationToken cancellationToken = default);
     Task<List<GitHubUser>> GetAllOrderedByUsernameAsync(CancellationToken cancellationToken = default);
     Task<List<long>> FindGitHubIdsByUsernamesAsync(IReadOnlyCollection<string> usernames, CancellationToken cancellationToken = default);

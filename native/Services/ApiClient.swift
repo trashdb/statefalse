@@ -200,6 +200,7 @@ protocol ApiClientProtocol: AnyObject, Sendable {
     func fetchFiles(prNumber: Int64, repo: String) async -> ApiFetch<[ApiFileInfo]>
     func fetchChecks(prNumber: Int64, repo: String) async -> ApiFetch<[ApiCheckInfo]>
     func fetchSubscribers(prNumber: Int64, repo: String) async -> ApiFetch<[ApiSubscriberInfo]>
+    func fetchSubscriberCandidates(prNumber: Int64, repo: String) async -> ApiFetch<[ApiAvailableUser]>
     func fetchAvailableUsers() async -> ApiFetch<[ApiAvailableUser]>
     func addSubscriber(prNumber: Int64, repo: String, subscriberId: Int64) async -> String?
     func removeSubscriber(prNumber: Int64, repo: String, subscriberId: Int64) async -> String?
@@ -504,6 +505,12 @@ final class LiveApiClient: ApiClientProtocol {
         } catch {
             return .failure(error.localizedDescription)
         }
+    }
+
+    func fetchSubscriberCandidates(prNumber: Int64, repo: String) async -> ApiFetch<[ApiAvailableUser]> {
+        await fetchJSON(
+            "\(apiPrefix)/pullrequests/\(prNumber)/subscriber-candidates",
+            query: ["repo": repo])
     }
 
     func fetchAvailableUsers() async -> ApiFetch<[ApiAvailableUser]> {
