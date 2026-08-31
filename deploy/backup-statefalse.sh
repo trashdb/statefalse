@@ -20,8 +20,8 @@ if [ ! -f "$KEY_FILE" ] || [ ! -r "$KEY_FILE" ]; then
   exit 1
 fi
 key_mode="$(stat -c '%a' "$KEY_FILE" 2>/dev/null || stat -f '%Lp' "$KEY_FILE")"
-if [ "$key_mode" -gt 600 ]; then
-  echo "ERROR: backup key permissions must be 600 or stricter" >&2
+if [ "$key_mode" != "600" ] && [ "$key_mode" != "640" ]; then
+  echo "ERROR: backup key permissions must be 600 or root:postgres 640" >&2
   exit 1
 fi
 if ! [[ "$RETENTION_DAYS" =~ ^[0-9]+$ ]] || [ "$RETENTION_DAYS" -lt 1 ]; then
