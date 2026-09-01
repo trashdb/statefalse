@@ -44,6 +44,10 @@ run_privileged mkdir -p /var/www/statefalse
 run_privileged chown root:root "$APP_DIR" "$APP_DIR/releases" "$APP_DIR/deploy"
 run_privileged chmod 755 "$APP_DIR" "$APP_DIR/deploy"
 run_privileged chmod 750 "$APP_DIR/releases"
+if compgen -G "$APP_DIR/releases/*" >/dev/null; then
+  run_privileged chown -R root:statefalse "$APP_DIR/releases"
+  run_privileged chmod -R u=rwX,g=rX,o= "$APP_DIR/releases"
+fi
 run_privileged chown statefalse:statefalse /var/log/statefalse
 run_privileged chmod 750 /var/log/statefalse
 run_privileged chown postgres:postgres /var/backups/statefalse
