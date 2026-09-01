@@ -141,6 +141,7 @@ jobs:
             "Statefalse-${RELEASE_TAG}.zip" \
             SHA256SUMS \
             release-manifest.txt \
+            --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "Statefalse $RELEASE_TAG" \
             --generate-notes
