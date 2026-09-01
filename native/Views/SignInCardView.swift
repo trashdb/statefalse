@@ -4,6 +4,7 @@ struct SignInCardView: View {
     let isLoading: Bool
     let loginError: String?
     let onSignIn: () -> Void
+    let onCancel: () -> Void
 
     var body: some View {
         VStack(spacing: DS.Spacing.md) {
@@ -35,7 +36,11 @@ struct SignInCardView: View {
             }
 
             Button {
-                onSignIn()
+                if isLoading {
+                    onCancel()
+                } else {
+                    onSignIn()
+                }
             } label: {
                 HStack(spacing: DS.Spacing.xs) {
                     if isLoading {
@@ -56,10 +61,9 @@ struct SignInCardView: View {
                 .foregroundStyle(DS.Color.textPrimary)
                 .font(DS.Font.body.medium())
             }
-            .disabled(isLoading)
             .buttonStyle(.plain)
             .cursor(.pointingHand)
-            .help("Sign in with GitHub")
+            .help(isLoading ? "Cancel GitHub sign-in" : "Sign in with GitHub")
         }
         .padding(.horizontal, DS.Spacing.xl + 1)
         .padding(.vertical, DS.Spacing.lg + 1)

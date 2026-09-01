@@ -462,3 +462,61 @@ final class SessionExpiryTests: XCTestCase {
         XCTAssertTrue(service.isLoggedIn)
     }
 }
+
+final class OAuthAttemptStateTests: XCTestCase {
+    func testCancellationRunsCleanupImmediatelyAndOnlyOnce() {
+        let state = OAuthAttemptState()
+        var cleanupCount = 0
+        state.setCancelAction { cleanupCount += 1 }
+
+        state.cancel()
+        state.cancel()
+
+        XCTAssertTrue(state.isCancelled)
+        XCTAssertEqual(cleanupCount, 1)
+        XCTAssertFalse(state.claimCallback())
+    }
+
+    func testCancellationBeforeCleanupRegistrationStillRunsCleanup() {
+        let state = OAuthAttemptState()
+        var cleanupCount = 0
+
+        state.cancel()
+        state.setCancelAction { cleanupCount += 1 }
+
+        XCTAssertEqual(cleanupCount, 1)
+        XCTAssertFalse(state.finish { XCTFail("Cancelled attempt must not finish") })
+    }
+
+    func testOnlyTheFirstCallbackCanBeClaimed() {
+        let state = OAuthAttemptState()
+
+        XCTAssertTrue(state.claimCallback())
+        XCTAssertFalse(state.claimCallback())
+        XCTAssertTrue(state.finish {})
+        XCTAssertFalse(state.finish {})
+    }
+
+    func testLateCallbackAfterCancellationIsIgnored() {
+        let state = OAuthAttemptState()
+        var resumed = false
+
+        state.setCancelAction { resumed = true }
+        state.cancel()
+
+        XCTAssertFalse(state.claimCallback())
+        XCTAssertFalse(state.finish { resumed = true })
+        XCTAssertTrue(resumed)
+    }
+
+    func testASecondAttemptCanStartAfterFirstAttemptIsCancelled() {
+        let cancelledAttempt = OAuthAttemptState()
+        cancelledAttempt.cancel()
+
+        let nextAttempt = OAuthAttemptState()
+
+        XCTAssertTrue(nextAttempt.claimCallback())
+        XCTAssertTrue(nextAttempt.finish {})
+        XCTAssertFalse(cancelledAttempt.claimCallback())
+    }
+}

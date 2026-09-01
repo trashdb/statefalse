@@ -28,6 +28,8 @@ struct ContentView: View {
 
     @AppStorage("keepSignedIn") private var keepSignedIn = true
     @State private var isLoading = false
+    @State private var loginTask: Task<Void, Never>?
+    @State private var loginAttemptID: UUID?
     @State private var loginError: String?
     @State private var showQuickSearch = false
     @State private var internalScreen: InternalScreen = .home
@@ -79,7 +81,7 @@ struct ContentView: View {
                         LoggedInCardView(username: signalR.username, avatarUrl: signalR.avatarUrl, onSignOut: logout)
                         KeepSignedInToggleView(isOn: $keepSignedIn)
                     } else {
-                        SignInCardView(isLoading: isLoading, loginError: loginError, onSignIn: login)
+                        SignInCardView(isLoading: isLoading, loginError: loginError, onSignIn: login, onCancel: cancelLogin)
                     }
 
                     if signalR.isLoggedIn {
@@ -497,11 +499,15 @@ struct ContentView: View {
     }
 
     private func login() {
+        let attemptID = UUID()
+        loginAttemptID = attemptID
         isLoading = true
         loginError = nil
-        Task {
+        loginTask = Task {
             do {
                 try await signalR.login(keepSignedIn: keepSignedIn)
+            } catch is CancellationError {
+                // Cancellation is an intentional user action, not a login error.
             } catch {
                 let message: String
                 switch error {
@@ -512,10 +518,26 @@ struct ContentView: View {
                 default:
                     message = "Login failed. Please try again."
                 }
-                await MainActor.run { loginError = message }
+                await MainActor.run {
+                    guard loginAttemptID == attemptID else { return }
+                    loginError = message
+                }
             }
-            await MainActor.run { isLoading = false }
+            await MainActor.run {
+                guard loginAttemptID == attemptID else { return }
+                isLoading = false
+                loginTask = nil
+                loginAttemptID = nil
+            }
         }
+    }
+
+    private func cancelLogin() {
+        loginAttemptID = nil
+        loginTask?.cancel()
+        loginTask = nil
+        isLoading = false
+        loginError = nil
     }
 
     private func open(_ notification: ApiNotification, at url: URL) {

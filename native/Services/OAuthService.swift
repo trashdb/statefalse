@@ -2,9 +2,79 @@ import AppKit
 import Foundation
 import Network
 
+nonisolated final class OAuthAttemptState: @unchecked Sendable {
+    private let lock = NSLock()
+    private enum TerminalState {
+        case active
+        case cancelled
+        case finished
+    }
+
+    private var terminalState: TerminalState = .active
+    private var callbackClaimed = false
+    private var cancelAction: (() -> Void)?
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return terminalState == .cancelled
+    }
+
+    func setCancelAction(_ action: @escaping () -> Void) {
+        lock.lock()
+        if terminalState == .cancelled {
+            lock.unlock()
+            action()
+        } else if terminalState == .active {
+            cancelAction = action
+            lock.unlock()
+        } else {
+            lock.unlock()
+        }
+    }
+
+    func cancel() {
+        lock.lock()
+        guard terminalState == .active else {
+            lock.unlock()
+            return
+        }
+        terminalState = .cancelled
+        let action = cancelAction
+        cancelAction = nil
+        lock.unlock()
+        action?()
+    }
+
+    @discardableResult
+    func claimCallback() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard terminalState == .active, !callbackClaimed else { return false }
+        callbackClaimed = true
+        return true
+    }
+
+    @discardableResult
+    func finish(_ action: () -> Void) -> Bool {
+        lock.lock()
+        guard terminalState == .active else {
+            lock.unlock()
+            return false
+        }
+        terminalState = .finished
+        cancelAction = nil
+        lock.unlock()
+        action()
+        return true
+    }
+}
+
 class OAuthService: OAuthServiceProtocol {
     func startLogin(backendUrl: String) async throws -> OAuthSession {
-        try await withCheckedThrowingContinuation { continuation in
+        let attempt = OAuthAttemptState()
+        return try await withTaskCancellationHandler(operation: {
+            try await withCheckedThrowingContinuation { continuation in
             let port = UInt16.random(in: 49152...65535)
             let redirectUri = "http://localhost:\(port)/callback"
             let baseUrl = backendUrl.hasSuffix("/") ? String(backendUrl.dropLast()) : backendUrl
@@ -24,55 +94,66 @@ class OAuthService: OAuthServiceProtocol {
             do {
                 let listener = try NWListener(using: .tcp, on: .init(rawValue: port)!)
 
-                final class Flag: @unchecked Sendable { var value = false }
-                let handled = Flag()
-
                 listener.stateUpdateHandler = { state in
-                    if case .failed = state, !handled.value {
-                        handled.value = true
-                        continuation.resume(throwing: OAuthError.failed)
+                    if case .failed = state {
+                        attempt.finish {
+                            listener.cancel()
+                            continuation.resume(throwing: OAuthError.failed)
+                        }
                     }
                 }
 
+                attempt.setCancelAction {
+                    listener.cancel()
+                    continuation.resume(throwing: CancellationError())
+                }
+
                 listener.newConnectionHandler = { connection in
-                    guard !handled.value else {
+                    guard attempt.claimCallback() else {
                         connection.cancel()
                         return
                     }
-                    handled.value = true
 
                     connection.start(queue: .main)
 
                     connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { data, _, _, _ in
                         guard let data = data,
                               let request = String(data: data, encoding: .utf8) else {
-                            connection.cancel()
-                            listener.cancel()
-                            continuation.resume(throwing: OAuthError.failed)
+                            attempt.finish {
+                                connection.cancel()
+                                listener.cancel()
+                                continuation.resume(throwing: OAuthError.failed)
+                            }
                             return
                         }
 
                         guard let path = request.split(separator: " ").dropFirst().first,
                               let query = path.split(separator: "?").dropFirst().first,
                               let components = URLComponents(string: "://localhost?" + String(query)) else {
-                            connection.cancel()
-                            listener.cancel()
-                            continuation.resume(throwing: OAuthError.failed)
+                            attempt.finish {
+                                connection.cancel()
+                                listener.cancel()
+                                continuation.resume(throwing: OAuthError.failed)
+                            }
                             return
                         }
 
                         if let error = components.queryItems?.first(where: { $0.name == "error" })?.value {
-                            connection.cancel()
-                            listener.cancel()
-                            continuation.resume(throwing: error == "access_denied" ? OAuthError.cancelled : OAuthError.failed)
+                            attempt.finish {
+                                connection.cancel()
+                                listener.cancel()
+                                continuation.resume(throwing: error == "access_denied" ? OAuthError.cancelled : OAuthError.failed)
+                            }
                             return
                         }
 
                         guard let exchangeCode = components.queryItems?.first(where: { $0.name == "code" })?.value,
                               !exchangeCode.isEmpty else {
-                            connection.cancel()
-                            listener.cancel()
-                            continuation.resume(throwing: OAuthError.failed)
+                            attempt.finish {
+                                connection.cancel()
+                                listener.cancel()
+                                continuation.resume(throwing: OAuthError.failed)
+                            }
                             return
                         }
 
@@ -157,9 +238,13 @@ class OAuthService: OAuthServiceProtocol {
                             Task {
                                 do {
                                     let result = try await self.exchange(code: exchangeCode, backendUrl: baseUrl)
-                                    continuation.resume(returning: result)
+                                    attempt.finish {
+                                        continuation.resume(returning: result)
+                                    }
                                 } catch {
-                                    continuation.resume(throwing: error)
+                                    attempt.finish {
+                                        continuation.resume(throwing: error)
+                                    }
                                 }
                             }
                         })
@@ -168,23 +253,28 @@ class OAuthService: OAuthServiceProtocol {
 
                 Task {
                     try? await Task.sleep(for: .seconds(60))
-                    if !handled.value {
-                        handled.value = true
+                    attempt.finish {
                         listener.cancel()
                         continuation.resume(throwing: OAuthError.timeout)
                     }
                 }
 
                 listener.start(queue: .main)
-                if !NSWorkspace.shared.open(loginUrl), !handled.value {
-                    handled.value = true
-                    listener.cancel()
-                    continuation.resume(throwing: OAuthError.failed)
+                if !NSWorkspace.shared.open(loginUrl) {
+                    attempt.finish {
+                        listener.cancel()
+                        continuation.resume(throwing: OAuthError.failed)
+                    }
                 }
             } catch {
-                continuation.resume(throwing: error)
+                attempt.finish {
+                    continuation.resume(throwing: error)
+                }
             }
-        }
+            }
+        }, onCancel: {
+            attempt.cancel()
+        })
     }
 
     private struct ExchangeRequest: Encodable {
