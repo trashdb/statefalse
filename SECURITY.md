@@ -40,9 +40,13 @@ Refresh token      ──► one-time session renewal (default lifetime: 30 d)
   those credentials are no longer returned to the native client.
 - SignalR may carry the access JWT in a WebSocket query parameter. Logs,
   reverse-proxy access logs and diagnostics must redact query strings and
-  authorization headers. nginx API access logging is disabled and the native
-  client no longer prints response bodies; application error/request logging
-  still requires an operational review before production.
+  authorization headers. nginx API access logging is disabled, and the
+  backend Serilog console/file sinks redact sensitive structured properties,
+  bearer tokens, OAuth parameters, HMAC headers, and cookies. Application code
+  must use structured logging and must not interpolate secrets directly into
+  message templates. The native client no longer prints response bodies;
+  external log collectors still require an operational review before
+  production.
 
 ### If a token may have leaked 🚨
 

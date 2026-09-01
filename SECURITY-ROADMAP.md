@@ -26,9 +26,9 @@ Bind the macOS localhost callback to a code verifier/challenge, preserve single-
 
 Use endpoint/user-aware limits and trust forwarded headers only from the configured reverse proxy.
 
-## 6. Harden the systemd service
+## 6. Harden the systemd service — configuration completed 2026-09-01; VPS rollout pending
 
-Run under a dedicated account with least-privilege filesystem access, `NoNewPrivileges`, restricted capabilities, resource limits, and protected environment files.
+`statefalse.service` now runs under a dedicated `statefalse` account, releases are read-only to the API, logs use a dedicated writable directory, and the environment file is readable only by `root:statefalse`. Existing installations must run the setup/deployment migration and verify the unit, permissions and rollback on the VPS.
 
 ## 7. Make backups recoverable
 
@@ -38,9 +38,9 @@ Encrypt and replicate backups off-host, define retention/RPO/RTO, and test resto
 
 Use short-lived access tokens, refresh-token families, reuse detection, and individual session revocation.
 
-## 9. Improve logging and health checks
+## 9. Improve logging and health checks — secret redaction completed 2026-09-01
 
-Guarantee secret redaction and provide separate liveness/readiness checks with correct failure status codes.
+Structured application log properties are now sanitized before reaching the console and file sinks: authorization and credential properties are replaced, and bearer tokens, OAuth parameters, HMAC headers, and cookies embedded in property text are redacted. Callers must continue using structured logging and must not interpolate secrets directly into message templates. Separate liveness/readiness checks with correct failure status codes remain part of this item.
 
 ## 10. Supply-chain and release hardening
 

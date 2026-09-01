@@ -17,9 +17,13 @@ using Statefalse.Infrastructure.Hubs;
 using Statefalse.Infrastructure.Repositories;
 using Statefalse.Infrastructure.Services;
 
+var logDirectory = Environment.GetEnvironmentVariable("STATEFALSE_LOG_DIRECTORY") ?? "logs";
+Directory.CreateDirectory(logDirectory);
+
 Log.Logger = new LoggerConfiguration()
+    .Enrich.With<SecretRedactingEnricher>()
     .WriteTo.Console()
-    .WriteTo.File("logs/statefalse-api-.log", rollingInterval: RollingInterval.Day,
+    .WriteTo.File(Path.Combine(logDirectory, "statefalse-api-.log"), rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 30, restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Warning)
     .CreateBootstrapLogger();
 
@@ -31,8 +35,9 @@ try
     {
         config.ReadFrom.Configuration(context.Configuration)
             .Enrich.FromLogContext()
+            .Enrich.With<SecretRedactingEnricher>()
             .WriteTo.Console()
-            .WriteTo.File("logs/statefalse-api-.log", rollingInterval: RollingInterval.Day,
+            .WriteTo.File(Path.Combine(logDirectory, "statefalse-api-.log"), rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 30);
     });
 
