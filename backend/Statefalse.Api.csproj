@@ -45,7 +45,7 @@
 
   <ItemGroup>
     <!-- Pin transitives to patched versions (GHSA-v5pm-xwqc-g5wc) -->
-    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+    <PackageReference Include="Microsoft.OpenApi" Version="3.10.2" />
   </ItemGroup>
 
 </Project>
