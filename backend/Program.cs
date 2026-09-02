@@ -169,12 +169,23 @@ try
     // OpenAPI / Swagger
     builder.Services.AddOpenApi();
 
-    // Trust forwarded scheme information only from the local reverse proxy.
-    // This lets production issue security headers correctly behind nginx.
+    // Trust forwarded headers only from explicitly configured reverse proxies.
+    // An empty production configuration intentionally trusts no proxy.
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-        options.KnownProxies.Add(IPAddress.Loopback);
+        options.ForwardLimit = 1;
+        var configuredProxy = builder.Configuration["Proxy:TrustedProxy"];
+        if (!string.IsNullOrWhiteSpace(configuredProxy))
+        {
+            if (!IPAddress.TryParse(configuredProxy, out var proxyAddress))
+                throw new InvalidOperationException("Proxy:TrustedProxy must be a valid IP address.");
+            options.KnownProxies.Add(proxyAddress);
+        }
+        else if (builder.Environment.IsDevelopment())
+        {
+            options.KnownProxies.Add(IPAddress.Loopback);
+        }
     });
 
     // Rate limiting
@@ -196,6 +207,12 @@ try
 
         options.AddPolicy("oauth", context => RateLimitPartition.GetFixedWindowLimiter(
             GetClientKey(context), _ => ToLimiterOptions(rateLimitOptions.Oauth)));
+
+        options.AddPolicy("oauth-login", context => RateLimitPartition.GetFixedWindowLimiter(
+            GetClientKey(context), _ => ToLimiterOptions(rateLimitOptions.OauthLogin)));
+
+        options.AddPolicy("oauth-token", context => RateLimitPartition.GetFixedWindowLimiter(
+            GetClientKey(context), _ => ToLimiterOptions(rateLimitOptions.OauthToken)));
 
         options.AddPolicy("action", context => RateLimitPartition.GetFixedWindowLimiter(
             GetClientKey(context), _ => ToLimiterOptions(rateLimitOptions.Action)));

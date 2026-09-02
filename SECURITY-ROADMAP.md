@@ -22,9 +22,9 @@ Webhook processing now enforces a configurable body-size limit, an explicit canc
 
 Bind the macOS localhost callback to a code verifier/challenge, preserve single-use state, and harden the callback listener and response handling.
 
-## 5. Improve rate limiting and proxy trust
+## 5. Improve rate limiting and proxy trust — implemented 2026-09-02
 
-Use endpoint/user-aware limits and trust forwarded headers only from the configured reverse proxy.
+Rate limiting now has separate OAuth login and token policies, while forwarded headers are accepted only from an explicitly configured proxy IP with a single-hop limit. Anonymous requests remain partitioned by the effective client IP; authenticated identity-aware partitioning remains a future refinement because endpoint rate limiting runs before authentication middleware.
 
 ## 6. Harden the systemd service — completed 2026-09-01
 

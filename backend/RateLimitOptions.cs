@@ -4,6 +4,8 @@ public sealed class RateLimitOptions
 {
     public RateLimitPolicyOptions Api { get; set; } = new();
     public RateLimitPolicyOptions Oauth { get; set; } = new();
+    public RateLimitPolicyOptions OauthLogin { get; set; } = new();
+    public RateLimitPolicyOptions OauthToken { get; set; } = new();
     public RateLimitPolicyOptions Action { get; set; } = new();
     public RateLimitPolicyOptions Webhook { get; set; } = new();
     public int RetryAfterSeconds { get; set; } = 60;
@@ -12,6 +14,8 @@ public sealed class RateLimitOptions
     {
         ValidatePolicy(nameof(Api), Api);
         ValidatePolicy(nameof(Oauth), Oauth);
+        ValidatePolicy(nameof(OauthLogin), OauthLogin);
+        ValidatePolicy(nameof(OauthToken), OauthToken);
         ValidatePolicy(nameof(Action), Action);
         ValidatePolicy(nameof(Webhook), Webhook);
 

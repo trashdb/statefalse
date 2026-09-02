@@ -46,16 +46,16 @@ public static class ApiEndpoints
             return authorizationUrl is null
                 ? Results.BadRequest(new { error = "Invalid local redirect URI." })
                 : Results.Redirect(authorizationUrl);
-        }).AllowAnonymous().RequireRateLimiting("oauth");
+        }).AllowAnonymous().RequireRateLimiting("oauth-login");
 
         routes.MapGet("/auth/me", async (HttpContext ctx, AuthService auth)
             => await MapAsync(auth.GetMeAsync(ctx.GitHubId()))).RequireAuthorization();
 
         routes.MapPost("/auth/exchange", async (OAuthExchangeRequest request, AuthService auth)
-            => Map(auth.ExchangeCode(request.Code))).AllowAnonymous().RequireRateLimiting("oauth");
+            => Map(auth.ExchangeCode(request.Code))).AllowAnonymous().RequireRateLimiting("oauth-token");
 
         routes.MapPost("/auth/refresh", async (RefreshTokenRequest request, AuthService auth)
-            => await MapAsync(auth.RefreshAsync(request.RefreshToken))).AllowAnonymous().RequireRateLimiting("oauth");
+            => await MapAsync(auth.RefreshAsync(request.RefreshToken))).AllowAnonymous().RequireRateLimiting("oauth-token");
 
         routes.MapPost("/auth/logout", async (RefreshTokenRequest request, AuthService auth)
             => await MapAsync(auth.LogoutAsync(request.RefreshToken))).AllowAnonymous().RequireRateLimiting("oauth");
