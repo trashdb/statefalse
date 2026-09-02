@@ -42,6 +42,6 @@ Use short-lived access tokens, refresh-token families, reuse detection, and indi
 
 Structured application log properties are now sanitized before reaching the console and file sinks: authorization and credential properties are replaced, and bearer tokens, OAuth parameters, HMAC headers, and cookies embedded in property text are redacted. Callers must continue using structured logging and must not interpolate secrets directly into message templates. Separate liveness/readiness checks with correct failure status codes remain part of this item.
 
-## 10. Supply-chain and release hardening
+## 10. Supply-chain and release hardening — core checks implemented 2026-09-02
 
-Add SAST, secret scanning, SBOM generation, dependency monitoring, and signing/notarization verification for releases.
+Repository CI now runs backend/native tests and shell validation. Security automation includes dependency auditing, secret scanning, CycloneDX SBOM generation, CodeQL SAST for C# and Swift, and Dependabot monitoring for NuGet and GitHub Actions. Release checksums and manifests are verified, but macOS code signing/notarization and cryptographic artifact signatures remain pending.
