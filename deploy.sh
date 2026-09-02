@@ -64,8 +64,11 @@ echo "=== Installing backup timer ==="
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" chmod +x "$REMOTE/deploy/"*.sh
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" cp "$REMOTE/deploy/statefalse-backup.service" /etc/systemd/system/
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" cp "$REMOTE/deploy/statefalse-backup.timer" /etc/systemd/system/
+  ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" cp "$REMOTE/deploy/statefalse-restore-test.service" /etc/systemd/system/
+  ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" cp "$REMOTE/deploy/statefalse-restore-test.timer" /etc/systemd/system/
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" systemctl daemon-reload
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" systemctl enable statefalse-backup.timer
+  ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" systemctl enable statefalse-restore-test.timer
 
 echo "=== Installing backup key ==="
 backup_key="$(awk -F= '$1 == "Backup__EncryptionKey" { print substr($0, index($0, "=") + 1); exit }' "$SCRIPT_DIR/deploy/statefalse.env")"

@@ -1,0 +1,29 @@
+[Unit]
+Description=Statefalse isolated PostgreSQL restore test
+After=postgresql.service statefalse-backup.service
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+ExecStart=/opt/statefalse/deploy/restore-test-statefalse.sh
+Environment=PGPASSFILE=/var/lib/postgresql/.pgpass
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+PrivateDevices=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077
+ReadWritePaths=/var/backups/statefalse
+TimeoutStartSec=1h
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=statefalse-restore-test
+

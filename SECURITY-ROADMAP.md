@@ -30,9 +30,9 @@ Use endpoint/user-aware limits and trust forwarded headers only from the configu
 
 `statefalse.service` now runs under a dedicated `statefalse` account, releases are read-only to the API, logs use a dedicated writable directory, and the environment file is readable only by `root:statefalse`. Existing installations must run the setup/deployment migration and verify the unit, permissions and rollback on the VPS.
 
-## 7. Make backups recoverable
+## 7. Make backups recoverable — isolated restore completed 2026-09-02; off-site replication pending
 
-Encrypt and replicate backups off-host, define retention/RPO/RTO, and test restoration automatically in an isolated environment.
+Backups are encrypted locally, retained for 14 days, and automatically restored into an isolated temporary database for validation. The target RPO is 24 hours and the target RTO is 2 hours. Off-site replication is intentionally not enabled because no external storage service is being purchased; this leaves complete VPS loss as a known residual risk.
 
 ## 8. Strengthen sessions and refresh-token rotation
 

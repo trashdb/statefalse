@@ -72,9 +72,10 @@ backups, logs and host access accordingly. Existing plaintext rows are migrated
 idempotently during application startup.
 
 SignalR authentication can place the JWT in the WebSocket `access_token` query
-parameter. nginx API access logging is disabled and the native client avoids
-printing response bodies. Application logging must still be reviewed to ensure
-full request URLs and query strings are not recorded.
+parameter. nginx API access logging is disabled, and the backend structured-log
+enricher redacts authorization headers, bearer tokens, OAuth parameters, HMAC
+headers and cookies. Application code must use structured logging and avoid
+interpolating secrets directly into message text.
 
 ## Webhooks
 
@@ -83,7 +84,7 @@ Configure repository webhooks using the [webhook guide](WEBHOOKS.md). Use one se
 ## Deployment checklist
 
 - [ ] HTTPS is enabled and the OAuth callback resolves publicly.
-- [ ] Database and backup directories are writable only by the service account.
+- [ ] Database and backup directories are writable only by their dedicated service accounts.
 - [ ] OAuth client secret, webhook secret and JWT secret come from protected configuration.
 - [ ] CORS allows only the required origins.
 - [ ] Each monitored repository has an active webhook with the supported events.
@@ -96,6 +97,29 @@ Configure repository webhooks using the [webhook guide](WEBHOOKS.md). Use one se
 	  rotation procedure.
 - [x] Refresh rotation has been tested with concurrent requests, not only a
       sequential happy path.
+
+## Backup and restore verification
+
+Backups are created locally by `statefalse-backup.timer` and encrypted with the
+separate `Backup__EncryptionKey`. The isolated restore test is run by
+`statefalse-restore-test.timer` as `postgres`; it restores the newest backup
+into `statefalse_restore_test`, checks the resulting public-table count, and
+always drops the temporary database. It never restores over the production
+`statefalse` database.
+
+Inspect the latest result with:
+
+```bash
+sudo systemctl status statefalse-restore-test.timer
+sudo journalctl -u statefalse-restore-test.service -n 50 --no-pager
+sudo systemctl start statefalse-restore-test.service
+```
+
+The current free/no-secondary-provider policy is: local retention is 14 days,
+the target RPO is 24 hours, and the target RTO is 2 hours. This restore test
+detects corrupt or unusable local backups, but it does not protect against a
+complete loss of the VPS. Off-host replication requires a separate storage
+destination and remains intentionally disabled.
 
 For operational scripts, see `deploy/`. Review `SECURITY.md` before exposing a backend to the internet.
 

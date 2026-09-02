@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily Statefalse isolated restore test
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 UTC
+Persistent=true
+RandomizedDelaySec=15m
+Unit=statefalse-restore-test.service
+
+[Install]
+WantedBy=timers.target
+
