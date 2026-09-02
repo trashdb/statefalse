@@ -12,7 +12,7 @@ The current deployment model is one isolated instance/database per tenant. Appli
 
 ## 2. Encrypt GitHub credentials at rest — core completed 2026-08-29
 
-Implemented and deployed: OAuth access tokens and user PATs are encrypted with AES-256-GCM using an external key, legacy plaintext rows are migrated idempotently at startup, credentials and refresh sessions can be revoked, the shared PAT fallback is disabled, and PostgreSQL backups are encrypted with a separate key. Remaining work: explicit key rotation, off-host backup replication and isolated restore testing, and GitHub scope review.
+Implemented and deployed: OAuth access tokens and user PATs are encrypted with AES-256-GCM using an external key, legacy plaintext rows are migrated idempotently at startup, credentials and refresh sessions can be revoked, the shared PAT fallback is disabled, and PostgreSQL backups are encrypted with a separate key. Remaining work: explicit key rotation, off-host backup replication, and GitHub scope review.
 
 ## 3. Harden webhooks
 
@@ -26,13 +26,13 @@ Bind the macOS localhost callback to a code verifier/challenge, preserve single-
 
 Use endpoint/user-aware limits and trust forwarded headers only from the configured reverse proxy.
 
-## 6. Harden the systemd service — configuration completed 2026-09-01; VPS rollout pending
+## 6. Harden the systemd service — completed 2026-09-01
 
-`statefalse.service` now runs under a dedicated `statefalse` account, releases are read-only to the API, logs use a dedicated writable directory, and the environment file is readable only by `root:statefalse`. Existing installations must run the setup/deployment migration and verify the unit, permissions and rollback on the VPS.
+`statefalse.service` runs under a dedicated `statefalse` account, releases are read-only to the API, logs use a dedicated writable directory, and the environment file is readable only by `root:statefalse`. The VPS rollout and permission/health verification are complete; rollback remains covered by the deployment runbook.
 
-## 7. Make backups recoverable — isolated restore completed 2026-09-02; off-site replication pending
+## 7. Make backups recoverable — isolated restore verified 2026-09-02; off-site replication pending
 
-Backups are encrypted locally, retained for 14 days, and automatically restored into an isolated temporary database for validation. The target RPO is 24 hours and the target RTO is 2 hours. Off-site replication is intentionally not enabled because no external storage service is being purchased; this leaves complete VPS loss as a known residual risk.
+Backups are encrypted locally, retained for 14 days, and automatically restored into an isolated temporary database for validation. The restore test was verified on the VPS with 9 tables restored and the temporary database removed afterward. The target RPO is 24 hours and the target RTO is 2 hours. Off-site replication is intentionally not enabled because no external storage service is being purchased; this leaves complete VPS loss as a known residual risk.
 
 ## 8. Strengthen sessions and refresh-token rotation
 
