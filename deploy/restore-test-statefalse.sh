@@ -15,7 +15,7 @@ case "$TEST_DATABASE" in
     ;;
 esac
 
-for command_name in gpg pg_restore psql createdb dropdb find mktemp rm date stat; do
+for command_name in gpg pg_restore psql createdb find mktemp rm date stat; do
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "ERROR: $command_name is required" >&2
     exit 1
@@ -40,9 +40,14 @@ fi
 
 temp_dump="$(mktemp --suffix=.statefalse-restore.dump)"
 chmod 600 "$temp_dump"
+drop_test_database() {
+  psql --no-psqlrc --host="$PGHOST" --port="$PGPORT" --dbname=postgres \
+    --command='DROP DATABASE IF EXISTS "statefalse_restore_test" WITH (FORCE);' \
+    >/dev/null
+}
 cleanup() {
   rm -f "$temp_dump"
-  dropdb --if-exists --host="$PGHOST" --port="$PGPORT" "$TEST_DATABASE" >/dev/null 2>&1 || true
+  drop_test_database >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -54,7 +59,7 @@ gpg --batch --yes --pinentry-mode loopback \
 
 pg_restore --list "$temp_dump" >/dev/null
 
-dropdb --if-exists --host="$PGHOST" --port="$PGPORT" "$TEST_DATABASE" >/dev/null 2>&1 || true
+drop_test_database
 createdb --host="$PGHOST" --port="$PGPORT" --template=template0 "$TEST_DATABASE"
 pg_restore --exit-on-error --no-owner --no-privileges \
   --host="$PGHOST" --port="$PGPORT" \
@@ -71,4 +76,3 @@ esac
 
 printf '[%s] Restore test passed: %s tables restored into isolated database\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$table_count"
-
