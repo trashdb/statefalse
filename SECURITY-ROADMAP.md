@@ -14,9 +14,9 @@ The current deployment model is one isolated instance/database per tenant. Appli
 
 Implemented and deployed: OAuth access tokens and user PATs are encrypted with AES-256-GCM using an external key, legacy plaintext rows are migrated idempotently at startup, credentials and refresh sessions can be revoked, the shared PAT fallback is disabled, and PostgreSQL backups are encrypted with a separate key. Remaining work: explicit key rotation, off-host backup replication, and GitHub scope review.
 
-## 3. Harden webhooks
+## 3. Harden webhooks — completed 2026-09-02
 
-Add body-size limits, cancellation/timeouts, strict event validation, delivery deduplication, bounded HMAC processing, and regression tests for malformed, oversized, replayed, and incorrectly signed payloads.
+Webhook processing now enforces a configurable body-size limit, an explicit cancellation timeout, strict HMAC-SHA256 formatting, UUID delivery IDs, bounded JSON depth, persistent delivery deduplication, and regression coverage for malformed, oversized, replayed, and incorrectly signed payloads.
 
 ## 4. Add PKCE to native OAuth
 

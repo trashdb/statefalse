@@ -150,6 +150,42 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task MalformedSignature_Unauthorized()
+    {
+        var payload = WorkflowRunPayload(1, "in_progress");
+        var response = await PostWebhookAsync(payload, signature: "sha256=not-hex");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task InvalidDeliveryId_BadRequest()
+    {
+        var payload = WorkflowRunPayload(1, "in_progress");
+        var response = await PostWebhookAsync(payload, signature: Sign(payload), deliveryId: "not-a-guid");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExcessiveJsonDepth_BadRequest()
+    {
+        var factory = _factory.WithWebHostBuilder(builder =>
+            builder.UseSetting("WebhookProcessing:MaxJsonDepth", "1"));
+        var client = factory.CreateClient();
+        var payload = "{\"action\":\"test\",\"nested\":{\"value\":1}}";
+        var content = new StringContent(payload);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        content.Headers.Add("X-GitHub-Event", "ping");
+        content.Headers.Add("X-GitHub-Delivery", Guid.NewGuid().ToString());
+        content.Headers.Add("X-Hub-Signature-256", Sign(payload));
+
+        var response = await client.PostAsync("/api/webhook/github", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task SignatureBoundToExactBody_TamperedBodyRejected()
     {
         var signed = WorkflowRunPayload(1, "in_progress");
@@ -244,7 +280,7 @@ public class WebhookServiceTests : IClassFixture<WebApplicationFactory<Program>>
     {
         var payload = WorkflowRunPayload(1, "in_progress");
         await PostWebhookAsync(payload);
-        await PostWebhookAsync(payload, signature: "sha256=wrong");
+        await PostWebhookAsync(payload, signature: "sha256=" + new string('0', 64));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",

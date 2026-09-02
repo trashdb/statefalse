@@ -52,10 +52,24 @@ public class WebhookService
             return ApiResult.Unauthorized("Missing X-Hub-Signature-256");
         }
 
+        if (signatureHeader.Length != 71
+            || !signatureHeader.StartsWith("sha256=", StringComparison.Ordinal)
+            || signatureHeader.Skip(7).Any(c => !Uri.IsHexDigit(c)))
+        {
+            WebhookLog.Log("unknown", null, null, null, "rejected", "Malformed X-Hub-Signature-256");
+            return ApiResult.Unauthorized("Malformed signature");
+        }
+
         if (string.IsNullOrWhiteSpace(deliveryId))
         {
             WebhookLog.Log(eventType ?? "unknown", null, null, null, "rejected", "Missing X-GitHub-Delivery");
             return ApiResult.BadRequest("Missing X-GitHub-Delivery");
+        }
+
+        if (!Guid.TryParse(deliveryId, out _))
+        {
+            WebhookLog.Log(eventType ?? "unknown", null, null, null, "rejected", "Invalid X-GitHub-Delivery");
+            return ApiResult.BadRequest("Invalid X-GitHub-Delivery");
         }
 
         if (string.IsNullOrWhiteSpace(eventType))
@@ -80,7 +94,11 @@ public class WebhookService
         JsonElement body;
         try
         {
-            body = JsonSerializer.Deserialize<JsonElement>(rawBody);
+            var maxDepth = _configuration.GetValue<int?>("WebhookProcessing:MaxJsonDepth") ?? 64;
+            body = JsonSerializer.Deserialize<JsonElement>(rawBody, new JsonSerializerOptions
+            {
+                MaxDepth = maxDepth
+            });
         }
         catch (JsonException)
         {

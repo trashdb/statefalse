@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Text.Json;
 using Statefalse.Domain.Contracts;
 using Statefalse.Application;
 
@@ -180,10 +179,11 @@ public static class ApiEndpoints
 
     private static void MapGitHubWebhook(IEndpointRouteBuilder routes)
     {
-        routes.MapPost("/api/webhook/github", async (HttpContext ctx, WebhookService service) =>
+        routes.MapPost("/api/webhook/github", async (HttpContext ctx, WebhookService service, IConfiguration configuration) =>
         {
-            const long maxBodyBytes = 1_048_576;
-            if (ctx.Request.ContentLength is > maxBodyBytes)
+            var maxBodyBytes = configuration.GetValue<long?>("WebhookProcessing:MaxBodyBytes") ?? 1_048_576;
+            var timeoutMilliseconds = configuration.GetValue<int?>("WebhookProcessing:TimeoutMilliseconds") ?? 30_000;
+            if (ctx.Request.ContentLength is long contentLength && contentLength > maxBodyBytes)
                 return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
             var signature = ctx.Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
@@ -191,30 +191,44 @@ public static class ApiEndpoints
             var deliveryId = ctx.Request.Headers["X-GitHub-Delivery"].FirstOrDefault();
 
             ctx.Request.EnableBuffering();
-            var result = await service.HandleGitHubWebhookAsync(
-                signatureHeader: signature,
-                readRawBody: async () =>
-                {
-                    using var buffer = new MemoryStream();
-                    var chunk = new byte[16 * 1024];
-                    var total = 0L;
-                    int read;
-                    while ((read = await ctx.Request.Body.ReadAsync(chunk.AsMemory(), ctx.RequestAborted)) > 0)
-                    {
-                        total += read;
-                        if (total > maxBodyBytes)
-                            throw new BadHttpRequestException("Webhook payload exceeds the maximum size.", StatusCodes.Status413PayloadTooLarge);
-                        await buffer.WriteAsync(chunk.AsMemory(0, read), ctx.RequestAborted);
-                    }
-                    var body = buffer.ToArray();
-                    ctx.Request.Body.Position = 0;
-                    return body;
-                },
-                eventType: eventType,
-                deliveryId: deliveryId,
-                cancellationToken: ctx.RequestAborted);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
+            timeout.CancelAfter(timeoutMilliseconds);
 
-            return Results.Json(result.Value, statusCode: result.StatusCode);
+            try
+            {
+                var result = await service.HandleGitHubWebhookAsync(
+                    signatureHeader: signature,
+                    readRawBody: async () =>
+                    {
+                        using var buffer = new MemoryStream();
+                        var chunk = new byte[16 * 1024];
+                        var total = 0L;
+                        int read;
+                        while ((read = await ctx.Request.Body.ReadAsync(chunk.AsMemory(), timeout.Token)) > 0)
+                        {
+                            total += read;
+                            if (total > maxBodyBytes)
+                                throw new BadHttpRequestException("Webhook payload exceeds the maximum size.", StatusCodes.Status413PayloadTooLarge);
+                            await buffer.WriteAsync(chunk.AsMemory(0, read), timeout.Token);
+                        }
+                        var body = buffer.ToArray();
+                        ctx.Request.Body.Position = 0;
+                        return body;
+                    },
+                    eventType: eventType,
+                    deliveryId: deliveryId,
+                    cancellationToken: timeout.Token);
+
+                return Results.Json(result.Value, statusCode: result.StatusCode);
+            }
+            catch (BadHttpRequestException ex) when (ex.StatusCode == StatusCodes.Status413PayloadTooLarge)
+            {
+                return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+            }
+            catch (OperationCanceledException) when (!ctx.RequestAborted.IsCancellationRequested)
+            {
+                return Results.StatusCode(StatusCodes.Status408RequestTimeout);
+            }
         }).AllowAnonymous().RequireRateLimiting("webhook");
     }
 
