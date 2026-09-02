@@ -18,9 +18,9 @@ Implemented and deployed: OAuth access tokens and user PATs are encrypted with A
 
 Webhook processing now enforces a configurable body-size limit, an explicit cancellation timeout, strict HMAC-SHA256 formatting, UUID delivery IDs, bounded JSON depth, persistent delivery deduplication, and regression coverage for malformed, oversized, replayed, and incorrectly signed payloads.
 
-## 4. Add PKCE to native OAuth
+## 4. Add PKCE to native OAuth — completed 2026-09-02
 
-Bind the macOS localhost callback to a code verifier/challenge, preserve single-use state, and harden the callback listener and response handling.
+The backend generates and binds a S256 verifier/challenge to the OAuth state, GitHub validates the verifier during token exchange, and the native localhost callback receives only a short-lived single-use exchange code. State, exchange-code expiry and callback single-use behavior are covered by tests.
 
 ## 5. Improve rate limiting and proxy trust — implemented 2026-09-02
 
@@ -34,9 +34,9 @@ Rate limiting now has separate OAuth login and token policies, while forwarded h
 
 Backups are encrypted locally, retained for 14 days, and automatically restored into an isolated temporary database for validation. The restore test was verified on the VPS with 9 tables restored and the temporary database removed afterward. The target RPO is 24 hours and the target RTO is 2 hours. Off-site replication is intentionally not enabled because no external storage service is being purchased; this leaves complete VPS loss as a known residual risk.
 
-## 8. Strengthen sessions and refresh-token rotation
+## 8. Strengthen sessions and refresh-token rotation — completed
 
-Use short-lived access tokens, refresh-token families, reuse detection, and individual session revocation.
+Access tokens are short-lived, refresh tokens use families with rotation and reuse detection, and individual sessions can be revoked. Future work is limited to tuning lifetimes and monitoring unusual reuse events.
 
 ## 9. Improve logging and health checks — secret redaction completed 2026-09-01
 
