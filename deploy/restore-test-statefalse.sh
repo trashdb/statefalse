@@ -3,7 +3,7 @@ set -euo pipefail
 
 BACKUP_DIR="${STATEFALSE_BACKUP_DIR:-/var/backups/statefalse}"
 KEY_FILE="${STATEFALSE_BACKUP_KEY_FILE:-/etc/statefalse/backup.key}"
-PGHOST="${STATEFALSE_PGHOST:-localhost}"
+PGHOST="${STATEFALSE_PGHOST:-}"
 PGPORT="${STATEFALSE_PGPORT:-5432}"
 TEST_DATABASE="${STATEFALSE_RESTORE_TEST_DATABASE:-statefalse_restore_test}"
 
