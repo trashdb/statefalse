@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 final class BranchDetailPanelManager {
     static let shared = BranchDetailPanelManager()
     private var panel: NSWindow?

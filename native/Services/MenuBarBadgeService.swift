@@ -13,7 +13,8 @@ enum MenuBarConnectionState {
 
 nonisolated extension MenuBarConnectionState: Equatable {}
 
-class MenuBarBadgeService: ObservableObject {
+@MainActor
+final class MenuBarBadgeService: ObservableObject {
     static let shared = MenuBarBadgeService()
 
     @Published var activePRCount = 0

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-struct Dependencies {
+struct Dependencies: @unchecked Sendable {
     let gitService: GitServiceProtocol
     let signalRService: SignalRServiceProtocol
     let keychainService: KeychainServiceProtocol
@@ -46,7 +46,7 @@ struct Dependencies {
 // MARK: - Environment injection
 
 private struct DependenciesKey: EnvironmentKey {
-    @MainActor static let defaultValue: Dependencies = .live()
+    static let defaultValue: Dependencies = .live()
 }
 
 extension EnvironmentValues {

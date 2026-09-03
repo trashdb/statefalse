@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 final class PRDetailPanelManager {
     static let shared = PRDetailPanelManager()
     private var panel: NSWindow?
