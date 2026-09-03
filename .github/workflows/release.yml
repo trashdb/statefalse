@@ -53,6 +53,7 @@ jobs:
             -project native/statefalse.xcodeproj \
             -scheme StatefalseTests \
             -destination 'platform=macOS' \
+            ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             -skip-testing:StatefalseTests/SnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
@@ -87,6 +88,7 @@ jobs:
           BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")
           [[ "$BUNDLE_ID" == "com.statefalse.app" ]]
           [[ "$MARKETING_VERSION" == "$RELEASE_VERSION" ]]
+           lipo "$APP/Contents/MacOS/Statefalse" -verify_arch arm64 x86_64
 
           ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
           shasum -a 256 "$ZIP" > SHA256SUMS
