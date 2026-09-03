@@ -39,7 +39,7 @@ jobs:
   build:
     name: Build macOS artifact
     needs: validate
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +53,7 @@ jobs:
             -project native/statefalse.xcodeproj \
             -scheme StatefalseTests \
             -destination 'platform=macOS' \
+            -jobs 1 \
             ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             -skip-testing:StatefalseTests/SnapshotTests \
