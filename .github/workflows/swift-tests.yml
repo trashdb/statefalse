@@ -40,6 +40,7 @@ jobs:
           rm -rf "$RUNNER_TEMP/statefalse-build"
           xcodebuild build -scheme Statefalse -project statefalse.xcodeproj \
             -destination 'platform=macOS' \
+            -jobs 1 \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             -derivedDataPath "$RUNNER_TEMP/statefalse-build" 2>&1 | tee "$RUNNER_TEMP/statefalse-build.log"
 
@@ -57,6 +58,7 @@ jobs:
           # not propagate through the app host). Snapshots are validated locally.
           xcodebuild test -scheme StatefalseTests -project statefalse.xcodeproj \
             -destination 'platform=macOS' \
+            -jobs 1 \
             -skip-testing:StatefalseTests/SnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             -derivedDataPath "$RUNNER_TEMP/statefalse-test" \
