@@ -37,16 +37,17 @@ jobs:
         run: |
           set -o pipefail
           cd native
+          rm -rf "$RUNNER_TEMP/statefalse-build"
           xcodebuild build -scheme Statefalse -project statefalse.xcodeproj \
             -destination 'platform=macOS' \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
-            -derivedDataPath /tmp/statefalse-build 2>&1 | tee /tmp/statefalse-build.log
+            -derivedDataPath "$RUNNER_TEMP/statefalse-build" 2>&1 | tee "$RUNNER_TEMP/statefalse-build.log"
 
       - name: Surface build errors
         if: failure()
         run: |
-          rg -i -e "error:" -e "failed" -e "fatal error" -e "xcodebuild:" /tmp/statefalse-build.log 2>/dev/null | tail -20 | sed 's/^/::error::/'
-          tail -20 /tmp/statefalse-build.log 2>/dev/null | sed 's/^/::error::/'
+          rg -i -e "error:" -e "failed" -e "fatal error" -e "xcodebuild:" "$RUNNER_TEMP/statefalse-build.log" 2>/dev/null | tail -20 | sed 's/^/::error::/'
+          tail -20 "$RUNNER_TEMP/statefalse-build.log" 2>/dev/null | sed 's/^/::error::/'
 
       - name: Run Tests
         run: |
@@ -58,11 +59,11 @@ jobs:
             -destination 'platform=macOS' \
             -skip-testing:StatefalseTests/SnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
-            -derivedDataPath /tmp/statefalse-test \
-            -resultBundlePath /tmp/statefalse-test.xcresult 2>&1 | tee /tmp/statefalse-test.log | xcpretty && exit ${PIPESTATUS[0]}
+            -derivedDataPath "$RUNNER_TEMP/statefalse-test" \
+            -resultBundlePath "$RUNNER_TEMP/statefalse-test.xcresult" 2>&1 | tee "$RUNNER_TEMP/statefalse-test.log" | xcpretty && exit ${PIPESTATUS[0]}
 
       - name: Surface test log in annotations
         if: failure()
         run: |
-          rg -i -e "error" -e "failed" -e "crash" -e "signal" -e "killed" -e "xcodebuild:" /tmp/statefalse-test.log 2>/dev/null | tail -5 | sed 's/^/::error::/'
-          tail -3 /tmp/statefalse-test.log 2>/dev/null | sed 's/^/::error::/'
+          rg -i -e "error" -e "failed" -e "crash" -e "signal" -e "killed" -e "xcodebuild:" "$RUNNER_TEMP/statefalse-test.log" 2>/dev/null | tail -5 | sed 's/^/::error::/'
+          tail -3 "$RUNNER_TEMP/statefalse-test.log" 2>/dev/null | sed 's/^/::error::/'
