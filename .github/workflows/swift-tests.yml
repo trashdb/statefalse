@@ -35,11 +35,18 @@ jobs:
 
       - name: Build
         run: |
+          set -o pipefail
           cd native
           xcodebuild build -scheme Statefalse -project statefalse.xcodeproj \
             -destination 'platform=macOS' \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
-            -derivedDataPath /tmp/statefalse-build | xcpretty && exit ${PIPESTATUS[0]}
+            -derivedDataPath /tmp/statefalse-build 2>&1 | tee /tmp/statefalse-build.log
+
+      - name: Surface build errors
+        if: failure()
+        run: |
+          rg -i -e "error:" -e "failed" -e "fatal error" -e "xcodebuild:" /tmp/statefalse-build.log 2>/dev/null | tail -20 | sed 's/^/::error::/'
+          tail -20 /tmp/statefalse-build.log 2>/dev/null | sed 's/^/::error::/'
 
       - name: Run Tests
         run: |
