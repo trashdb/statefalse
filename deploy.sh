@@ -60,6 +60,7 @@ echo "=== Installing backup timer ==="
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" chmod 700 /var/backups/statefalse
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" chown statefalse:statefalse /var/log/statefalse
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" chmod 750 /var/log/statefalse
+  # shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" chmod 755 "$REMOTE" "$REMOTE/deploy"
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" chmod +x "$REMOTE/deploy/"*.sh
   ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" cp "$REMOTE/deploy/statefalse-backup.service" /etc/systemd/system/
@@ -72,6 +73,7 @@ echo "=== Installing backup timer ==="
 
 echo "=== Installing backup key ==="
 backup_key="$(awk -F= '$1 == "Backup__EncryptionKey" { print substr($0, index($0, "=") + 1); exit }' "$SCRIPT_DIR/deploy/statefalse.env")"
+# shellcheck disable=SC2029 # The remote-sudo command intentionally expands in the local shell.
 printf '%s\n' "$backup_key" | ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh sh -c 'mkdir -p /etc/statefalse && tee /etc/statefalse/backup.key >/dev/null && chown root:postgres /etc/statefalse/backup.key && chmod 640 /etc/statefalse/backup.key'"
 unset backup_key
 echo "Installed /etc/statefalse/backup.key (mode 640, root:postgres)"
@@ -87,6 +89,7 @@ ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" cp "$REMOTE/deploy/statefalse.service
 ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" systemctl daemon-reload
 
 echo "=== Installing environment file ==="
+# shellcheck disable=SC2029 # The remote-sudo command intentionally expands in the local shell.
 ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh sh -c 'mkdir -p /etc/statefalse && tee /etc/statefalse/statefalse.env >/dev/null && chown root:statefalse /etc/statefalse/statefalse.env && chmod 640 /etc/statefalse/statefalse.env'" < "$SCRIPT_DIR/deploy/statefalse.env"
 echo "Installed /etc/statefalse/statefalse.env (mode 640, root:statefalse)"
 
@@ -104,6 +107,7 @@ ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" "$REMOTE/deploy/install-release.sh" "
 echo "=== Verifying service ==="
 # shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
 ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" systemctl is-active --quiet statefalse
+# shellcheck disable=SC2029 # REMOTE intentionally expands in the local shell.
 ssh "$VPS" "$REMOTE/deploy/remote-sudo.sh" "$REMOTE/deploy/healthcheck.sh"
 
 echo ""
