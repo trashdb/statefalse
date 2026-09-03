@@ -567,7 +567,7 @@
 				<key>LOCALIZATION_PREFERS_STRING_CATALOGS</key>
 				<string>YES</string>
 				<key>MACOSX_DEPLOYMENT_TARGET</key>
-				<string>26.2</string>
+				<string>15.0</string>
 				<key>MTL_ENABLE_DEBUG_INFO</key>
 				<string>INCLUDE_SOURCE</string>
 				<key>MTL_FAST_MATH</key>
@@ -679,7 +679,7 @@
 				<key>LOCALIZATION_PREFERS_STRING_CATALOGS</key>
 				<string>YES</string>
 				<key>MACOSX_DEPLOYMENT_TARGET</key>
-				<string>26.2</string>
+				<string>15.0</string>
 				<key>MTL_ENABLE_DEBUG_INFO</key>
 				<string>NO</string>
 				<key>MTL_FAST_MATH</key>

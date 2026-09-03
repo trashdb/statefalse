@@ -236,7 +236,7 @@ private actor RefreshCoordinator {
     }
 }
 
-final class LiveApiClient: ApiClientProtocol {
+final class LiveApiClient: ApiClientProtocol, @unchecked Sendable {
     let baseUrl: String
     private let apiPrefix = "/api/v1"
     var onUnauthorized: (() -> Void)?

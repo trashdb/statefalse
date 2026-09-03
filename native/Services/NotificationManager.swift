@@ -27,6 +27,7 @@ private func playInfoSound() {
     }
 }
 
+@MainActor
 func showNotification(title: String, body: String, subtitle: String? = nil, actionURL: URL? = nil, style: NotificationStyle = .punishment, onOpen: (() -> Void)? = nil) {
     if style == .punishment {
         playPunishmentSound()

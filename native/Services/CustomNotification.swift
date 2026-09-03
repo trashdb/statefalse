@@ -85,6 +85,7 @@ struct NotificationBannerView: View {
     }
 }
 
+@MainActor
 final class NotificationBanner: NSObject {
     static let shared = NotificationBanner()
     private override init() {}

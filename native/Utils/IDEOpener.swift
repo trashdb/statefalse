@@ -11,12 +11,22 @@ struct IDEDefinition: Identifiable, Equatable {
 
     static func == (lhs: IDEDefinition, rhs: IDEDefinition) -> Bool { lhs.id == rhs.id }
 
-    private static var installCache: [String: String?] = [:]
+    private static let installCacheLock = NSLock()
+    nonisolated(unsafe) private static var installCache: [String: String?] = [:]
 
     var installedPath: String? {
-        if let cached = Self.installCache[id] { return cached }
+        Self.installCacheLock.lock()
+        if let cached = Self.installCache[id] {
+            Self.installCacheLock.unlock()
+            return cached
+        }
+        Self.installCacheLock.unlock()
+
         let result = Self.locate(id: id, launch: launch, displayName: displayName)
+
+        Self.installCacheLock.lock()
         Self.installCache[id] = result
+        Self.installCacheLock.unlock()
         return result
     }
 

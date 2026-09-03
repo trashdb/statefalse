@@ -107,7 +107,7 @@ class MockSignalRService: SignalRServiceProtocol {
 
 // MARK: - ApiClient Mock
 
-class MockApiClient: ApiClientProtocol {
+final class MockApiClient: ApiClientProtocol, @unchecked Sendable {
     let baseUrl: String = "https://mock.example.com"
     var authToken: String? = nil
     var refreshToken: String? = nil

@@ -46,7 +46,7 @@ struct Dependencies {
 // MARK: - Environment injection
 
 private struct DependenciesKey: EnvironmentKey {
-    static let defaultValue: Dependencies = .live()
+    @MainActor static let defaultValue: Dependencies = .live()
 }
 
 extension EnvironmentValues {

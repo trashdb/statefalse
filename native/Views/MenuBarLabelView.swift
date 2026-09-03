@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+@MainActor
 private enum MenuBarIcon {
     static let image: NSImage = {
         // Coordinates use the same top-to-bottom 24-by-24 space as WaveMark.swift and the landing SVG.
@@ -33,6 +34,7 @@ private enum MenuBarIcon {
     }()
 }
 
+@MainActor
 struct MenuBarLabelView: View {
     @ObservedObject private var badge = MenuBarBadgeService.shared
 
