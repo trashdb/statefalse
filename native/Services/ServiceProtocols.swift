@@ -98,6 +98,16 @@ protocol PersistenceServiceProtocol: AnyObject {
     func loadPRs() -> [PullRequest]
 }
 
+extension PersistenceServiceProtocol {
+    func save(workflows: [WorkflowRun], forUser gitHubId: Int64) {
+        save(workflows: workflows)
+    }
+
+    func loadWorkflows(forUser gitHubId: Int64) -> [WorkflowRun] {
+        loadWorkflows()
+    }
+}
+
 // MARK: - OAuthServiceProtocol
 
 protocol OAuthServiceProtocol: AnyObject {

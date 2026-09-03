@@ -39,6 +39,9 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     private var task: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var hasRestoredSession = false
+    /// Changes whenever the authenticated account changes, so an old request
+    /// cannot repopulate the UI after logout or a subsequent login.
+    private var sessionGeneration = 0
     private var connectionLossNotified = false
     private var hasEstablishedConnection = false
     /// Tracks PRs we've already notified as "ready to merge" so we don't re-notify
@@ -175,6 +178,10 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     func login(keepSignedIn: Bool) async throws {
         let result = try await oauth.startLogin(backendUrl: baseUrl)
         await MainActor.run {
+            sessionGeneration += 1
+            runningWorkflows = []
+            recentWorkflows = []
+            activePRs = []
             userGitHubId = result.id
             username = result.username
             avatarUrl = result.avatarUrl
@@ -208,12 +215,16 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         api.authToken = nil
         api.refreshToken = nil
         authToken = nil
+        sessionGeneration += 1
         isLoggedIn = false
         username = ""
         avatarUrl = nil
         userGitHubId = 0
         notifications = []
         mainBranchUpdate = nil
+        runningWorkflows = []
+        recentWorkflows = []
+        activePRs = []
     }
 
     /// Fired when the backend rejects the session JWT (expired or revoked).
@@ -281,15 +292,21 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     }
 
     func syncFromApi() async {
+        let snapshot = await MainActor.run { (userGitHubId, sessionGeneration, isLoggedIn) }
+        guard snapshot.2, snapshot.0 != 0 else { return }
         guard let runs = await api.fetchWorkflowRuns(limit: 20) else {
-            await MainActor.run { loadPersistedHistory() }
+            await MainActor.run {
+                guard isLoggedIn, userGitHubId == snapshot.0, sessionGeneration == snapshot.1 else { return }
+                loadPersistedHistory(forUser: snapshot.0)
+            }
             return
         }
         let mapped = runs.map(DTOMapper.workflowRun)
         await MainActor.run {
+            guard isLoggedIn, userGitHubId == snapshot.0, sessionGeneration == snapshot.1 else { return }
             runningWorkflows = mapped.filter { $0.status == "in_progress" }
             recentWorkflows = mapped
-            persistHistory()
+            persistHistory(forUser: snapshot.0)
         }
     }
 
@@ -423,7 +440,9 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     }
 
     private func handleWorkflowStarted(_ e: WorkflowStartedEvent) {
+        let generation = sessionGeneration
         Task { @MainActor in
+            guard isLoggedIn, sessionGeneration == generation else { return }
             runStatus = .running
 
             let run = WorkflowRun(
@@ -442,7 +461,9 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
     }
 
     private func handleWorkflowCompleted(_ e: WorkflowCompletedEvent) {
+        let generation = sessionGeneration
         Task { @MainActor in
+            guard isLoggedIn, sessionGeneration == generation else { return }
             let update = WorkflowEventReducer.reduceCompleted(
                 e,
                 runningWorkflows: runningWorkflows,
@@ -456,7 +477,7 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
 
             runningWorkflows = update.runningWorkflows
             recentWorkflows = update.recentWorkflows
-            persistHistory()
+            persistHistory(forUser: userGitHubId)
 
             if runningWorkflows.isEmpty && runStatus == .running {
                 runStatus = .idle
@@ -543,8 +564,8 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         }
     }
 
-    private func loadPersistedHistory() {
-        let saved = persistence.loadWorkflows()
+    private func loadPersistedHistory(forUser gitHubId: Int64) {
+        let saved = persistence.loadWorkflows(forUser: gitHubId)
         if !saved.isEmpty {
             recentWorkflows = saved.map { run in
                 if run.status == "in_progress" {
@@ -558,8 +579,8 @@ class SignalRService: ObservableObject, SignalRServiceProtocol {
         }
     }
 
-    private func persistHistory() {
-        persistence.save(workflows: recentWorkflows)
+    private func persistHistory(forUser gitHubId: Int64) {
+        persistence.save(workflows: recentWorkflows, forUser: gitHubId)
     }
 
     // MARK: - Status reset
