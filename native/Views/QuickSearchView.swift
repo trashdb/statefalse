@@ -34,6 +34,7 @@ enum QuickSearchCategory: String, CaseIterable {
     }
 }
 
+@MainActor
 struct QuickSearchView: View {
     @Binding var isPresented: Bool
     let actions: [QuickSearchAction]

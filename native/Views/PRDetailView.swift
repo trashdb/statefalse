@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 struct PRDetailView: View {
     let pr: PullRequest
     let gitHubId: Int64

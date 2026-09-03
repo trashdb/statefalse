@@ -2,6 +2,7 @@ import Combine
 import Foundation
 import SwiftUI
 
+@MainActor
 struct ContentView: View {
     private enum InternalScreen: Equatable {
         case home
