@@ -194,6 +194,7 @@ public class WorkflowService
             return ApiResult.Ok(new { synced = 0, repos = 0, message = "No active PRs found." });
 
         var newCount = 0;
+        var removedCount = 0;
         var reconciledCount = 0;
         foreach (var repo in repos)
         {
@@ -203,10 +204,24 @@ public class WorkflowService
                 foreach (var run in doc.GetProperty("workflow_runs").EnumerateArray())
                 {
                     var runId = run.GetProperty("id").GetInt64();
+                    // The repository can be visible because the caller is
+                    // subscribed to a PR, but the workflow still belongs to
+                    // the account that GitHub reports as its actor. Never
+                    // copy another user's run into the caller's history.
+                    if (!run.TryGetProperty("actor", out var actorElement)
+                        || !actorElement.TryGetProperty("id", out var actorIdElement)
+                        || !actorIdElement.TryGetInt64(out var actorGitHubId)
+                        || actorGitHubId != gitHubId)
+                    {
+                        await _runs.RemoveByRunIdForUserAsync(runId, gitHubId);
+                        removedCount++;
+                        continue;
+                    }
+
                     var name = run.TryGetProperty("name", out var wn) ? wn.GetString() : "Workflow";
                     var isIgnored = IgnoredWorkflows.IsIgnored(name);
 
-                    var exists = await _runs.AnyInProgressByRunIdAsync(runId);
+                    var exists = await _runs.AnyInProgressByRunIdForUserAsync(runId, gitHubId);
                     if (exists) continue;
 
                     var actor = run.TryGetProperty("actor", out var act)
@@ -247,7 +262,17 @@ public class WorkflowService
             foreach (var run in completedDoc.GetProperty("workflow_runs").EnumerateArray())
             {
                 var runId = run.GetProperty("id").GetInt64();
-                var dbRun = await _runs.FindLatestInProgressByRunIdAsync(runId);
+                if (run.TryGetProperty("actor", out var completedActor)
+                    && completedActor.TryGetProperty("id", out var completedActorIdElement)
+                    && completedActorIdElement.TryGetInt64(out var completedActorGitHubId)
+                    && completedActorGitHubId != gitHubId)
+                {
+                    await _runs.RemoveByRunIdForUserAsync(runId, gitHubId);
+                    removedCount++;
+                    continue;
+                }
+
+                var dbRun = await _runs.FindLatestInProgressByRunIdForUserAsync(runId, gitHubId);
                 if (dbRun == null) continue;
 
                 var conclusion = run.TryGetProperty("conclusion", out var conclusionElement)
@@ -318,13 +343,14 @@ public class WorkflowService
             }
         }
 
-        if (newCount > 0)
+        if (newCount > 0 || removedCount > 0)
             await _uow.SaveChangesAsync();
 
         return ApiResult.Ok(new
         {
             synced = newCount + reconciledCount,
             discovered = newCount,
+            removed = removedCount,
             reconciled = reconciledCount,
             repos = repos.Count
         });

@@ -13,7 +13,10 @@ public interface IWorkflowRunRepository
     Task<WorkflowRun?> FindByRunIdAndRepoAsync(long runId, string repo, CancellationToken cancellationToken = default);
     Task<WorkflowRun?> FindInProgressByRunIdAsync(long runId, CancellationToken cancellationToken = default);
     Task<WorkflowRun?> FindLatestInProgressByRunIdAsync(long runId, CancellationToken cancellationToken = default);
+    Task<WorkflowRun?> FindLatestInProgressByRunIdForUserAsync(long runId, long gitHubId, CancellationToken cancellationToken = default);
     Task<bool> AnyInProgressByRunIdAsync(long runId, CancellationToken cancellationToken = default);
+    Task<bool> AnyInProgressByRunIdForUserAsync(long runId, long gitHubId, CancellationToken cancellationToken = default);
+    Task RemoveByRunIdForUserAsync(long runId, long gitHubId, CancellationToken cancellationToken = default);
     Task<List<string>> GetInProgressReposForUserAsync(long gitHubId, CancellationToken cancellationToken = default);
     Task<List<WorkflowRun>> GetForUserAsync(long gitHubId, int limit, CancellationToken cancellationToken = default);
     Task<List<WorkflowRun>> GetTargetRunsAsync(long gitHubId, int limit, CancellationToken cancellationToken = default);

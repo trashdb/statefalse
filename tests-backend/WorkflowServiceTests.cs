@@ -100,7 +100,7 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         db.SaveChanges();
     }
 
-    private long SeedRun(long gitHubId, long runId = 1, string status = "success",
+    private void SeedRun(long gitHubId, long runId = 1, string status = "success",
         string repo = "acme/repo", string branch = "feature/x", string? targetIds = null, string workflowName = "CI")
     {
         using var scope = _factory.Services.CreateScope();
@@ -120,7 +120,6 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         };
         db.WorkflowRuns.Add(run);
         db.SaveChanges();
-        return run.Id;
     }
 
     private static GitHubResponse JsonResponse(int status, object body)
@@ -306,11 +305,13 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         {
             workflow_runs = new object[]
             {
-                new { id = 10L, name = "CI", actor = new { login = "actor1" }, head_branch = "feature/x", html_url = "https://github.com/acme/repo/actions/runs/10", run_started_at = "2026-08-01T10:00:00Z", @event = "push" },
-                new { id = 11L, name = "Dependency Review", actor = new { login = "actor2" }, head_branch = "feature/x", html_url = "https://github.com/acme/repo/actions/runs/11", run_started_at = "2026-08-01T10:00:00Z", @event = "pull_request" }
+                new { id = 10L, name = "CI", actor = new { login = "actor1", id = uid }, head_branch = "feature/x", html_url = "https://github.com/acme/repo/actions/runs/10", run_started_at = "2026-08-01T10:00:00Z", @event = "push" },
+                new { id = 11L, name = "CI", actor = new { login = "xiatong", id = 999999L }, head_branch = "feature/x", html_url = "https://github.com/acme/repo/actions/runs/11", run_started_at = "2026-08-01T10:00:00Z", @event = "pull_request" },
+                new { id = 12L, name = "Dependency Review", actor = new { login = "actor1", id = uid }, head_branch = "feature/x", html_url = "https://github.com/acme/repo/actions/runs/12", run_started_at = "2026-08-01T10:00:00Z", @event = "pull_request" }
             }
         });
         SeedRun(uid, runId: 10, status: "in_progress");
+        SeedRun(uid, runId: 11, status: "in_progress");
 
         var response = await AuthClient(uid).PostAsync("/api/v1/workflows/sync-active", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -322,11 +323,11 @@ public class WorkflowServiceTests : IClassFixture<WebApplicationFactory<Program>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var runs = db.WorkflowRuns.ToList();
         Assert.Equal(2, runs.Count);
-        var created = runs.Single(r => r.RunId == 11);
+        var created = runs.Single(r => r.RunId == 12);
         Assert.Equal("in_progress", created.Status);
         Assert.Equal("feature/x", created.HeadBranch);
         Assert.True(created.IsIgnored);
-        var existing = runs.Single(r => r.RunId == 10);
+        Assert.DoesNotContain(runs, r => r.RunId == 11);
         Assert.Equal(1, db.WorkflowRuns.Count(r => r.RunId == 10));
     }
 

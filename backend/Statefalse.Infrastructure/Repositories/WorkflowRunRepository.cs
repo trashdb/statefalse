@@ -43,8 +43,25 @@ public class WorkflowRunRepository : IWorkflowRunRepository
             .OrderByDescending(w => w.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public Task<WorkflowRun?> FindLatestInProgressByRunIdForUserAsync(long runId, long gitHubId, CancellationToken cancellationToken = default)
+        => _db.WorkflowRuns
+            .Where(w => w.RunId == runId && w.GitHubId == gitHubId && w.Status == "in_progress")
+            .OrderByDescending(w => w.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public Task<bool> AnyInProgressByRunIdAsync(long runId, CancellationToken cancellationToken = default)
         => _db.WorkflowRuns.AnyAsync(w => w.RunId == runId && w.Status == "in_progress", cancellationToken);
+
+    public Task<bool> AnyInProgressByRunIdForUserAsync(long runId, long gitHubId, CancellationToken cancellationToken = default)
+        => _db.WorkflowRuns.AnyAsync(w => w.RunId == runId && w.GitHubId == gitHubId && w.Status == "in_progress", cancellationToken);
+
+    public async Task RemoveByRunIdForUserAsync(long runId, long gitHubId, CancellationToken cancellationToken = default)
+    {
+        var runs = await _db.WorkflowRuns
+            .Where(w => w.RunId == runId && w.GitHubId == gitHubId)
+            .ToListAsync(cancellationToken);
+        _db.WorkflowRuns.RemoveRange(runs);
+    }
 
     public Task<List<string>> GetInProgressReposForUserAsync(long gitHubId, CancellationToken cancellationToken = default)
         => _db.WorkflowRuns
