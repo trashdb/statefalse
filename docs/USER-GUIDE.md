@@ -22,21 +22,22 @@ Statefalse currently requires **macOS Sequoia or newer**.
 
 ## Install Statefalse
 
-1. Download the latest [macOS release](https://github.com/trashdb/statefalse/releases/latest).
-2. Download the ZIP and its `SHA256SUMS` file.
-3. Verify the checksum before opening the app.
-4. Extract `Statefalse.app` into `~/Applications` or `/Applications`.
-5. Open the app. Its icon appears in the macOS menu bar.
+1. Download the latest [macOS release](https://github.com/trashdb/statefalse/releases/latest), including the ZIP and its `SHA256SUMS` file.
+2. Verify the SHA-256 checksum before opening or installing the app. From the directory containing both files, run `shasum -a 256 -c SHA256SUMS` and confirm that the ZIP reports `OK`.
+3. Extract `Statefalse.app` into `~/Applications` or `/Applications`.
+4. Open the app. Its icon appears in the macOS menu bar.
 
-The current release is distributed directly and is not currently notarized. macOS may therefore ask you to confirm that you want to open the app. Only bypass quarantine after verifying the checksum and only when the release came from the Statefalse project repository.
+The current release is distributed directly and is not signed or notarized by Apple. macOS may therefore ask you to confirm that you want to open the app. After verifying the checksum and confirming that the release came from the Statefalse GitHub repository, Control-click `Statefalse.app` in Finder, choose **Open**, and confirm the prompt. This is the preferred way to approve the first launch.
 
-If macOS still reports that the app cannot be opened, and the checksum is correct, remove the quarantine attribute from the verified app bundle before opening it:
+If macOS still reports that the app cannot be opened, and the checksum is correct, remove the quarantine attribute from the verified app bundle as a last resort:
 
 ```bash
-xattr -dr com.apple.quarantine Statefalse.app
+xattr -dr com.apple.quarantine /path/to/Statefalse.app
 ```
 
-You can then move the app to `~/Applications` or `/Applications` and open it again. Do not remove quarantine from an app downloaded from an unknown or untrusted source.
+Replace `/path/to/Statefalse.app` with the actual path to the verified app bundle. You can then move the app to `~/Applications` or `/Applications` and open it again. Do not remove quarantine from an app downloaded from an unknown or untrusted source.
+
+For a terminal-based install that performs the download, checksum verification and quarantine removal automatically, use the project's [release installer](https://github.com/trashdb/statefalse/blob/main/native/install-release.sh). It only removes quarantine after the downloaded release passes checksum verification and prints a warning before doing so.
 
 ## First-time setup: from download to notifications
 

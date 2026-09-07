@@ -56,6 +56,8 @@ rm -rf "$HOME/Downloads/Statefalse.app"
 find "$HOME/Downloads" -type d -path '*/statefalse-v*/Statefalse.app' -prune -exec rm -rf {} + 2>/dev/null || true
 find "$HOME/Library/Developer/Xcode/DerivedData" -type d -name Statefalse.app -prune -exec rm -rf {} + 2>/dev/null || true
 
+echo "WARNING: the release is unsigned and not notarized by Apple."
+echo "The checksum passed; removing quarantine from this verified app bundle so macOS can open it."
 xattr -dr com.apple.quarantine "$EXTRACT_DIR/$APP_NAME.app" 2>/dev/null || true
 ditto "$EXTRACT_DIR/$APP_NAME.app" "$APP_BUNDLE"
 

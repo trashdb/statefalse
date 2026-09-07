@@ -57,7 +57,7 @@ Statefalse is an independent, open-source macOS menu-bar app for GitHub pull req
 
 ### Published release (recommended)
 
-Download the [latest macOS release](https://github.com/trashdb/statefalse/releases/latest), including its `SHA256SUMS` file. Verify the checksum before opening the app, then extract `Statefalse.app` into `~/Applications` or `/Applications`.
+Download the [latest macOS release](https://github.com/trashdb/statefalse/releases/latest), including its `SHA256SUMS` file. Verify the SHA-256 checksum before opening the app, then extract `Statefalse.app` into `~/Applications` or `/Applications`.
 
 For a terminal-based install, replace `vX.Y.Z` with the release tag:
 
@@ -74,9 +74,9 @@ ditto Statefalse.app "$HOME/Applications/Statefalse.app"
 open "$HOME/Applications/Statefalse.app"
 ```
 
-The releases are currently unsigned and not notarized. If macOS blocks a verified release, use Finder's **Open** action first. Only as a last resort, and only after a successful checksum verification, remove quarantine with `xattr -dr com.apple.quarantine Statefalse.app`.
+The releases are currently unsigned and not notarized. macOS may therefore show a warning the first time you open the app. If it blocks a verified release, use Finder's **Open** action first: Control-click `Statefalse.app`, choose **Open**, and confirm the prompt. Only as a last resort, and only after a successful checksum verification from the Statefalse GitHub release, remove quarantine with `xattr -dr com.apple.quarantine Statefalse.app`.
 
-The [release installer](native/install-release.sh) automates checksum verification and installation. Do not use quarantine-removal commands for downloads from an untrusted source.
+The [release installer](native/install-release.sh) downloads the ZIP and checksum, verifies the SHA-256 checksum, removes quarantine from the verified extracted app, and installs it in `~/Applications`. It prints a warning before removing quarantine. Do not use quarantine-removal commands for downloads from an untrusted source.
 
 ### Build from source
 
