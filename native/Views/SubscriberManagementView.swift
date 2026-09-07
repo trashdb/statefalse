@@ -97,8 +97,6 @@ struct SubscriberManagementView: View {
                     onCancel: { showUserPicker = false }
                 )
                 .frame(width: 220)
-                .background(Color(NSColor.windowBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
                 .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
                 .offset(y: 30)
                 .zIndex(1)
@@ -232,7 +230,14 @@ struct UserPickerView: View {
             }
             .padding(DS.Spacing.md)
         }
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(
+            .regularMaterial,
+            in: RoundedRectangle(cornerRadius: DS.Radius.md)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(DS.Color.divider, lineWidth: 1)
+        )
     }
 }
 
