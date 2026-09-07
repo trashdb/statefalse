@@ -80,27 +80,19 @@ struct SubscriberManagementView: View {
         .onAppear {
             Task { await loadSubscribers() }
         }
-        // This view is itself commonly hosted inside the PR detail popover.
-        // A nested macOS popover lets its Cancel button dismiss the outer
-        // NSPopover as well, so keep the picker in the same presentation.
-        .overlay(alignment: .topTrailing) {
-            if showUserPicker {
-                UserPickerView(
-                    users: availableUsers,
-                    currentSubscribers: subscribers.map { $0.gitHubId },
-                    currentUserId: gitHubId,
-                    selectedIds: $selectedUserIds,
-                    onDone: {
-                        showUserPicker = false
-                        Task { await addSelectedSubscribers() }
-                    },
-                    onCancel: { showUserPicker = false }
-                )
-                .frame(width: 220)
-                .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
-                .offset(y: 30)
-                .zIndex(1)
-            }
+        .popover(isPresented: $showUserPicker, arrowEdge: .bottom) {
+            UserPickerView(
+                users: availableUsers,
+                currentSubscribers: subscribers.map { $0.gitHubId },
+                currentUserId: gitHubId,
+                selectedIds: $selectedUserIds,
+                onDone: {
+                    showUserPicker = false
+                    Task { await addSelectedSubscribers() }
+                },
+                onCancel: { showUserPicker = false }
+            )
+            .frame(width: 220)
         }
     }
     
@@ -230,14 +222,7 @@ struct UserPickerView: View {
             }
             .padding(DS.Spacing.md)
         }
-        .background(
-            .regularMaterial,
-            in: RoundedRectangle(cornerRadius: DS.Radius.md)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.md)
-                .stroke(DS.Color.divider, lineWidth: 1)
-        )
+        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
